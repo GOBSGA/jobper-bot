@@ -1,0 +1,56 @@
+# =============================================================================
+# JOBPER BOT - Git Ignore
+# =============================================================================
+
+# Variables de entorno (IMPORTANTE: nunca subir credenciales)
+.env
+
+# Archivos generados por el bot
+history.json
+jobper.log
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database
+*.db
+
+# Node
+node_modules/
+dashboard/dist/
+
+# Uploads
+uploads/
+
+# Distribución
+dist/
+build/
+*.egg-info/
+
+# Claude
+.claude/

@@ -1,0 +1,154 @@
+"""
+Jobper v4.0 — Flask Application Factory
+========================================
+SaaS CRM para contratos en Colombia.
+"""
+from __future__ import annotations
+
+import logging
+import os
+
+from flask import Flask
+from flask_cors import CORS
+
+from config import Config
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("jobper.log", encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
+)
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Factory
+# ---------------------------------------------------------------------------
+
+def create_app() -> Flask:
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = Config.JWT_SECRET
+
+    # CORS
+    CORS(app, origins=Config.CORS_ORIGINS, supports_credentials=True)
+
+    # Database — create tables on first run
+    _init_db()
+
+    # Register all API blueprints
+    from api.routes import ALL_BLUEPRINTS
+    for bp in ALL_BLUEPRINTS:
+        app.register_blueprint(bp)
+
+    # Error handlers (JSON responses for 400-500)
+    from core.middleware import register_error_handlers
+    register_error_handlers(app)
+
+    # Health root
+    @app.route("/")
+    def root():
+        return {
+            "status": "ok",
+            "service": "Jobper",
+            "version": "4.0.0",
+        }
+
+    # Start background ingestion + scheduler
+    _start_background_services()
+
+    logger.info("Jobper v4.0 ready")
+    return app
+
+
+# ---------------------------------------------------------------------------
+# DB bootstrap
+# ---------------------------------------------------------------------------
+
+def _init_db():
+    try:
+        from core.database import get_engine, Base
+        Base.metadata.create_all(get_engine())
+        logger.info("Database tables verified")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Background services: ingestion + periodic scraping
+# ---------------------------------------------------------------------------
+
+_bg_started = False
+
+
+def _start_background_services():
+    global _bg_started
+    if _bg_started:
+        return
+    _bg_started = True
+
+    import threading
+    import time
+    from datetime import datetime, timedelta
+
+    def _scheduler_loop():
+        """Run ingestion on startup, then every 30 minutes for competitive advantage."""
+        time.sleep(5)  # Let Flask finish starting
+        try:
+            from services.ingestion import ingest_all
+            result = ingest_all(days_back=30)  # First run: auto-detects if aggressive needed
+            logger.info(f"Initial ingestion: {result}")
+        except Exception as e:
+            logger.error(f"Initial ingestion failed: {e}")
+
+        # Track last daily digest
+        last_digest_date = None
+
+        while True:
+            time.sleep(30 * 60)  # Every 30 minutes
+            try:
+                from services.ingestion import ingest_all
+                result = ingest_all(days_back=3)  # Recent contracts only
+                logger.info(f"Scheduled ingestion: {result}")
+            except Exception as e:
+                logger.error(f"Scheduled ingestion failed: {e}")
+
+            # Check expiring subscriptions/trials and send reminders
+            try:
+                from services.ingestion import check_expiring_subscriptions
+                check_expiring_subscriptions()
+            except Exception as e:
+                logger.error(f"Expiration check failed: {e}")
+
+            # Run daily digest once per day (around 8am Colombia time)
+            now = datetime.now()
+            today = now.date()
+            if last_digest_date != today and now.hour >= 8:
+                try:
+                    from services.notifications import send_daily_digest
+                    result = send_daily_digest()
+                    logger.info(f"Daily digest: {result}")
+                    last_digest_date = today
+                except Exception as e:
+                    logger.error(f"Daily digest failed: {e}")
+
+    thread = threading.Thread(target=_scheduler_loop, daemon=True, name="ingestion-scheduler")
+    thread.start()
+    logger.info("Background ingestion scheduler started")
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    app = create_app()
+    port = int(os.environ.get("PORT", 5001))
+    logger.info(f"Starting on port {port}")
+    app.run(host="0.0.0.0", port=port, debug=Config.FLASK_DEBUG)
