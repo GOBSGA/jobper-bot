@@ -1,8 +1,10 @@
 """
-Clase base para scrapers de licitaciones
+Clase base para scrapers de licitaciones.
+Incluye retry con exponential backoff y rate limiting.
 """
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,6 +15,11 @@ import logging
 import requests
 
 logger = logging.getLogger(__name__)
+
+# Default retry config
+MAX_RETRIES = 3
+RETRY_BACKOFF = 2  # seconds, doubles each retry
+RATE_LIMIT_DELAY = 0.5  # seconds between requests
 
 
 @dataclass
@@ -99,24 +106,43 @@ class BaseScraper(ABC):
 
     def _safe_request(self, url: str, params: dict = None) -> Optional[dict]:
         """
-        Realiza una petición HTTP de forma segura con manejo de errores.
+        HTTP request with retry (exponential backoff) and rate limiting.
 
-        Returns:
-            Respuesta JSON o None si hay error
+        Retries up to MAX_RETRIES on timeout/connection errors.
+        Waits RATE_LIMIT_DELAY between requests to avoid API throttling.
         """
-        try:
-            response = self.session.get(url, params=params, timeout=self.timeout)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.Timeout:
-            logger.warning(f"Timeout conectando a {url}")
-            return None
-        except requests.exceptions.ConnectionError:
-            logger.warning(f"Error de conexión a {url}")
-            return None
-        except requests.exceptions.HTTPError as e:
-            logger.error(f"Error HTTP: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"Error inesperado: {e}")
-            return None
+        # Rate limiting between requests
+        time.sleep(RATE_LIMIT_DELAY)
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = self.session.get(url, params=params, timeout=self.timeout)
+                response.raise_for_status()
+                return response.json()
+            except requests.exceptions.Timeout:
+                last_error = f"Timeout conectando a {url}"
+                logger.warning(f"{last_error} (intento {attempt + 1}/{MAX_RETRIES})")
+            except requests.exceptions.ConnectionError:
+                last_error = f"Error de conexión a {url}"
+                logger.warning(f"{last_error} (intento {attempt + 1}/{MAX_RETRIES})")
+            except requests.exceptions.HTTPError as e:
+                status = getattr(e.response, "status_code", None)
+                # Don't retry on 4xx client errors (except 429 rate limit)
+                if status and 400 <= status < 500 and status != 429:
+                    logger.error(f"HTTP {status}: {e}")
+                    return None
+                last_error = f"HTTP error: {e}"
+                logger.warning(f"{last_error} (intento {attempt + 1}/{MAX_RETRIES})")
+            except Exception as e:
+                logger.error(f"Error inesperado: {e}")
+                return None
+
+            # Exponential backoff before retry
+            if attempt < MAX_RETRIES - 1:
+                wait = RETRY_BACKOFF * (2 ** attempt)
+                logger.info(f"Reintentando en {wait}s...")
+                time.sleep(wait)
+
+        logger.error(f"Todos los reintentos fallaron: {last_error}")
+        return None

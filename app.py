@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_cors import CORS
 
 from config import Config
@@ -51,19 +51,38 @@ def create_app() -> Flask:
     from core.middleware import register_error_handlers
     register_error_handlers(app)
 
-    # Health root
-    @app.route("/")
-    def root():
-        return {
-            "status": "ok",
-            "service": "Jobper",
-            "version": "4.0.0",
-        }
+    # Serve uploaded files (comprobantes)
+    uploads_dir = os.path.join(Config.BASE_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    @app.route("/uploads/<path:filename>")
+    def serve_upload(filename):
+        return send_from_directory(uploads_dir, filename)
+
+    # Serve built frontend in production (when dashboard/dist exists)
+    frontend_dir = os.path.join(Config.BASE_DIR, "dashboard", "dist")
+    if os.path.isdir(frontend_dir):
+        @app.route("/", defaults={"path": ""})
+        @app.route("/<path:path>")
+        def serve_frontend(path):
+            file_path = os.path.join(frontend_dir, path)
+            if path and os.path.isfile(file_path):
+                return send_from_directory(frontend_dir, path)
+            return send_from_directory(frontend_dir, "index.html")
+    else:
+        # Dev mode: health endpoint only
+        @app.route("/")
+        def root():
+            return {
+                "status": "ok",
+                "service": "Jobper",
+                "version": "5.0.0",
+            }
 
     # Start background ingestion + scheduler
     _start_background_services()
 
-    logger.info("Jobper v4.0 ready")
+    logger.info("Jobper v5.0 ready")
     return app
 
 
@@ -74,8 +93,26 @@ def create_app() -> Flask:
 def _init_db():
     try:
         from core.database import get_engine, Base
-        Base.metadata.create_all(get_engine())
+        engine = get_engine()
+        Base.metadata.create_all(engine)
         logger.info("Database tables verified")
+
+        # Create GIN index for PostgreSQL FTS (no-op if already exists)
+        if Config.is_postgresql():
+            try:
+                with engine.connect() as conn:
+                    conn.execute(
+                        __import__("sqlalchemy").text(
+                            "CREATE INDEX IF NOT EXISTS idx_contracts_fts "
+                            "ON contracts USING GIN ("
+                            "to_tsvector('spanish', COALESCE(title, '') || ' ' || COALESCE(description, ''))"
+                            ")"
+                        )
+                    )
+                    conn.commit()
+                    logger.info("PostgreSQL FTS index verified")
+            except Exception as e:
+                logger.warning(f"FTS index creation skipped: {e}")
     except Exception as e:
         logger.error(f"Database init failed: {e}")
 

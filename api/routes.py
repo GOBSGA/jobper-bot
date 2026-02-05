@@ -378,8 +378,8 @@ def get_subscription():
     from services.payments import get_subscription
     result = get_subscription(g.user_id)
     if not result:
-        return jsonify({"plan": "none", "status": "expired"})
-    return jsonify(result)
+        return jsonify({"subscription": None})
+    return jsonify({"subscription": result})
 
 
 @payments_bp.post("/request")
@@ -392,6 +392,52 @@ def payment_request():
     data = request.get_json(silent=True) or {}
     plan = data.get("plan", "")
     result = create_payment_request(g.user_id, plan)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@payments_bp.post("/confirm")
+@require_auth
+@rate_limit(5)
+@audit("payment_confirm")
+def confirm_payment():
+    """User uploads comprobante → auto-activate subscription."""
+    import os
+    from werkzeug.utils import secure_filename
+
+    payment_id = request.form.get("payment_id")
+    if not payment_id:
+        return jsonify({"error": "payment_id es requerido"}), 400
+
+    comprobante = request.files.get("comprobante")
+    if not comprobante:
+        return jsonify({"error": "Comprobante es requerido"}), 400
+
+    # Validate file type
+    allowed = {"image/jpeg", "image/png", "image/webp"}
+    if comprobante.content_type not in allowed:
+        return jsonify({"error": "Solo se aceptan imágenes (JPG, PNG, WebP)"}), 400
+
+    # Validate file size (5MB max)
+    comprobante.seek(0, 2)
+    size = comprobante.tell()
+    comprobante.seek(0)
+    if size > 5 * 1024 * 1024:
+        return jsonify({"error": "El archivo no puede superar 5MB"}), 400
+
+    # Save file
+    ext = comprobante.content_type.split("/")[-1]
+    if ext == "jpeg":
+        ext = "jpg"
+    upload_dir = os.path.join("uploads", "comprobantes", str(g.user_id))
+    os.makedirs(upload_dir, exist_ok=True)
+    filename = secure_filename(f"{payment_id}.{ext}")
+    filepath = os.path.join(upload_dir, filename)
+    comprobante.save(filepath)
+
+    from services.payments import confirm_payment as do_confirm
+    result = do_confirm(g.user_id, int(payment_id), filepath)
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)
@@ -604,10 +650,29 @@ def chatbot_endpoint():
 
 
 # =============================================================================
+# HEALTH CHECK
+# =============================================================================
+health_bp = Blueprint("health", __name__, url_prefix="/api")
+
+
+@health_bp.get("/health")
+def health_check():
+    """Health endpoint for Railway / load balancer."""
+    from services.ingestion import get_contract_count
+    return jsonify({
+        "status": "ok",
+        "service": "Jobper",
+        "version": "5.0.0",
+        "contracts": get_contract_count(),
+    })
+
+
+# =============================================================================
 # ALL BLUEPRINTS (for app registration)
 # =============================================================================
 
 ALL_BLUEPRINTS = [
+    health_bp,
     auth_bp,
     contracts_bp,
     pipeline_bp,

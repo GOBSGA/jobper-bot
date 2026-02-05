@@ -3,15 +3,18 @@ import { useAuth } from "../context/AuthContext";
 const PLAN_ORDER = { free: 0, trial: 1, alertas: 2, starter: 2, business: 3, enterprise: 4 };
 
 const FEATURE_GATES = {
+  full_description: "alertas",
+  match_scores: "alertas",
   alerts: "alertas",
   favorites: "alertas",
   match: "alertas",
   email_digest: "alertas",
+  advanced_filters: "alertas",
+  export: "alertas",
   ai_analysis: "business",
   pipeline: "business",
   marketplace: "business",
   push: "business",
-  match_scores: "business",
   documents: "business",
   reports: "business",
   team: "enterprise",

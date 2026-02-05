@@ -6,6 +6,9 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
+from sqlalchemy import func, text
+
+from config import Config
 from core.cache import cached
 from core.database import UnitOfWork, Contract, Favorite
 
@@ -32,27 +35,45 @@ def search_contracts(query: str, user_id: int, page: int = 1, per_page: int = 20
 
 
 def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
-    """Fallback: PostgreSQL ILIKE search."""
+    """
+    Database search with PostgreSQL full-text search (Spanish) when available.
+    Falls back to ILIKE for SQLite (dev).
+    """
+    use_fts = Config.is_postgresql() and query
+
     with UnitOfWork() as uow:
         q = uow.session.query(Contract)
 
         if query:
-            pattern = f"%{query}%"
-            q = q.filter(
-                Contract.title.ilike(pattern) | Contract.description.ilike(pattern)
-            )
+            if use_fts:
+                # PostgreSQL FTS with Spanish stemmer — uses GIN index if created
+                ts_query = func.plainto_tsquery("spanish", query)
+                ts_vector = func.to_tsvector(
+                    "spanish",
+                    func.coalesce(Contract.title, "") + " " + func.coalesce(Contract.description, ""),
+                )
+                q = q.filter(ts_vector.op("@@")(ts_query))
+                # Order by relevance rank
+                rank = func.ts_rank(ts_vector, ts_query)
+                q = q.order_by(rank.desc(), Contract.created_at.desc())
+            else:
+                # SQLite / simple fallback
+                pattern = f"%{query}%"
+                q = q.filter(
+                    Contract.title.ilike(pattern) | Contract.description.ilike(pattern)
+                )
+                q = q.order_by(Contract.created_at.desc())
+        else:
+            q = q.order_by(Contract.created_at.desc())
 
         total = q.count()
         contracts = (
-            q.order_by(Contract.created_at.desc())
-            .offset((page - 1) * per_page)
+            q.offset((page - 1) * per_page)
             .limit(per_page)
             .all()
         )
 
-        # Get user favorites for marking
         fav_ids = _get_favorite_ids(uow, user_id)
-
         results = [_contract_to_dict(c, c.id in fav_ids) for c in contracts]
 
     return {

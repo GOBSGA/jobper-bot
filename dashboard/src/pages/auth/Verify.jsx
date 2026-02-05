@@ -1,31 +1,51 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import Spinner from "../../components/ui/Spinner";
+
+// Module-level flag to prevent double verification in React 18 StrictMode
+// and from email link scanners (Gmail, Outlook Safe Links)
+const verifiedTokens = new Set();
 
 export default function Verify() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const { login } = useAuth();
   const [error, setError] = useState("");
-  const called = useRef(false);
+  const [verifying, setVerifying] = useState(true);
 
   useEffect(() => {
-    if (called.current) return;
-    called.current = true;
-
     const token = params.get("token");
     const ref = params.get("ref");
-    if (!token) { setError("Token inválido"); return; }
+
+    if (!token) {
+      setError("Token inválido");
+      setVerifying(false);
+      return;
+    }
+
+    // Prevent double-verification (React 18 StrictMode, email scanners, etc.)
+    if (verifiedTokens.has(token)) {
+      // Token is being processed, wait for result
+      return;
+    }
+    verifiedTokens.add(token);
 
     api.post("/auth/verify", { token, referral_code: ref || undefined })
       .then((data) => {
         login(data);
         navigate(data.is_new ? "/onboarding" : "/dashboard", { replace: true });
       })
-      .catch(() => setError("Link expirado o ya usado. Solicita otro."));
-  }, []);
+      .catch((err) => {
+        // Remove from set so user can retry with a new link
+        verifiedTokens.delete(token);
+        // Show specific error from API if available
+        const apiError = err?.response?.data?.error || err?.message;
+        setError(apiError || "Error verificando el enlace. Solicita uno nuevo.");
+        setVerifying(false);
+      });
+  }, [params, login, navigate]);
 
   if (error) {
     return (

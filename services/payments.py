@@ -1,6 +1,6 @@
 """
 Jobper Services — Payments (Manual: Nequi / Bancolombia transfer)
-No external payment gateway. Admin verifies and activates manually.
+User uploads comprobante → system auto-activates. Admin can audit later.
 """
 from __future__ import annotations
 
@@ -78,22 +78,112 @@ def create_checkout(user_id: int, plan: str) -> dict:
         )
         uow.payments.create(payment)
         uow.commit()
+        payment_id = payment.id
 
     return {
+        "payment_id": payment_id,
         "reference": reference,
         "amount": amount,
+        "amount_display": f"${amount:,.0f}".replace(",", "."),
         "currency": "COP",
         "plan": plan,
         "discount": discount,
-        "nequi_number": Config.NEQUI_NUMBER,
-        "bancolombia_account": Config.BANCOLOMBIA_ACCOUNT,
-        "bancolombia_type": Config.BANCOLOMBIA_TYPE,
-        "bancolombia_holder": Config.BANCOLOMBIA_HOLDER,
+        "instructions": "Transfiere el monto exacto y sube tu comprobante. Tu plan se activa inmediatamente.",
+        "payment_methods": {
+            "nequi": {
+                "number": Config.NEQUI_NUMBER,
+                "name": "Nequi",
+            },
+            "bancolombia": {
+                "account": Config.BANCOLOMBIA_ACCOUNT,
+                "type": Config.BANCOLOMBIA_TYPE,
+                "holder": Config.BANCOLOMBIA_HOLDER,
+                "name": "Bancolombia",
+            },
+        },
     }
 
 
 # =============================================================================
-# PAYMENT REQUEST (user reports payment)
+# CONFIRM PAYMENT (user uploads comprobante → auto-activate)
+# =============================================================================
+
+def confirm_payment(user_id: int, payment_id: int, comprobante_url: str) -> dict:
+    """User uploads comprobante. Auto-activates subscription immediately."""
+    now = datetime.utcnow()
+
+    with UnitOfWork() as uow:
+        payment = uow.payments.get(payment_id)
+        if not payment:
+            return {"error": "Pago no encontrado"}
+        if payment.user_id != user_id:
+            return {"error": "Pago no pertenece a este usuario"}
+        if payment.status != "pending":
+            return {"error": "Este pago ya fue procesado"}
+
+        plan = payment.metadata_json.get("plan")
+        if not plan or plan not in Config.PLANS:
+            return {"error": "Plan inválido en el pago"}
+
+        # Mark payment as approved
+        payment.status = "approved"
+        payment.comprobante_url = comprobante_url
+        payment.confirmed_at = now
+
+        # Deactivate previous subscriptions
+        prev = uow.subscriptions.get_active_for_user(user_id)
+        if prev:
+            prev.status = "cancelled"
+
+        # Create new subscription (30 days)
+        sub = Subscription(
+            user_id=user_id,
+            plan=plan,
+            status="active",
+            amount=payment.amount,
+            starts_at=now,
+            ends_at=now + timedelta(days=30),
+        )
+        uow.subscriptions.create(sub)
+
+        # Update user plan
+        user = uow.users.get(user_id)
+        user.plan = plan
+
+        uow.commit()
+
+        # Track referral
+        try:
+            from services.referrals import track_subscription
+            track_subscription(user_id)
+        except Exception:
+            pass
+
+    # Send confirmation email
+    from core.tasks import task_send_email
+    task_send_email.delay(
+        user.email,
+        "payment_confirmed",
+        {"plan": plan, "amount": payment.amount},
+    )
+
+    # Notify admin for audit
+    task_send_email.delay(
+        Config.ADMIN_EMAIL,
+        "payment_request",
+        {"user_id": user_id, "plan": plan, "amount": payment.amount, "reference": payment.wompi_ref, "comprobante": comprobante_url},
+    )
+
+    logger.info(f"Payment confirmed by user: user={user_id}, plan={plan}, payment={payment_id}")
+    return {
+        "ok": True,
+        "plan": plan,
+        "ends_at": (now + timedelta(days=30)).isoformat(),
+    }
+
+
+# =============================================================================
+# PAYMENT REQUEST (user reports payment — legacy)
 # =============================================================================
 
 def create_payment_request(user_id: int, plan: str) -> dict:
@@ -225,6 +315,7 @@ def get_subscription(user_id: int) -> dict | None:
                 }
             return None
 
+        days_remaining = max(0, (sub.ends_at - datetime.utcnow()).days)
         return {
             "id": sub.id,
             "plan": sub.plan,
@@ -232,7 +323,8 @@ def get_subscription(user_id: int) -> dict | None:
             "amount": sub.amount,
             "starts_at": sub.starts_at.isoformat(),
             "ends_at": sub.ends_at.isoformat(),
-            "days_remaining": max(0, (sub.ends_at - datetime.utcnow()).days),
+            "days_remaining": days_remaining,
+            "needs_renewal": days_remaining <= 7,
             "auto_renew": sub.auto_renew,
         }
 
@@ -263,3 +355,71 @@ def _get_referral_discount(user_id: int) -> float:
         return calculate_discount(user_id)
     except Exception:
         return 0.0
+
+
+# =============================================================================
+# RENEWAL CHECKS (called by scheduler every 30 min)
+# =============================================================================
+
+def check_renewals():
+    """Check subscriptions approaching expiry and send reminders / expire."""
+    now = datetime.utcnow()
+    from core.tasks import task_send_email
+
+    with UnitOfWork() as uow:
+        active_subs = (
+            uow.session.query(Subscription)
+            .filter(Subscription.status == "active")
+            .all()
+        )
+
+        for sub in active_subs:
+            days_left = (sub.ends_at - now).days
+            user = uow.users.get(sub.user_id)
+            if not user:
+                continue
+
+            already_reminded = sub.renewal_reminded_at
+            today = now.date()
+
+            # Expired: auto-downgrade to free
+            if days_left < 0:
+                sub.status = "expired"
+                user.plan = "free"
+                logger.info(f"Subscription expired: user={user.id}, plan={sub.plan}")
+                task_send_email.delay(user.email, "subscription_expired", {
+                    "plan": sub.plan,
+                })
+                continue
+
+            # 7 days reminder
+            if days_left <= 7 and days_left > 3:
+                if not already_reminded or already_reminded.date() < today - timedelta(days=3):
+                    sub.renewal_reminded_at = now
+                    task_send_email.delay(user.email, "renewal_reminder", {
+                        "days_left": days_left,
+                        "plan": sub.plan,
+                        "amount": sub.amount,
+                    })
+
+            # 3 days reminder (urgent)
+            elif days_left <= 3 and days_left > 0:
+                if not already_reminded or already_reminded.date() < today - timedelta(days=1):
+                    sub.renewal_reminded_at = now
+                    task_send_email.delay(user.email, "renewal_urgent", {
+                        "days_left": days_left,
+                        "plan": sub.plan,
+                        "amount": sub.amount,
+                    })
+                    # Also send push + WhatsApp
+                    try:
+                        from services.notifications import send_push, send_whatsapp_renewal_reminder
+                        send_push(user.id, f"Tu plan vence en {days_left} día{'s' if days_left > 1 else ''}",
+                                  "Renueva para no perder acceso.", "/payments")
+                        send_whatsapp_renewal_reminder(user.id, days_left, sub.plan)
+                    except Exception:
+                        pass
+
+        uow.commit()
+
+    logger.info("Renewal check completed")

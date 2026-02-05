@@ -36,7 +36,7 @@ class Config:
     JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_ACCESS_EXPIRY_MINUTES: int = 10080  # 7 days
     JWT_REFRESH_EXPIRY_DAYS: int = 30
-    MAGIC_LINK_EXPIRY_MINUTES: int = 15  # 15 minutes
+    MAGIC_LINK_EXPIRY_MINUTES: int = 60  # 60 minutes (was 15 - too short with email delays)
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
     # ======================================================================
@@ -76,6 +76,12 @@ class Config:
     VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
     VAPID_PUBLIC_KEY: str = os.getenv("VAPID_PUBLIC_KEY", "")
     VAPID_CLAIMS_EMAIL: str = os.getenv("VAPID_CLAIMS_EMAIL", "mailto:soporte@jobper.co")
+
+    # ======================================================================
+    # WHATSAPP CLOUD API (Meta)
+    # ======================================================================
+    WHATSAPP_API_TOKEN: str = os.getenv("WHATSAPP_API_TOKEN", "")
+    WHATSAPP_PHONE_ID: str = os.getenv("WHATSAPP_PHONE_ID", "")
 
     # ======================================================================
     # FLASK
@@ -266,11 +272,15 @@ class Config:
             "name": "Free",
             "price": 0,
             "features": [
-                "search", "contracts_unlimited",
+                "search",
             ],
             "limits": {
                 "alerts_per_week": 3,
                 "favorites_max": 5,
+                "searches_per_day": 5,
+                "show_full_description": False,
+                "show_match_score": False,
+                "export_per_month": 0,
             },
         },
         "alertas": {
@@ -278,29 +288,50 @@ class Config:
             "price": 29_900,
             "features": [
                 "search", "contracts_unlimited", "alerts", "favorites",
-                "match", "email_digest",
+                "match", "email_digest", "full_description", "match_scores",
+                "advanced_filters", "export",
             ],
+            "limits": {
+                "searches_per_day": None,  # Unlimited
+                "show_full_description": True,
+                "show_match_score": True,
+                "export_per_month": 100,
+            },
         },
         "business": {
             "name": "Business",
             "price": 149_900,
             "features": [
                 "search", "contracts_unlimited", "alerts", "favorites",
-                "match", "email_digest",
+                "match", "email_digest", "full_description", "match_scores",
+                "advanced_filters", "export",
                 "ai_analysis", "pipeline", "marketplace", "push",
-                "match_scores", "documents", "reports",
+                "documents", "reports",
             ],
+            "limits": {
+                "searches_per_day": None,
+                "show_full_description": True,
+                "show_match_score": True,
+                "export_per_month": None,  # Unlimited
+            },
         },
         "enterprise": {
             "name": "Enterprise",
             "price": 599_900,
             "features": [
                 "search", "contracts_unlimited", "alerts", "favorites",
-                "match", "email_digest",
+                "match", "email_digest", "full_description", "match_scores",
+                "advanced_filters", "export",
                 "ai_analysis", "pipeline", "marketplace", "push",
-                "match_scores", "documents", "reports",
+                "documents", "reports",
                 "team", "competitive_intelligence", "api_access", "priority_support",
             ],
+            "limits": {
+                "searches_per_day": None,
+                "show_full_description": True,
+                "show_match_score": True,
+                "export_per_month": None,
+            },
         },
     }
 
@@ -309,15 +340,18 @@ class Config:
 
     # Feature → minimum plan required
     FEATURE_GATES: dict = {
+        "full_description": "alertas",
+        "match_scores": "alertas",
         "alerts": "alertas",
         "favorites": "alertas",
         "match": "alertas",
         "email_digest": "alertas",
+        "advanced_filters": "alertas",
+        "export": "alertas",
         "ai_analysis": "business",
         "pipeline": "business",
         "marketplace": "business",
         "push": "business",
-        "match_scores": "business",
         "documents": "business",
         "reports": "business",
         "team": "enterprise",

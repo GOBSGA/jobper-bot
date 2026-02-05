@@ -41,6 +41,8 @@ class ProfileUpdateSchema(BaseModel):
     city: Optional[str] = Field(None, max_length=100)
     budget_min: Optional[float] = Field(None, ge=0)
     budget_max: Optional[float] = Field(None, ge=0)
+    whatsapp_number: Optional[str] = Field(None, max_length=20)
+    whatsapp_enabled: Optional[bool] = None
 
     @field_validator("company_name", "sector", "city", mode="before")
     @classmethod

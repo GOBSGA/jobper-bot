@@ -5,7 +5,7 @@ import Card, { CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { useToast } from "../../components/ui/Toast";
-import { Save, Bell, Building2, MapPin, DollarSign, Tag, User } from "lucide-react";
+import { Save, Bell, Building2, MapPin, DollarSign, Tag, User, MessageCircle } from "lucide-react";
 
 const SECTORS = [
   { key: "tecnologia", label: "Tecnología", emoji: "💻" },
@@ -41,6 +41,8 @@ export default function Settings() {
     city: "",
     budget_min: "",
     budget_max: "",
+    whatsapp_number: "",
+    whatsapp_enabled: false,
   });
   const [saving, setSaving] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -55,6 +57,8 @@ export default function Settings() {
         city: user.city || "",
         budget_min: user.budget_min || "",
         budget_max: user.budget_max || "",
+        whatsapp_number: user.whatsapp_number || "",
+        whatsapp_enabled: user.whatsapp_enabled || false,
       });
     }
   }, [user]);
@@ -70,6 +74,8 @@ export default function Settings() {
         city: form.city,
         budget_min: form.budget_min ? Number(form.budget_min) : null,
         budget_max: form.budget_max ? Number(form.budget_max) : null,
+        whatsapp_number: form.whatsapp_number || null,
+        whatsapp_enabled: form.whatsapp_enabled,
       });
       await refresh();
       toast.success("Perfil guardado");
@@ -249,14 +255,48 @@ export default function Settings() {
       {/* Notificaciones */}
       <Card>
         <CardHeader title="Notificaciones" subtitle="Configura cómo quieres recibir alertas" />
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-900">Push notifications</p>
-            <p className="text-xs text-gray-500">Recibe alertas de contratos en tu navegador.</p>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">Push notifications</p>
+              <p className="text-xs text-gray-500">Recibe alertas de contratos en tu navegador.</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={enablePush} disabled={pushEnabled}>
+              <Bell className="h-4 w-4" /> {pushEnabled ? "Activado" : "Activar"}
+            </Button>
           </div>
-          <Button variant="secondary" size="sm" onClick={enablePush} disabled={pushEnabled}>
-            <Bell className="h-4 w-4" /> {pushEnabled ? "Activado" : "Activar"}
-          </Button>
+
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                  <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp
+                </p>
+                <p className="text-xs text-gray-500">Recibe alertas de contratos por WhatsApp.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, whatsapp_enabled: !form.whatsapp_enabled })}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  form.whatsapp_enabled ? "bg-green-600" : "bg-gray-200"
+                }`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  form.whatsapp_enabled ? "translate-x-6" : "translate-x-1"
+                }`} />
+              </button>
+            </div>
+            {form.whatsapp_enabled && (
+              <Input
+                value={form.whatsapp_number}
+                onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
+                placeholder="+57 300 123 4567"
+              />
+            )}
+            {form.whatsapp_enabled && form.whatsapp_number && (
+              <p className="text-xs text-gray-500 mt-1">Guarda los cambios para activar WhatsApp.</p>
+            )}
+          </div>
         </div>
       </Card>
     </div>

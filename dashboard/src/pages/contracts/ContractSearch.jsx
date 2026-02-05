@@ -7,8 +7,9 @@ import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Spinner from "../../components/ui/Spinner";
 import EmptyState from "../../components/ui/EmptyState";
-import { money, date, relative } from "../../lib/format";
-import { Search, FileText, Zap, List } from "lucide-react";
+import { useGate } from "../../hooks/useGate";
+import { money, date, relative, truncate } from "../../lib/format";
+import { Search, FileText, Zap, List, Lock } from "lucide-react";
 
 export default function ContractSearch() {
   const [tab, setTab] = useState("para_ti"); // "para_ti" | "todos"
@@ -137,6 +138,9 @@ export default function ContractSearch() {
 }
 
 function ContractCard({ c, showScore }) {
+  const descGate = useGate("full_description");
+  const scoreGate = useGate("match_scores");
+
   return (
     <Link to={`/contracts/${c.id}`}>
       <Card className="hover:shadow-md transition cursor-pointer">
@@ -145,18 +149,31 @@ function ContractCard({ c, showScore }) {
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-semibold text-gray-900 truncate">{c.title}</h3>
               {showScore && c.match_score >= 60 && (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
-                  c.match_score >= 90 ? "bg-green-100 text-green-800" :
-                  c.match_score >= 80 ? "bg-blue-100 text-blue-800" :
-                  c.match_score >= 70 ? "bg-yellow-100 text-yellow-800" :
-                  "bg-gray-100 text-gray-700"
-                }`}>
-                  {c.match_score}% match
-                </span>
+                scoreGate.allowed ? (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
+                    c.match_score >= 90 ? "bg-green-100 text-green-800" :
+                    c.match_score >= 80 ? "bg-blue-100 text-blue-800" :
+                    c.match_score >= 70 ? "bg-yellow-100 text-yellow-800" :
+                    "bg-gray-100 text-gray-700"
+                  }`}>
+                    {c.match_score}% match
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-400 flex-shrink-0">
+                    <Lock className="h-3 w-3" /> ??%
+                  </span>
+                )
               )}
             </div>
             <p className="text-xs text-gray-500 mt-1">{c.entity} · {c.source}</p>
-            {c.description && <p className="text-sm text-gray-600 mt-2 line-clamp-2">{c.description}</p>}
+            {c.description && (
+              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                {descGate.allowed ? c.description : truncate(c.description, 100)}
+              </p>
+            )}
+            {c.description && !descGate.allowed && c.description.length > 100 && (
+              <p className="text-xs text-brand-600 mt-1 font-medium">Activa Alertas para ver la descripción completa</p>
+            )}
           </div>
           <div className="text-right flex-shrink-0 space-y-1">
             {c.amount && <p className="text-sm font-bold">{money(c.amount)}</p>}

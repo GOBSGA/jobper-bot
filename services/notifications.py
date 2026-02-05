@@ -72,6 +72,9 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         "subscription_expiring": _tmpl_subscription_expiring,
         "payment_request": _tmpl_payment_request,
         "daily_digest": _tmpl_daily_digest,
+        "renewal_reminder": _tmpl_renewal_reminder,
+        "renewal_urgent": _tmpl_renewal_urgent,
+        "subscription_expired": _tmpl_subscription_expired,
     }
 
     fn = templates.get(template)
@@ -302,6 +305,94 @@ def register_push_subscription(user_id: int, subscription_info: dict) -> dict:
 
 
 # =============================================================================
+# WHATSAPP (Meta Cloud API)
+# =============================================================================
+
+WHATSAPP_API = "https://graph.facebook.com/v21.0"
+
+
+def send_whatsapp(to: str, message: str) -> bool:
+    """
+    Send a WhatsApp message via Meta Cloud API.
+    `to` must be international format: +573001234567
+    """
+    if not Config.WHATSAPP_API_TOKEN or not Config.WHATSAPP_PHONE_ID:
+        return False
+
+    # Normalize Colombian numbers
+    number = to.strip().replace(" ", "").replace("-", "")
+    if number.startswith("0"):
+        number = "+57" + number[1:]
+    elif not number.startswith("+"):
+        number = "+57" + number
+
+    try:
+        resp = requests.post(
+            f"{WHATSAPP_API}/{Config.WHATSAPP_PHONE_ID}/messages",
+            headers={
+                "Authorization": f"Bearer {Config.WHATSAPP_API_TOKEN}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "messaging_product": "whatsapp",
+                "to": number,
+                "type": "text",
+                "text": {"body": message},
+            },
+            timeout=10,
+        )
+        if resp.status_code in (200, 201):
+            logger.info(f"WhatsApp sent to {number[:8]}***")
+            return True
+        else:
+            logger.error(f"WhatsApp error {resp.status_code}: {resp.text}")
+            return False
+    except Exception as e:
+        logger.error(f"WhatsApp send failed: {e}")
+        return False
+
+
+def send_whatsapp_contract_alert(user_id: int, contract: dict) -> bool:
+    """Send a WhatsApp alert for a matching contract."""
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user or not user.whatsapp_enabled or not user.whatsapp_number:
+            return False
+
+    title = contract.get("title", "")[:100]
+    entity = contract.get("entity", "")
+    amount = contract.get("amount")
+    url = contract.get("url", Config.FRONTEND_URL)
+
+    amount_str = f"${amount:,.0f} COP" if amount else "No especificado"
+
+    msg = (
+        f"📋 *Nuevo contrato relevante*\n\n"
+        f"*{title}*\n"
+        f"🏢 {entity}\n"
+        f"💰 {amount_str}\n\n"
+        f"👉 {url}"
+    )
+    return send_whatsapp(user.whatsapp_number, msg)
+
+
+def send_whatsapp_renewal_reminder(user_id: int, days_left: int, plan: str) -> bool:
+    """Send WhatsApp renewal reminder."""
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user or not user.whatsapp_enabled or not user.whatsapp_number:
+            return False
+
+    urgency = "mañana" if days_left <= 1 else f"en {days_left} días"
+    msg = (
+        f"⚠️ Tu plan *{plan}* vence {urgency}.\n\n"
+        f"Renueva para seguir recibiendo contratos, alertas y match score.\n\n"
+        f"👉 {Config.FRONTEND_URL}/payments"
+    )
+    return send_whatsapp(user.whatsapp_number, msg)
+
+
+# =============================================================================
 # BULK ALERTS
 # =============================================================================
 
@@ -341,6 +432,16 @@ def send_contract_alert_to_matching_users(contract: dict):
                     contract.get("title", "")[:100],
                     f"{Config.FRONTEND_URL}/contracts/{contract.get('id', '')}",
                 )
+
+                # WhatsApp alert (if enabled)
+                if user.whatsapp_enabled and user.whatsapp_number:
+                    try:
+                        send_whatsapp_contract_alert(user.id, {
+                            **contract,
+                            "url": f"{Config.FRONTEND_URL}/contracts/{contract.get('id', '')}",
+                        })
+                    except Exception:
+                        pass  # Non-blocking
 
                 # Increment alert count for this user
                 uow.users.increment_alert_count(user)
@@ -458,3 +559,66 @@ def _tmpl_daily_digest(data: dict) -> tuple[str, str]:
 <p style="color:#94a3b8;font-size:12px;margin-top:16px">Recibes este email porque tienes el plan Alertas o superior. <a href="{Config.FRONTEND_URL}/settings" style="color:#3b82f6">Ajustar notificaciones</a></p>
 """
     return f"Digest diario — {count} contratos para ti", _base_html(content)
+
+
+def _tmpl_renewal_reminder(data: dict) -> tuple[str, str]:
+    """Soft renewal reminder — sent 7 days before expiry."""
+    days_left = data.get("days_left", 7)
+    plan = data.get("plan", "")
+    amount = data.get("amount", 0)
+    content = f"""
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Tu plan {plan.title()} vence en {days_left} días</h2>
+<p style="color:#475569;line-height:1.6">Para seguir disfrutando de contratos ilimitados, alertas personalizadas y todas las funcionalidades de tu plan, renueva antes de que expire.</p>
+<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin:12px 0">
+  <p style="margin:0 0 4px;color:#0369a1;font-weight:600">Renovación</p>
+  <p style="margin:0;color:#0f172a">Plan {plan.title()} — ${amount:,.0f} COP/mes</p>
+</div>
+<p style="color:#475569;line-height:1.6">Renueva en segundos con Nequi o Bancolombia desde la app.</p>
+{_button(Config.FRONTEND_URL + "/payments", "Renovar ahora")}
+<p style="color:#94a3b8;font-size:13px">Si no renuevas, tu cuenta pasará al plan gratuito al vencer el período.</p>
+"""
+    return f"Tu plan vence en {days_left} días — Renueva tu suscripción", _base_html(content)
+
+
+def _tmpl_renewal_urgent(data: dict) -> tuple[str, str]:
+    """Urgent renewal reminder — sent 1-3 days before expiry."""
+    days_left = data.get("days_left", 1)
+    plan = data.get("plan", "")
+    amount = data.get("amount", 0)
+    urgency = "mañana" if days_left <= 1 else f"en {days_left} días"
+    content = f"""
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:0 0 16px">
+  <p style="margin:0;color:#991b1b;font-weight:600;font-size:16px">⚠️ Tu plan vence {urgency}</p>
+</div>
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Último aviso: tu plan {plan.title()} está por expirar</h2>
+<p style="color:#475569;line-height:1.6">Si no renuevas, perderás acceso a:</p>
+<ul style="color:#475569;line-height:1.8">
+  <li>Contratos completos con descripción y documentos</li>
+  <li>Alertas personalizadas ilimitadas</li>
+  <li>Match score y filtros avanzados</li>
+  <li>Exportar contratos a Excel</li>
+</ul>
+<p style="color:#475569;line-height:1.6"><strong>Renueva ahora</strong> por solo ${amount:,.0f} COP/mes.</p>
+{_button(Config.FRONTEND_URL + "/payments", "Renovar ahora — No pierdas acceso")}
+"""
+    return f"⚠️ ÚLTIMO AVISO: tu plan vence {urgency}", _base_html(content)
+
+
+def _tmpl_subscription_expired(data: dict) -> tuple[str, str]:
+    """Notification that subscription expired and user downgraded to free."""
+    plan = data.get("plan", "")
+    content = f"""
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Tu plan {plan.title()} ha expirado</h2>
+<p style="color:#475569;line-height:1.6">Tu suscripción al plan {plan.title()} venció y tu cuenta ahora está en el <strong>plan gratuito</strong>.</p>
+<p style="color:#475569;line-height:1.6">Con el plan gratuito puedes:</p>
+<ul style="color:#475569;line-height:1.8">
+  <li>Ver títulos de contratos (sin descripción completa)</li>
+  <li>5 búsquedas por día</li>
+  <li>3 alertas por semana</li>
+</ul>
+<p style="color:#475569;line-height:1.6">¿Quieres recuperar tu acceso completo? Reactiva tu plan en cualquier momento.</p>
+{_button(Config.FRONTEND_URL + "/payments", "Reactivar mi plan")}
+<p style="color:#94a3b8;font-size:13px">No te preocupes, tus favoritos y configuración están guardados.</p>
+"""
+    return f"Tu plan {plan.title()} ha expirado", _base_html(content)
+

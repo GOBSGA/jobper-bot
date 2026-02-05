@@ -20,21 +20,35 @@ logger = logging.getLogger(__name__)
 
 
 def calculate_match_score(user: User, contract: Contract) -> int:
-    """Calculate 0-100 match score between a user profile and a contract."""
+    """
+    Calculate 0-100 match score between a user profile and a contract.
+
+    Score breakdown:
+    - Keyword match: 40 points max
+    - Sector match: 20 points max
+    - Budget match: 15 points max (bonus if contract amount is within user's budget)
+    - Recency bonus: 15 points max
+    - Location bonus: 10 points max (if user's city matches contract entity/location)
+    """
     if not user.keywords and not user.sector:
         return 50  # No profile = neutral score
 
     score = 0.0
+    now = datetime.utcnow()
 
-    # --- Keyword match (50 points max) ---
+    # --- Penalty for expired contracts ---
+    if contract.deadline and contract.deadline < now:
+        return 0  # Don't show expired contracts
+
+    # --- Keyword match (40 points max) ---
     user_keywords = user.keywords or []
     if user_keywords:
         contract_text = f"{contract.title or ''} {contract.description or ''}".lower()
         matches = sum(1 for kw in user_keywords if kw.lower() in contract_text)
         keyword_ratio = matches / len(user_keywords) if user_keywords else 0
-        score += keyword_ratio * 50
+        score += keyword_ratio * 40
 
-    # --- Sector match (25 points max) ---
+    # --- Sector match (20 points max) ---
     if user.sector:
         from config import Config
         sector_keywords = []
@@ -48,26 +62,55 @@ def calculate_match_score(user: User, contract: Contract) -> int:
             contract_text = f"{contract.title or ''} {contract.description or ''} {contract.entity or ''}".lower()
             sector_matches = sum(1 for kw in sector_keywords if kw in contract_text)
             sector_ratio = min(sector_matches / 3, 1.0)  # 3+ keyword matches = full score
-            score += sector_ratio * 25
+            score += sector_ratio * 20
         else:
             # Direct sector text match
             contract_text = f"{contract.title or ''} {contract.description or ''}".lower()
             if user.sector.lower() in contract_text:
-                score += 25
+                score += 20
 
-    # --- Recency bonus (25 points max) ---
-    if contract.publication_date:
-        days_old = (datetime.utcnow() - contract.publication_date).days
-        if days_old <= 1:
-            score += 25
-        elif days_old <= 3:
-            score += 20
-        elif days_old <= 7:
-            score += 15
-        elif days_old <= 14:
+    # --- Budget match (15 points max) ---
+    if contract.amount and contract.amount > 0:
+        budget_min = user.budget_min or 0
+        budget_max = user.budget_max or float('inf')
+
+        if budget_min <= contract.amount <= budget_max:
+            score += 15  # Full points if within range
+        elif contract.amount < budget_min:
+            # Partial points if slightly under budget (might still be interesting)
+            ratio = contract.amount / budget_min if budget_min > 0 else 0
+            if ratio > 0.5:  # At least 50% of minimum budget
+                score += 7
+        elif budget_max != float('inf') and contract.amount > budget_max:
+            # Partial points if slightly over budget (might still be interesting)
+            ratio = budget_max / contract.amount if contract.amount > 0 else 0
+            if ratio > 0.5:  # No more than 2x the maximum budget
+                score += 5
+
+    # --- Location match (10 points max) ---
+    if user.city:
+        user_city = user.city.lower()
+        # Check entity name (often includes location like "Alcaldía de Medellín")
+        entity_text = f"{contract.entity or ''}".lower()
+        if user_city in entity_text:
             score += 10
-        elif days_old <= 30:
+        # Also check description for location mentions
+        elif user_city in f"{contract.description or ''}".lower():
             score += 5
+
+    # --- Recency bonus (15 points max) ---
+    if contract.publication_date:
+        days_old = (now - contract.publication_date).days
+        if days_old <= 1:
+            score += 15
+        elif days_old <= 3:
+            score += 12
+        elif days_old <= 7:
+            score += 8
+        elif days_old <= 14:
+            score += 4
+        elif days_old <= 30:
+            score += 2
 
     return min(100, max(0, round(score)))
 
@@ -90,10 +133,29 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
         if not user:
             return []
 
-        since = datetime.utcnow() - timedelta(days=days_back)
-        contracts = uow.session.query(Contract).filter(
-            Contract.publication_date >= since
-        ).order_by(Contract.publication_date.desc()).limit(500).all()
+        now = datetime.utcnow()
+        since = now - timedelta(days=days_back)
+
+        # Build query with pre-filters for efficiency
+        query = uow.session.query(Contract).filter(
+            Contract.publication_date >= since,
+            # Exclude expired contracts
+            (Contract.deadline.is_(None)) | (Contract.deadline >= now),
+        )
+
+        # Pre-filter by budget if user has it set (query optimization)
+        if user.budget_min and user.budget_min > 0:
+            # Allow contracts with no amount (don't filter them out) or amount >= 50% of min
+            query = query.filter(
+                (Contract.amount.is_(None)) | (Contract.amount >= user.budget_min * 0.5)
+            )
+        if user.budget_max and user.budget_max > 0:
+            # Allow contracts with no amount or amount <= 2x of max
+            query = query.filter(
+                (Contract.amount.is_(None)) | (Contract.amount <= user.budget_max * 2)
+            )
+
+        contracts = query.order_by(Contract.publication_date.desc()).limit(1000).all()
 
         scored = []
         for c in contracts:

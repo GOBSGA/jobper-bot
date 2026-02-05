@@ -68,9 +68,48 @@ async function tryRefresh() {
   }
 }
 
+async function uploadRequest(path, formData) {
+  const token = localStorage.getItem("access_token");
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  // No Content-Type header — browser sets multipart boundary automatically
+
+  let res;
+  try {
+    res = await fetch(`${BASE}${path}`, { method: "POST", headers, body: formData });
+  } catch (err) {
+    throw { status: 0, error: "Sin conexión. Revisa tu internet." };
+  }
+
+  if (res.status === 401) {
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        refreshQueue.push((success) => {
+          if (success) resolve(uploadRequest(path, formData));
+          else reject({ status: 401, error: "Sesión expirada" });
+        });
+      });
+    }
+    isRefreshing = true;
+    const refreshed = await tryRefresh();
+    isRefreshing = false;
+    onRefreshed(refreshed);
+    if (refreshed) return uploadRequest(path, formData);
+
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw { status: res.status, error: data.error || "Error del servidor", ...data };
+  return data;
+}
+
 export const api = {
   get: (path) => request(path),
   post: (path, body) => request(path, { method: "POST", body: JSON.stringify(body) }),
   put: (path, body) => request(path, { method: "PUT", body: JSON.stringify(body) }),
   del: (path) => request(path, { method: "DELETE" }),
+  upload: (path, formData) => uploadRequest(path, formData),
 };

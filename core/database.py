@@ -81,8 +81,13 @@ class User(Base):
     profile_embedding = Column(LargeBinary, nullable=True)
     embedding_updated_at = Column(DateTime, nullable=True)
 
-    # Legacy compat
+    # Renewal tracking
+    last_renewal_prompt = Column(DateTime, nullable=True)
+
+    # Contact / WhatsApp
     phone = Column(String(20), nullable=True)
+    whatsapp_number = Column(String(20), nullable=True)  # +57XXXXXXXXXX
+    whatsapp_enabled = Column(Boolean, default=False)
 
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -267,6 +272,7 @@ class Subscription(Base):
     starts_at = Column(DateTime, default=datetime.utcnow)
     ends_at = Column(DateTime, nullable=False)
     auto_renew = Column(Boolean, default=True)
+    renewal_reminded_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="subscriptions")
@@ -286,6 +292,8 @@ class Payment(Base):
     type = Column(String(20), nullable=False)  # subscription, feature, pack
     wompi_ref = Column(String(100), unique=True, nullable=True)
     status = Column(String(20), default="pending")  # pending, approved, declined
+    comprobante_url = Column(String(500), nullable=True)
+    confirmed_at = Column(DateTime, nullable=True)
     metadata_json = Column(JSONType, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -618,6 +626,23 @@ class MagicLinkRepo(BaseRepository[MagicLink]):
             MagicLink.used_at == None,
             MagicLink.expires_at > datetime.utcnow(),
         ).first()
+
+    def get_by_hash(self, token_hash: str) -> Optional[MagicLink]:
+        """Get link by hash without validity checks (for debugging)."""
+        return self.session.query(MagicLink).filter(
+            MagicLink.token_hash == token_hash,
+        ).first()
+
+    def get_failure_reason(self, token_hash: str) -> str:
+        """Return specific reason why a token is invalid."""
+        link = self.get_by_hash(token_hash)
+        if not link:
+            return "not_found"  # Token never existed
+        if link.used_at is not None:
+            return "already_used"  # Token was already used
+        if link.expires_at <= datetime.utcnow():
+            return "expired"  # Token expired
+        return "valid"  # Should not happen
 
 
 class PipelineRepo(BaseRepository[PipelineEntry]):

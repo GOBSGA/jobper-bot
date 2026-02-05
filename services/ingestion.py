@@ -146,55 +146,33 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
 
 
 def check_expiring_subscriptions():
-    """Send reminder emails to users whose trial or subscription expires in 3 days."""
+    """Check subscription renewals and expire trials."""
     from datetime import timedelta
-    from core.database import User, Subscription
+    from core.database import User
     from core.tasks import task_send_email
 
-    now = datetime.utcnow()
-    remind_window_start = now + timedelta(days=2)
-    remind_window_end = now + timedelta(days=4)
+    # Delegate paid subscription renewals to payments service
+    try:
+        from services.payments import check_renewals
+        check_renewals()
+    except Exception as e:
+        logger.error(f"Renewal check failed: {e}")
 
+    # Handle trial expirations separately
+    now = datetime.utcnow()
     try:
         with UnitOfWork() as uow:
-            # Trial users expiring in ~3 days
+            # Remind trial users expiring in ~3 days
+            remind_start = now + timedelta(days=2)
+            remind_end = now + timedelta(days=4)
             expiring_trials = uow.session.query(User).filter(
                 User.plan == "trial",
-                User.trial_ends_at.between(remind_window_start, remind_window_end),
+                User.trial_ends_at.between(remind_start, remind_end),
             ).all()
             for user in expiring_trials:
                 days_left = max(0, (user.trial_ends_at - now).days)
                 task_send_email.delay(user.email, "trial_expiring", {"days_left": days_left})
                 logger.info(f"Trial reminder sent to {user.email} ({days_left}d left)")
-
-            # Paid subscriptions expiring in ~3 days
-            expiring_subs = uow.session.query(Subscription).filter(
-                Subscription.status == "active",
-                Subscription.ends_at.between(remind_window_start, remind_window_end),
-            ).all()
-            for sub in expiring_subs:
-                user = uow.users.get(sub.user_id)
-                if user:
-                    days_left = max(0, (sub.ends_at - now).days)
-                    task_send_email.delay(
-                        user.email, "subscription_expiring",
-                        {"days_left": days_left, "plan": sub.plan},
-                    )
-                    logger.info(f"Renewal reminder sent to {user.email} ({days_left}d left)")
-
-            # Expire overdue subscriptions
-            overdue = uow.session.query(Subscription).filter(
-                Subscription.status == "active",
-                Subscription.ends_at < now,
-            ).all()
-            for sub in overdue:
-                sub.status = "expired"
-                user = uow.users.get(sub.user_id)
-                if user:
-                    user.plan = "free"
-                    logger.info(f"Subscription expired for user {user.email}")
-            if overdue:
-                uow.commit()
 
             # Expire overdue trials
             expired_trials = uow.session.query(User).filter(
@@ -202,13 +180,13 @@ def check_expiring_subscriptions():
                 User.trial_ends_at < now,
             ).all()
             for user in expired_trials:
-                user.plan = "expired"
+                user.plan = "free"
                 logger.info(f"Trial expired for user {user.email}")
             if expired_trials:
                 uow.commit()
 
     except Exception as e:
-        logger.error(f"Expiration check failed: {e}")
+        logger.error(f"Trial expiration check failed: {e}")
 
 
 def run_ingestion_async(days_back: int = 7):

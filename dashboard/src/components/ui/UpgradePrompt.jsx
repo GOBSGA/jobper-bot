@@ -20,7 +20,7 @@ export default function UpgradePrompt({ feature, requiredPlan, children }) {
             Disponible en el plan {planName}
           </p>
           <Link
-            to="/pricing"
+            to="/payments"
             className="inline-block mt-2 px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700"
           >
             Actualizar plan

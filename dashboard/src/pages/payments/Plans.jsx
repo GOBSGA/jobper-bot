@@ -9,7 +9,7 @@ import Spinner from "../../components/ui/Spinner";
 import Modal from "../../components/ui/Modal";
 import { money, date } from "../../lib/format";
 import { useToast } from "../../components/ui/Toast";
-import { Check, Zap, Copy, Shield, Banknote, ChevronRight } from "lucide-react";
+import { Check, Zap, Copy, Shield, Banknote, ChevronRight, Upload, ImageIcon } from "lucide-react";
 
 const PLANS = [
   {
@@ -71,6 +71,8 @@ export default function Plans() {
   const [checkout, setCheckout] = useState(null);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [comprobante, setComprobante] = useState(null);
+  const [comprobantePreview, setComprobantePreview] = useState(null);
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -93,16 +95,43 @@ export default function Plans() {
     }
   };
 
-  const confirmManualPayment = async () => {
+  const handleComprobanteChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      toast.error("Solo se permiten imágenes (JPG, PNG, WebP)");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("El archivo no puede superar 5MB");
+      return;
+    }
+
+    setComprobante(file);
+    setComprobantePreview(URL.createObjectURL(file));
+  };
+
+  const confirmPayment = async () => {
+    if (!comprobante || !checkout?.payment_id) return;
+
     setConfirming(true);
     try {
-      await api.post("/payments/request", { plan: selectedPlan.key });
-      toast.success("Solicitud enviada. Activamos tu plan en máximo 24 horas.");
+      const formData = new FormData();
+      formData.append("payment_id", checkout.payment_id);
+      formData.append("comprobante", comprobante);
+
+      const result = await api.upload("/payments/confirm", formData);
+      toast.success(`¡Plan ${result.plan} activado! Disfruta Jobper.`);
+      await refresh();
       setShowPayment(false);
       setSelectedPlan(null);
       setCheckout(null);
+      setComprobante(null);
+      setComprobantePreview(null);
     } catch (err) {
-      toast.error(err.error || "Error enviando solicitud");
+      toast.error(err.error || "Error confirmando pago");
     } finally {
       setConfirming(false);
     }
@@ -190,7 +219,7 @@ export default function Plans() {
 
       {/* Payment Modal */}
       {showPayment && selectedPlan && (
-        <Modal onClose={() => { setShowPayment(false); setSelectedPlan(null); setCheckout(null); }}>
+        <Modal open={true} onClose={() => { setShowPayment(false); setSelectedPlan(null); setCheckout(null); setComprobante(null); setComprobantePreview(null); }}>
           <div className="space-y-5">
             <div className="text-center">
               <Banknote className="h-10 w-10 text-brand-600 mx-auto mb-2" />
@@ -253,14 +282,38 @@ export default function Plans() {
                   </div>
                 )}
 
-                <Button className="w-full h-12 text-base" onClick={confirmManualPayment} disabled={confirming}>
-                  {confirming ? <Spinner className="h-5 w-5" /> : (
-                    <>Ya transferí <ChevronRight className="h-4 w-4" /></>
-                  )}
-                </Button>
-                <p className="text-xs text-center text-gray-400">
-                  Verificamos tu pago y activamos tu plan en máximo 24 horas hábiles.
-                </p>
+                {/* Comprobante upload */}
+                <div className="border-t border-gray-200 pt-4 space-y-3">
+                  <p className="text-sm font-medium text-gray-700">¿Ya transferiste? Sube tu comprobante:</p>
+
+                  <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 transition">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleComprobanteChange} />
+                    {comprobantePreview ? (
+                      <div className="flex items-center gap-3 w-full">
+                        <img src={comprobantePreview} alt="Comprobante" className="h-12 w-12 object-cover rounded-lg" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{comprobante?.name}</p>
+                          <p className="text-xs text-gray-500">{(comprobante?.size / 1024).toFixed(0)} KB — Toca para cambiar</p>
+                        </div>
+                        <ImageIcon className="h-4 w-4 text-green-500" />
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 text-gray-400" />
+                        <span className="text-sm text-gray-500">Seleccionar imagen del comprobante</span>
+                      </>
+                    )}
+                  </label>
+
+                  <Button className="w-full h-12 text-base" onClick={confirmPayment} disabled={!comprobante || confirming}>
+                    {confirming ? <Spinner className="h-5 w-5" /> : (
+                      <>Confirmar pago y activar plan <ChevronRight className="h-4 w-4" /></>
+                    )}
+                  </Button>
+                  <p className="text-xs text-center text-gray-400">
+                    Tu plan se activa inmediatamente al subir el comprobante.
+                  </p>
+                </div>
               </div>
             ) : null}
           </div>

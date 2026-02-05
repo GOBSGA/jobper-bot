@@ -1,11 +1,12 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useApi, useMutation } from "../../hooks/useApi";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
-import { money, date } from "../../lib/format";
-import { Heart, GitBranch, ExternalLink, ArrowLeft } from "lucide-react";
+import { useGate } from "../../hooks/useGate";
+import { money, date, truncate } from "../../lib/format";
+import { Heart, GitBranch, ExternalLink, ArrowLeft, Lock, Zap } from "lucide-react";
 import { useToast } from "../../components/ui/Toast";
 
 export default function ContractDetail() {
@@ -15,6 +16,7 @@ export default function ContractDetail() {
   const { data: c, loading, refetch } = useApi(`/contracts/${id}`);
   const { mutate: toggleFav, loading: favLoading } = useMutation("post", `/contracts/favorite`);
   const { mutate: addPipeline } = useMutation("post", "/pipeline");
+  const descGate = useGate("full_description");
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
   if (!c) return null;
@@ -82,7 +84,20 @@ export default function ContractDetail() {
       {c.description && (
         <Card>
           <h2 className="font-semibold text-gray-900 mb-2">Descripción</h2>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{c.description}</p>
+          {descGate.allowed ? (
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">{c.description}</p>
+          ) : (
+            <div>
+              <p className="text-sm text-gray-700">{truncate(c.description, 150)}</p>
+              <div className="mt-4 bg-gradient-to-b from-transparent to-gray-50 border border-gray-200 rounded-xl p-4 text-center">
+                <Lock className="h-5 w-5 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm font-medium text-gray-700">Descripción completa disponible en plan Alertas</p>
+                <Link to="/payments" className="inline-flex items-center gap-1 mt-2 px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">
+                  <Zap className="h-3.5 w-3.5" /> Ver planes
+                </Link>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

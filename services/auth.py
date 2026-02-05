@@ -55,14 +55,23 @@ def send_magic_link(email: str, ip: str = None) -> dict:
 def verify_magic_link(token: str, referral_code: str = None) -> dict:
     """
     Verify token, create/get user, return JWT tokens.
-    Returns: {access_token, refresh_token, user} or {error: str}
+    Returns: {access_token, refresh_token, user} or {error: str, reason: str}
     """
     token_hash = hash_token(token)
 
     with UnitOfWork() as uow:
         link = uow.magic_links.get_valid_by_hash(token_hash)
         if not link:
-            return {"error": "Token inválido o expirado"}
+            # Get specific failure reason for debugging
+            reason = uow.magic_links.get_failure_reason(token_hash)
+            error_messages = {
+                "not_found": "Token no encontrado. Verifica el enlace o solicita uno nuevo.",
+                "already_used": "Este enlace ya fue utilizado. Solicita uno nuevo.",
+                "expired": "El enlace expiró. Los enlaces son válidos por 60 minutos.",
+            }
+            error_msg = error_messages.get(reason, "Token inválido o expirado")
+            logger.warning(f"Magic link verification failed: reason={reason}, hash={token_hash[:16]}...")
+            return {"error": error_msg, "reason": reason}
 
         # Mark as used
         link.used_at = datetime.utcnow()
@@ -201,6 +210,8 @@ def _user_to_public(user: User) -> dict:
         "is_admin": user.is_admin,
         "referral_code": user.referral_code,
         "notifications_enabled": user.notifications_enabled,
+        "whatsapp_number": user.whatsapp_number,
+        "whatsapp_enabled": user.whatsapp_enabled,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -235,6 +246,10 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
             user.budget_min = data["budget_min"]
         if "budget_max" in data:
             user.budget_max = data["budget_max"]
+        if "whatsapp_number" in data:
+            user.whatsapp_number = data["whatsapp_number"]
+        if "whatsapp_enabled" in data:
+            user.whatsapp_enabled = data["whatsapp_enabled"]
 
         uow.commit()
         return _user_to_public(user)
