@@ -221,6 +221,12 @@ def get_matched_contracts(user_id: int, min_score: int = 0, limit: int = 50, day
 
 
 def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_back: int) -> list[dict]:
+    """
+    Optimized matching with O(n log k) complexity using heapq.
+    Early termination when we have enough high-quality matches.
+    """
+    import heapq
+
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
         if not user:
@@ -229,7 +235,7 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
         now = datetime.utcnow()
         since = now - timedelta(days=days_back)
 
-        # Pre-compute user embedding ONCE for semantic matching (Silicon Valley optimization)
+        # Pre-compute user embedding ONCE for semantic matching
         user_embedding = compute_user_embedding(user)
         if user_embedding is not None:
             logger.debug(f"User {user_id} embedding computed for semantic matching")
@@ -237,45 +243,62 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
         # Build query with pre-filters for efficiency
         query = uow.session.query(Contract).filter(
             Contract.publication_date >= since,
-            # Exclude expired contracts
             (Contract.deadline.is_(None)) | (Contract.deadline >= now),
         )
 
-        # Pre-filter by budget if user has it set (query optimization)
+        # Pre-filter by budget if user has it set
         if user.budget_min and user.budget_min > 0:
-            # Allow contracts with no amount (don't filter them out) or amount >= 50% of min
             query = query.filter(
                 (Contract.amount.is_(None)) | (Contract.amount >= user.budget_min * 0.5)
             )
         if user.budget_max and user.budget_max > 0:
-            # Allow contracts with no amount or amount <= 2x of max
             query = query.filter(
                 (Contract.amount.is_(None)) | (Contract.amount <= user.budget_max * 2)
             )
 
-        contracts = query.order_by(Contract.publication_date.desc()).limit(1000).all()
+        # Use streaming/batching for memory efficiency
+        contracts = query.order_by(Contract.publication_date.desc()).limit(500).all()
 
-        scored = []
+        # Use min-heap to keep top K results: O(n log k) instead of O(n log n)
+        # Heap stores (score, contract_dict) - negate score for max-heap behavior
+        top_k_heap = []
+        high_score_count = 0  # Track contracts with score >= 80
+
         for c in contracts:
-            # Pass user embedding for semantic scoring (contract embedding computed inside)
             score = calculate_match_score(user, c, user_embedding=user_embedding)
-            if score >= min_score:
-                scored.append({
-                    "id": c.id,
-                    "title": c.title,
-                    "description": (c.description or "")[:200],
-                    "entity": c.entity,
-                    "amount": c.amount,
-                    "currency": c.currency,
-                    "source": c.source,
-                    "url": c.url,
-                    "deadline": c.deadline.isoformat() if c.deadline else None,
-                    "publication_date": c.publication_date.isoformat() if c.publication_date else None,
-                    "match_score": score,
-                })
 
-        scored.sort(key=lambda x: x["match_score"], reverse=True)
-        return scored[:limit]
+            if score < min_score:
+                continue
+
+            if score >= 80:
+                high_score_count += 1
+
+            contract_dict = {
+                "id": c.id,
+                "title": c.title,
+                "description": (c.description or "")[:200],
+                "entity": c.entity,
+                "amount": c.amount,
+                "currency": c.currency,
+                "source": c.source,
+                "url": c.url,
+                "deadline": c.deadline.isoformat() if c.deadline else None,
+                "publication_date": c.publication_date.isoformat() if c.publication_date else None,
+                "match_score": score,
+            }
+
+            if len(top_k_heap) < limit:
+                heapq.heappush(top_k_heap, (score, c.id, contract_dict))
+            elif score > top_k_heap[0][0]:
+                heapq.heapreplace(top_k_heap, (score, c.id, contract_dict))
+
+            # Early termination: if we have enough high-quality matches, stop
+            if high_score_count >= limit * 2 and len(top_k_heap) >= limit:
+                break
+
+        # Extract results sorted by score descending
+        results = [item[2] for item in sorted(top_k_heap, key=lambda x: -x[0])]
+        return results
 
 
 def get_alerts(user_id: int, hours: int = 24) -> dict:

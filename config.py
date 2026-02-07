@@ -33,7 +33,11 @@ class Config:
     # ======================================================================
     # JWT / AUTH
     # ======================================================================
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
+    # SECURITY: JWT_SECRET must be set in production. Generate with:
+    # python -c "import secrets; print(secrets.token_hex(32))"
+    JWT_SECRET: str = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or ""
+    if not JWT_SECRET and os.getenv("RAILWAY_ENVIRONMENT"):
+        raise ValueError("CRITICAL: JWT_SECRET must be set in production!")
     JWT_ACCESS_EXPIRY_MINUTES: int = 10080  # 7 days
     JWT_REFRESH_EXPIRY_DAYS: int = 30
     MAGIC_LINK_EXPIRY_MINUTES: int = 60  # 60 minutes (was 15 - too short with email delays)
@@ -105,7 +109,8 @@ class Config:
     # ADMIN
     # ======================================================================
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "")
-    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "gabriel.sanmiguel322@gmail.com")
+    # ADMIN_EMAIL is required for payment notifications - no default to avoid data leaks
+    ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
 
     # ======================================================================
     # APIs DE LICITACIONES — GOBIERNO COLOMBIA

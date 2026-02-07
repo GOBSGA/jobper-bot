@@ -51,12 +51,19 @@ def create_app() -> Flask:
     from core.middleware import register_error_handlers
     register_error_handlers(app)
 
-    # Serve uploaded files (comprobantes)
+    # Serve uploaded files (comprobantes) with path traversal protection
     uploads_dir = os.path.join(Config.BASE_DIR, "uploads")
     os.makedirs(uploads_dir, exist_ok=True)
 
     @app.route("/uploads/<path:filename>")
     def serve_upload(filename):
+        # Security: prevent path traversal attacks (e.g., ../../../etc/passwd)
+        if ".." in filename or filename.startswith("/"):
+            return {"error": "Invalid filename"}, 400
+        # Resolve and verify path is within uploads directory
+        safe_path = os.path.normpath(os.path.join(uploads_dir, filename))
+        if not safe_path.startswith(os.path.normpath(uploads_dir)):
+            return {"error": "Invalid filename"}, 400
         return send_from_directory(uploads_dir, filename)
 
     # Serve built frontend in production (when dashboard/dist exists)
@@ -100,9 +107,10 @@ def _init_db():
         # Create GIN index for PostgreSQL FTS (no-op if already exists)
         if Config.is_postgresql():
             try:
+                from sqlalchemy import text
                 with engine.connect() as conn:
                     conn.execute(
-                        __import__("sqlalchemy").text(
+                        text(
                             "CREATE INDEX IF NOT EXISTS idx_contracts_fts "
                             "ON contracts USING GIN ("
                             "to_tsvector('spanish', COALESCE(title, '') || ' ' || COALESCE(description, ''))"
@@ -121,16 +129,18 @@ def _init_db():
 # Background services: ingestion + periodic scraping
 # ---------------------------------------------------------------------------
 
+import threading
+_bg_lock = threading.Lock()
 _bg_started = False
 
 
 def _start_background_services():
     global _bg_started
-    if _bg_started:
-        return
-    _bg_started = True
+    with _bg_lock:  # Thread-safe to prevent double-start race condition
+        if _bg_started:
+            return
+        _bg_started = True
 
-    import threading
     import time
     from datetime import datetime, timedelta
 
