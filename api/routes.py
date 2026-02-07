@@ -877,12 +877,16 @@ health_bp = Blueprint("health", __name__, url_prefix="/api")
 @health_bp.get("/health")
 def health_check():
     """Health endpoint for Railway / load balancer."""
-    from services.ingestion import get_contract_count
+    try:
+        from services.ingestion import get_contract_count
+        contract_count = get_contract_count()
+    except Exception:
+        contract_count = -1  # DB not ready yet
     return jsonify({
         "status": "ok",
         "service": "Jobper",
         "version": "5.0.0",
-        "contracts": get_contract_count(),
+        "contracts": contract_count,
     })
 
 
