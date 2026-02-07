@@ -144,11 +144,25 @@ class MarketplaceListSchema(BaseModel):
 
 
 # =============================================================================
+# ONBOARDING
+# =============================================================================
+
+class OnboardingAnalyzeSchema(BaseModel):
+    description: str = Field(min_length=10, max_length=3000)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def sanitize_text(cls, v):
+        return sanitize_html(v) if v else v
+
+
+# =============================================================================
 # PAYMENTS
 # =============================================================================
 
 class CheckoutSchema(BaseModel):
-    plan: Literal["alertas", "starter", "business", "enterprise"]
+    # Nuevos nombres + aliases para compatibilidad
+    plan: Literal["free", "cazador", "competidor", "dominador", "alertas", "starter", "business", "enterprise"]
 
 
 # =============================================================================

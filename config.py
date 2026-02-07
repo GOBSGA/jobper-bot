@@ -265,99 +265,175 @@ class Config:
     }
 
     # ======================================================================
-    # PLANES / PRICING (COP)
+    # PLANES / PRICING (COP) — 4 Planes con FOMO brutal
     # ======================================================================
     PLANS: dict = {
+        # ----------------------------------------------------------------
+        # GRATIS — "Observador"
+        # Ve contratos pero con información crucial bloqueada
+        # ----------------------------------------------------------------
         "free": {
-            "name": "Free",
+            "name": "Gratis",
+            "display_name": "Observador",
             "price": 0,
-            "features": [
-                "search",
-            ],
+            "tagline": "Descubre oportunidades",
+            "features": ["search", "basic_filters"],
             "limits": {
-                "alerts_per_week": 3,
-                "favorites_max": 5,
-                "searches_per_day": 5,
-                "show_full_description": False,
-                "show_match_score": False,
-                "export_per_month": 0,
+                "alerts_per_week": 3,           # FIX: 3 alertas básicas/semana (solo título)
+                "favorites_max": 10,            # Pocos favoritos
+                "searches_per_day": 10,         # Limitado
+                "show_full_description": False, # Solo primeras 100 chars
+                "show_match_score": False,      # Ve "??%"
+                "show_amount": False,           # Ve "$🔒🔒🔒"
+                "show_deadline_days": True,     # Sí ve días restantes
+                "export_per_month": 0,          # Sin exportar
+                "history_days": 7,              # Solo 7 días de historial
             },
+            "blocked_message": "Activa Cazador para ver todos los detalles",
         },
-        "alertas": {
-            "name": "Alertas",
+        # ----------------------------------------------------------------
+        # CAZADOR — $29,900/mes
+        # Información completa, alertas por email
+        # ----------------------------------------------------------------
+        "cazador": {
+            "name": "Cazador",
+            "display_name": "Cazador",
             "price": 29_900,
+            "tagline": "Encuentra antes que otros",
             "features": [
-                "search", "contracts_unlimited", "alerts", "favorites",
+                "search", "contracts_unlimited", "alerts_email", "favorites",
                 "match", "email_digest", "full_description", "match_scores",
-                "advanced_filters", "export",
+                "advanced_filters", "export", "show_amount",
             ],
             "limits": {
-                "searches_per_day": None,  # Unlimited
+                "alerts_per_week": 50,          # 50 alertas/semana
+                "favorites_max": 100,           # Muchos favoritos
+                "searches_per_day": None,       # Ilimitadas
                 "show_full_description": True,
                 "show_match_score": True,
-                "export_per_month": 100,
+                "show_amount": True,
+                "export_per_month": 50,         # 50 exports/mes
+                "history_days": 30,             # 30 días
             },
+            "blocked_message": "Activa Competidor para acceso a contratos privados",
         },
-        "business": {
-            "name": "Business",
+        # ----------------------------------------------------------------
+        # COMPETIDOR — $149,900/mes
+        # Contratos privados, IA, pipeline, alertas instantáneas
+        # ----------------------------------------------------------------
+        "competidor": {
+            "name": "Competidor",
+            "display_name": "Competidor",
             "price": 149_900,
+            "tagline": "Gana más contratos",
             "features": [
-                "search", "contracts_unlimited", "alerts", "favorites",
-                "match", "email_digest", "full_description", "match_scores",
-                "advanced_filters", "export",
-                "ai_analysis", "pipeline", "marketplace", "push",
-                "documents", "reports",
+                "search", "contracts_unlimited", "alerts_email", "alerts_push",
+                "favorites_unlimited", "match", "email_digest", "full_description",
+                "match_scores", "advanced_filters", "export_unlimited", "show_amount",
+                "private_contracts", "ai_analysis", "pipeline", "documents",
+                "instant_alerts", "webinars",
             ],
             "limits": {
+                "alerts_per_week": None,        # Ilimitadas
+                "favorites_max": None,          # Ilimitados
                 "searches_per_day": None,
                 "show_full_description": True,
                 "show_match_score": True,
-                "export_per_month": None,  # Unlimited
+                "show_amount": True,
+                "export_per_month": 500,        # 500/mes
+                "history_days": 365,            # 1 año
             },
+            "blocked_message": "Activa Dominador para inteligencia competitiva",
         },
-        "enterprise": {
-            "name": "Enterprise",
+        # ----------------------------------------------------------------
+        # DOMINADOR — $599,900/mes
+        # Todo + inteligencia competitiva + multi-usuario + auto-propuestas
+        # ----------------------------------------------------------------
+        "dominador": {
+            "name": "Dominador",
+            "display_name": "Dominador",
             "price": 599_900,
+            "tagline": "Domina tu sector",
             "features": [
-                "search", "contracts_unlimited", "alerts", "favorites",
-                "match", "email_digest", "full_description", "match_scores",
-                "advanced_filters", "export",
-                "ai_analysis", "pipeline", "marketplace", "push",
-                "documents", "reports",
-                "team", "competitive_intelligence", "api_access", "priority_support",
+                "search", "contracts_unlimited", "alerts_email", "alerts_push",
+                "favorites_unlimited", "match", "email_digest", "full_description",
+                "match_scores", "advanced_filters", "export_unlimited", "show_amount",
+                "private_contracts", "ai_analysis", "pipeline", "documents",
+                "instant_alerts", "webinars",
+                "competitive_intelligence", "team", "api_access", "auto_proposals",
+                "consortium_network", "priority_support", "monthly_consultation",
+                "custom_reports", "whitelabel",
             ],
             "limits": {
+                "alerts_per_week": None,
+                "favorites_max": None,
                 "searches_per_day": None,
                 "show_full_description": True,
                 "show_match_score": True,
-                "export_per_month": None,
+                "show_amount": True,
+                "export_per_month": None,       # Ilimitado
+                "history_days": None,           # Todo el historial
+                "team_members": 5,              # 5 usuarios
             },
+            "blocked_message": "Ya tienes el plan máximo",
         },
     }
 
-    # Plan hierarchy for comparison (higher index = higher plan)
-    PLAN_HIERARCHY: list = ["free", "trial", "alertas", "starter", "business", "enterprise"]
+    # Alias para compatibilidad con código existente
+    PLAN_ALIASES: dict = {
+        "alertas": "cazador",      # Alias antiguo
+        "business": "competidor",  # Alias antiguo
+        "enterprise": "dominador", # Alias antiguo
+        "starter": "cazador",      # Alias antiguo
+        "trial": "free",           # Trial = Free con limits
+    }
 
-    # Feature → minimum plan required
+    # Plan hierarchy for comparison (higher index = higher plan)
+    PLAN_HIERARCHY: list = ["free", "trial", "cazador", "competidor", "dominador"]
+
+    # Feature → minimum plan required (FOMO gates)
     FEATURE_GATES: dict = {
-        "full_description": "alertas",
-        "match_scores": "alertas",
-        "alerts": "alertas",
-        "favorites": "alertas",
-        "match": "alertas",
-        "email_digest": "alertas",
-        "advanced_filters": "alertas",
-        "export": "alertas",
-        "ai_analysis": "business",
-        "pipeline": "business",
-        "marketplace": "business",
-        "push": "business",
-        "documents": "business",
-        "reports": "business",
-        "team": "enterprise",
-        "competitive_intelligence": "enterprise",
-        "api_access": "enterprise",
-        "priority_support": "enterprise",
+        # === CAZADOR ($30K) ===
+        "full_description": "cazador",
+        "match_scores": "cazador",
+        "show_amount": "cazador",
+        "alerts_email": "cazador",
+        "favorites_unlimited": "cazador",
+        "email_digest": "cazador",
+        "advanced_filters": "cazador",
+        "export": "cazador",
+
+        # === COMPETIDOR ($150K) ===
+        "private_contracts": "competidor",
+        "ai_analysis": "competidor",
+        "pipeline": "competidor",
+        "alerts_push": "competidor",
+        "instant_alerts": "competidor",
+        "documents": "competidor",
+        "webinars": "competidor",
+
+        # === DOMINADOR ($600K) ===
+        "competitive_intelligence": "dominador",
+        "team": "dominador",
+        "api_access": "dominador",
+        "auto_proposals": "dominador",
+        "consortium_network": "dominador",
+        "priority_support": "dominador",
+        "monthly_consultation": "dominador",
+        "custom_reports": "dominador",
+        "whitelabel": "dominador",
+    }
+
+    # FOMO messages for each blocked feature
+    FOMO_MESSAGES: dict = {
+        "full_description": "Ve la descripción completa con Cazador",
+        "match_scores": "{count} contratos coinciden {percent}%+ con tu perfil",
+        "show_amount": "Este contrato vale ${amount} — Desbloquea con Cazador",
+        "private_contracts": "{count} contratos privados disponibles solo en Competidor",
+        "ai_analysis": "Analiza este contrato con IA y conoce tu probabilidad de ganar",
+        "competitive_intelligence": "Descubre quién gana contratos en tu sector",
+        "alerts_email": "Recibe alertas cuando publiquen contratos para ti",
+        "instant_alerts": "Sé el primero en enterarte — alertas en tiempo real",
     }
 
     # Marketplace featured pricing (COP)

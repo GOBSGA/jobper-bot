@@ -102,7 +102,19 @@ async function uploadRequest(path, formData) {
   }
 
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw { status: res.status, error: data.error || "Error del servidor", ...data };
+
+  // Special handling for payment verification responses
+  // 202 = Accepted (pending review) - return data, let caller handle
+  // 422 = Unprocessable Entity (rejected but can retry) - include full data in error
+  if (!res.ok) {
+    throw {
+      status: res.status,
+      httpStatus: res.status,
+      error: data.error || "Error del servidor",
+      ...data,
+    };
+  }
+
   return data;
 }
 

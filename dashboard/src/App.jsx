@@ -7,6 +7,7 @@ import Layout from "./components/layout/Layout";
 import Login from "./pages/auth/Login";
 import Verify from "./pages/auth/Verify";
 import Onboarding from "./pages/auth/Onboarding";
+import OnboardingConversational from "./pages/auth/OnboardingConversational";
 
 // App pages
 import Dashboard from "./pages/dashboard/Dashboard";
@@ -20,6 +21,7 @@ import Referrals from "./pages/payments/Referrals";
 import Settings from "./pages/settings/Settings";
 import Support from "./pages/support/Support";
 import Admin from "./pages/admin/Admin";
+import PaymentReview from "./pages/admin/PaymentReview";
 
 // Public
 import Landing from "./pages/public/Landing";
@@ -55,7 +57,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
       </Route>
       <Route path="/verify" element={<Verify />} />
-      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/onboarding" element={<OnboardingConversational />} />
+      <Route path="/onboarding/traditional" element={<Onboarding />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
 
@@ -76,6 +79,7 @@ export default function App() {
         {/* Admin */}
         <Route element={<AdminRoute />}>
           <Route path="/admin" element={<Admin />} />
+          <Route path="/admin/payments" element={<PaymentReview />} />
         </Route>
       </Route>
 

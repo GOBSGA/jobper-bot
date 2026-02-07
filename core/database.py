@@ -89,6 +89,16 @@ class User(Base):
     whatsapp_number = Column(String(20), nullable=True)  # +57XXXXXXXXXX
     whatsapp_enabled = Column(Boolean, default=False)
 
+    # Onboarding
+    onboarding_completed = Column(Boolean, default=False)
+
+    # Trusted Payer System
+    trust_score = Column(Float, default=0.0)  # Accumulated trust from verified payments
+    verified_payments_count = Column(Integer, default=0)  # Count of 95%+ confidence payments
+    trust_level = Column(String(20), default="new")  # new, bronze, silver, gold, platinum
+    one_click_renewal_enabled = Column(Boolean, default=False)  # Earned after 2+ verified payments
+    last_verified_payment_at = Column(DateTime, nullable=True)
+
     # Timestamps
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -291,16 +301,22 @@ class Payment(Base):
     currency = Column(String(10), default="COP")
     type = Column(String(20), nullable=False)  # subscription, feature, pack
     wompi_ref = Column(String(100), unique=True, nullable=True)
-    status = Column(String(20), default="pending")  # pending, approved, declined
+    status = Column(String(20), default="pending")  # pending, approved, declined, review
     comprobante_url = Column(String(500), nullable=True)
     confirmed_at = Column(DateTime, nullable=True)
     metadata_json = Column(JSONType, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Receipt verification fields
+    comprobante_hash = Column(String(64), nullable=True, index=True)  # SHA256 for duplicate detection
+    verification_result = Column(JSONType, nullable=True)  # AI verification details
+    verification_status = Column(String(20), nullable=True)  # auto_approved, manual_review, rejected
+
     user = relationship("User")
 
     __table_args__ = (
         Index("idx_payment_user", "user_id"),
+        Index("idx_payment_hash", "comprobante_hash"),
     )
 
 

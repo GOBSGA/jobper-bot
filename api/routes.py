@@ -20,6 +20,7 @@ from api.schemas import (
     PushSubscriptionSchema,
     AdminListSchema, AdminModerateSchema, AdminLogsSchema,
     ChatbotSchema,
+    OnboardingAnalyzeSchema,
 )
 
 logger = logging.getLogger(__name__)
@@ -354,6 +355,117 @@ def register_push():
 
 
 # =============================================================================
+# ONBOARDING (2 endpoints)
+# =============================================================================
+onboarding_bp = Blueprint("onboarding", __name__, url_prefix="/api/onboarding")
+
+
+@onboarding_bp.post("/analyze")
+@require_auth
+@rate_limit(10)
+@validate(OnboardingAnalyzeSchema)
+def analyze_profile():
+    """
+    AI-powered profile extraction from free-text business description.
+    Returns structured profile data for confirmation.
+    """
+    from services.intelligence import analyze_profile_description
+    from services.matching import calculate_match_score
+    from types import SimpleNamespace
+
+    result = analyze_profile_description(g.validated.description)
+
+    if "error" in result:
+        return jsonify(result), 400
+
+    # Get a preview of how many contracts would match
+    profile = result.get("profile", {})
+    matched_preview = 0
+    if profile.get("sector") or profile.get("keywords"):
+        # FIX: Create a mock user object with proposed profile instead of
+        # modifying real user (which was wrong - other sessions couldn't see changes)
+        from core.database import UnitOfWork
+        with UnitOfWork() as uow:
+            user = uow.users.get(g.user_id)
+            if user:
+                # Create mock user with proposed values for matching simulation
+                mock_user = SimpleNamespace(
+                    id=user.id,
+                    sector=profile.get("sector") or user.sector,
+                    keywords=profile.get("keywords") or user.keywords or [],
+                    city=profile.get("city") or user.city,
+                    budget_min=profile.get("budget_min") or user.budget_min,
+                    budget_max=profile.get("budget_max") or user.budget_max,
+                    plan=user.plan,
+                )
+
+                # Get recent contracts and score them with proposed profile
+                from datetime import datetime, timedelta
+                now = datetime.utcnow()
+                contracts = uow.session.query(uow.contracts.model).filter(
+                    uow.contracts.model.publication_date >= now - timedelta(days=30),
+                ).order_by(uow.contracts.model.publication_date.desc()).limit(200).all()
+
+                matched = 0
+                for c in contracts:
+                    score = calculate_match_score(mock_user, c)
+                    if score >= 30:
+                        matched += 1
+
+                matched_preview = matched
+
+    return jsonify({
+        "profile": profile,
+        "method": result.get("method", "rules"),
+        "matched_preview": matched_preview,
+    })
+
+
+@onboarding_bp.post("/complete")
+@require_auth
+@rate_limit(5)
+def complete_onboarding():
+    """
+    Save the confirmed profile from onboarding.
+    """
+    from services.auth import update_user_profile
+
+    data = request.get_json(silent=True) or {}
+
+    # Extract profile fields
+    profile_data = {
+        "company_name": data.get("company_name"),
+        "sector": data.get("sector"),
+        "keywords": data.get("keywords"),
+        "city": data.get("city"),
+        "budget_min": data.get("budget_min"),
+        "budget_max": data.get("budget_max"),
+    }
+
+    # Remove None values
+    profile_data = {k: v for k, v in profile_data.items() if v is not None}
+
+    result = update_user_profile(g.user_id, profile_data)
+
+    if not result:
+        return jsonify({"error": "No se pudo guardar el perfil"}), 400
+
+    # Mark onboarding as complete
+    from core.database import UnitOfWork
+    with UnitOfWork() as uow:
+        user = uow.users.get(g.user_id)
+        if user:
+            user.onboarding_completed = True
+            uow.commit()
+
+    return jsonify({
+        "ok": True,
+        "profile": result,
+        "message": "¡Perfil configurado! Ya puedes ver contratos personalizados.",
+    })
+
+
+# =============================================================================
 # PAYMENTS (4 endpoints)
 # =============================================================================
 payments_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
@@ -410,37 +522,78 @@ def confirm_payment():
     if not payment_id:
         return jsonify({"error": "payment_id es requerido"}), 400
 
+    # Validate payment_id is numeric to prevent path traversal
+    try:
+        payment_id_int = int(payment_id)
+    except ValueError:
+        return jsonify({"error": "payment_id inválido"}), 400
+
     comprobante = request.files.get("comprobante")
     if not comprobante:
         return jsonify({"error": "Comprobante es requerido"}), 400
 
-    # Validate file type
-    allowed = {"image/jpeg", "image/png", "image/webp"}
-    if comprobante.content_type not in allowed:
-        return jsonify({"error": "Solo se aceptan imágenes (JPG, PNG, WebP)"}), 400
-
-    # Validate file size (5MB max)
+    # Validate file size FIRST (5MB max) - before reading content
     comprobante.seek(0, 2)
     size = comprobante.tell()
     comprobante.seek(0)
     if size > 5 * 1024 * 1024:
         return jsonify({"error": "El archivo no puede superar 5MB"}), 400
+    if size < 100:  # Too small to be a valid image
+        return jsonify({"error": "Archivo muy pequeño para ser una imagen válida"}), 400
 
-    # Save file
-    ext = comprobante.content_type.split("/")[-1]
-    if ext == "jpeg":
-        ext = "jpg"
+    # FIX: Validate file type by MAGIC BYTES (not just Content-Type header)
+    # This prevents uploading malicious files with fake Content-Type
+    magic_bytes = comprobante.read(12)
+    comprobante.seek(0)
+
+    # Magic bytes for image formats
+    MAGIC_SIGNATURES = {
+        b'\xff\xd8\xff': 'jpg',           # JPEG
+        b'\x89PNG\r\n\x1a\n': 'png',      # PNG
+        b'RIFF': 'webp',                   # WebP (starts with RIFF)
+    }
+
+    detected_ext = None
+    for magic, ext in MAGIC_SIGNATURES.items():
+        if magic_bytes.startswith(magic):
+            detected_ext = ext
+            break
+
+    # WebP has RIFF header, need to check for WEBP at byte 8
+    if magic_bytes[:4] == b'RIFF' and len(magic_bytes) >= 12 and magic_bytes[8:12] == b'WEBP':
+        detected_ext = 'webp'
+    elif magic_bytes[:4] == b'RIFF' and (len(magic_bytes) < 12 or magic_bytes[8:12] != b'WEBP'):
+        detected_ext = None  # RIFF but not WebP
+
+    if not detected_ext:
+        return jsonify({"error": "Solo se aceptan imágenes válidas (JPG, PNG, WebP)"}), 400
+
+    # Save file with detected extension (not user-provided)
     upload_dir = os.path.join("uploads", "comprobantes", str(g.user_id))
     os.makedirs(upload_dir, exist_ok=True)
-    filename = secure_filename(f"{payment_id}.{ext}")
+    filename = secure_filename(f"{payment_id_int}.{detected_ext}")
     filepath = os.path.join(upload_dir, filename)
     comprobante.save(filepath)
 
     from services.payments import confirm_payment as do_confirm
-    result = do_confirm(g.user_id, int(payment_id), filepath)
+    result = do_confirm(g.user_id, payment_id_int, filepath)
+
+    # Handle different verification results
     if "error" in result:
         return jsonify(result), 400
-    return jsonify(result)
+
+    # Check the verification status
+    status = result.get("status", "approved")
+    if status == "approved":
+        return jsonify(result), 200
+    elif status == "review":
+        # Payment is being manually reviewed
+        return jsonify(result), 202  # Accepted, pending
+    elif status == "rejected":
+        # Payment was rejected but user can retry
+        return jsonify(result), 422  # Unprocessable Entity
+    else:
+        return jsonify(result), 200
 
 
 @payments_bp.post("/cancel")
@@ -449,6 +602,35 @@ def confirm_payment():
 def cancel_sub():
     from services.payments import cancel_subscription
     result = cancel_subscription(g.user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@payments_bp.get("/trust")
+@require_auth
+def get_trust_info():
+    """Get user's trusted payer status and rewards."""
+    from services.payments import get_user_trust_info
+    result = get_user_trust_info(g.user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@payments_bp.post("/one-click-renewal")
+@require_auth
+@rate_limit(5)
+@audit("one_click_renewal")
+def one_click_renewal():
+    """
+    One-click renewal for trusted payers (2+ verified payments).
+    Creates a pending payment with the same plan.
+    """
+    from services.payments import one_click_renewal as do_renewal
+    data = request.get_json(silent=True) or {}
+    plan = data.get("plan")  # Optional - defaults to current plan
+    result = do_renewal(g.user_id, plan)
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)
@@ -587,6 +769,43 @@ def admin_activate_subscription():
     return jsonify(result)
 
 
+@admin_bp.get("/payments/review")
+@require_auth
+@require_admin
+def admin_payments_review():
+    """List payments that need manual review."""
+    from services.payments import get_payments_for_review
+    return jsonify({"payments": get_payments_for_review()})
+
+
+@admin_bp.post("/payments/<int:payment_id>/approve")
+@require_auth
+@require_admin
+@audit("admin_approve_payment")
+def admin_approve_payment_route(payment_id: int):
+    """Approve a payment that was flagged for manual review."""
+    from services.payments import admin_approve_payment
+    result = admin_approve_payment(payment_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.post("/payments/<int:payment_id>/reject")
+@require_auth
+@require_admin
+@audit("admin_reject_payment")
+def admin_reject_payment_route(payment_id: int):
+    """Reject a payment that was flagged for manual review."""
+    data = request.get_json(silent=True) or {}
+    reason = data.get("reason", "")
+    from services.payments import admin_reject_payment
+    result = admin_reject_payment(payment_id, reason)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 # =============================================================================
 # PUBLIC (3 endpoints — no auth)
 # =============================================================================
@@ -678,6 +897,7 @@ ALL_BLUEPRINTS = [
     pipeline_bp,
     marketplace_bp,
     user_bp,
+    onboarding_bp,
     payments_bp,
     referrals_bp,
     admin_bp,

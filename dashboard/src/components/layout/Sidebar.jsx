@@ -3,7 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import Logo from "../ui/Logo";
 import {
   LayoutDashboard, Search, Heart, GitBranch, Store,
-  CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap,
+  CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap, ClipboardCheck,
 } from "lucide-react";
 
 const nav = [
@@ -61,19 +61,37 @@ export default function Sidebar() {
           </NavLink>
         ))}
         {user?.is_admin && (
-          <NavLink
-            to="/admin"
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                isActive
-                  ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-              }`
-            }
-          >
-            <Shield className="h-[18px] w-[18px]" />
-            Admin
-          </NavLink>
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+            </div>
+            <NavLink
+              to="/admin"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  isActive
+                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`
+              }
+            >
+              <Shield className="h-[18px] w-[18px]" />
+              Dashboard
+            </NavLink>
+            <NavLink
+              to="/admin/payments"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  isActive
+                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`
+              }
+            >
+              <ClipboardCheck className="h-[18px] w-[18px]" />
+              Revisar Pagos
+            </NavLink>
+          </>
         )}
       </nav>
 

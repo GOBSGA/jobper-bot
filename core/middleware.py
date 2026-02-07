@@ -16,7 +16,31 @@ from core.security import rate_limiter
 
 logger = logging.getLogger(__name__)
 
-PLAN_ORDER = {"free": 0, "trial": 1, "alertas": 2, "starter": 2, "business": 3, "enterprise": 4}
+# Plan hierarchy with new names (higher = better)
+PLAN_ORDER = {
+    "free": 0,
+    "trial": 0,          # Trial = Free
+    "cazador": 1,
+    "competidor": 2,
+    "dominador": 3,
+    # Aliases for backwards compatibility
+    "alertas": 1,        # Old name for Cazador
+    "starter": 1,        # Old name for Cazador
+    "business": 2,       # Old name for Competidor
+    "enterprise": 3,     # Old name for Dominador
+}
+
+
+def normalize_plan(plan: str) -> str:
+    """Convert old plan names to new ones."""
+    aliases = {
+        "alertas": "cazador",
+        "starter": "cazador",
+        "business": "competidor",
+        "enterprise": "dominador",
+        "trial": "free",
+    }
+    return aliases.get(plan, plan)
 
 
 # =============================================================================

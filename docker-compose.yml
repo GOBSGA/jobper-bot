@@ -1,0 +1,56 @@
+# =============================================================================
+# Jobper v5.0 — Docker Compose para desarrollo local
+# Uso: docker compose up -d
+# =============================================================================
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: jobper-db
+    environment:
+      POSTGRES_USER: jobper
+      POSTGRES_PASSWORD: jobper123
+      POSTGRES_DB: jobper
+    ports:
+      - "5433:5432"  # Puerto 5433 para evitar conflicto con PostgreSQL local
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobper"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: jobper-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (opcional - puedes correr Flask localmente)
+  # api:
+  #   build: .
+  #   container_name: jobper-api
+  #   ports:
+  #     - "5001:5001"
+  #   environment:
+  #     DATABASE_URL: postgresql://jobper:jobper123@db:5432/jobper
+  #     REDIS_URL: redis://redis:6379/0
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

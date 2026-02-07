@@ -1,34 +1,117 @@
 """
-Jobper Services — Contract Matching Engine
-Pure Python matching (no external AI APIs) = $0 cost per user.
+Jobper Services — Contract Matching Engine v2.0
+Hybrid matching: Keywords + Semantic (embeddings) for Silicon Valley-level recommendations.
 
 Score algorithm:
-  - Keyword match (50%): how many user keywords appear in contract title+description
-  - Sector match (25%): user sector matches contract category/entity keywords
-  - Recency bonus (25%): newer contracts score higher
+  - Semantic match (35%): embedding similarity between user profile and contract
+  - Keyword match (25%): how many user keywords appear in contract
+  - Sector match (15%): user sector matches contract category
+  - Budget match (15%): contract amount within user's budget range
+  - Recency bonus (10%): newer contracts score higher
 """
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime, timedelta
+from typing import Optional
+
+import numpy as np
 
 from core.cache import cache
 from core.database import UnitOfWork, User, Contract
 
 logger = logging.getLogger(__name__)
 
+# =============================================================================
+# SEMANTIC MATCHING (Lazy-loaded singleton)
+# =============================================================================
 
-def calculate_match_score(user: User, contract: Contract) -> int:
+_semantic_matcher = None
+_semantic_enabled = True
+
+
+def get_semantic_matcher():
+    """Lazy-load the semantic matcher to avoid slow startup."""
+    global _semantic_matcher, _semantic_enabled
+
+    if not _semantic_enabled:
+        return None
+
+    if _semantic_matcher is None:
+        try:
+            from nlp.semantic_search import SemanticMatcher
+            _semantic_matcher = SemanticMatcher()
+            logger.info("Semantic matcher loaded successfully")
+        except Exception as e:
+            logger.warning(f"Could not load semantic matcher: {e}. Falling back to keyword-only matching.")
+            _semantic_enabled = False
+            return None
+
+    return _semantic_matcher
+
+
+def compute_user_embedding(user: User) -> Optional[np.ndarray]:
+    """Compute embedding for user profile."""
+    matcher = get_semantic_matcher()
+    if not matcher:
+        return None
+
+    try:
+        # Build user dict for semantic matcher
+        user_dict = {
+            "industry": user.sector,
+            "include_keywords": user.keywords or [],
+        }
+        return matcher.compute_user_profile_embedding(user_dict, save_to_db=False)
+    except Exception as e:
+        logger.warning(f"Error computing user embedding: {e}")
+        return None
+
+
+def compute_contract_embedding(contract: Contract) -> Optional[np.ndarray]:
+    """Compute embedding for a contract."""
+    matcher = get_semantic_matcher()
+    if not matcher:
+        return None
+
+    try:
+        contract_dict = {
+            "title": contract.title or "",
+            "description": contract.description or "",
+            "entity": contract.entity or "",
+        }
+        return matcher.compute_contract_embedding(contract_dict, save_to_db=False)
+    except Exception as e:
+        logger.debug(f"Error computing contract embedding: {e}")
+        return None
+
+
+def semantic_similarity(user_embedding: np.ndarray, contract_embedding: np.ndarray) -> float:
+    """Calculate cosine similarity between user and contract embeddings."""
+    if user_embedding is None or contract_embedding is None:
+        return 0.0
+    try:
+        # Dot product of normalized vectors = cosine similarity
+        return float(np.dot(user_embedding, contract_embedding))
+    except Exception:
+        return 0.0
+
+
+def calculate_match_score(
+    user: User,
+    contract: Contract,
+    user_embedding: Optional[np.ndarray] = None,
+    contract_embedding: Optional[np.ndarray] = None,
+) -> int:
     """
     Calculate 0-100 match score between a user profile and a contract.
 
-    Score breakdown:
-    - Keyword match: 40 points max
-    - Sector match: 20 points max
-    - Budget match: 15 points max (bonus if contract amount is within user's budget)
-    - Recency bonus: 15 points max
-    - Location bonus: 10 points max (if user's city matches contract entity/location)
+    Score breakdown (Silicon Valley v2.0):
+    - Semantic match: 35 points max (NEW - embedding similarity)
+    - Keyword match: 25 points max
+    - Sector match: 15 points max
+    - Budget match: 15 points max
+    - Recency bonus: 10 points max
     """
     if not user.keywords and not user.sector:
         return 50  # No profile = neutral score
@@ -40,15 +123,34 @@ def calculate_match_score(user: User, contract: Contract) -> int:
     if contract.deadline and contract.deadline < now:
         return 0  # Don't show expired contracts
 
-    # --- Keyword match (40 points max) ---
+    # --- SEMANTIC MATCH (35 points max) - NEW ---
+    if user_embedding is not None:
+        # Compute contract embedding if not provided
+        if contract_embedding is None:
+            contract_embedding = compute_contract_embedding(contract)
+
+        if contract_embedding is not None:
+            similarity = semantic_similarity(user_embedding, contract_embedding)
+            # Similarity is typically 0-1 for related content
+            # Scale to 35 points, with bonus for high similarity
+            if similarity >= 0.7:
+                score += 35  # Excellent match
+            elif similarity >= 0.5:
+                score += similarity * 50  # 25-35 points
+            elif similarity >= 0.3:
+                score += similarity * 40  # 12-20 points
+            else:
+                score += similarity * 20  # 0-6 points
+
+    # --- Keyword match (25 points max) ---
     user_keywords = user.keywords or []
     if user_keywords:
         contract_text = f"{contract.title or ''} {contract.description or ''}".lower()
         matches = sum(1 for kw in user_keywords if kw.lower() in contract_text)
         keyword_ratio = matches / len(user_keywords) if user_keywords else 0
-        score += keyword_ratio * 40
+        score += keyword_ratio * 25
 
-    # --- Sector match (20 points max) ---
+    # --- Sector match (15 points max) ---
     if user.sector:
         from config import Config
         sector_keywords = []
@@ -61,13 +163,12 @@ def calculate_match_score(user: User, contract: Contract) -> int:
         if sector_keywords:
             contract_text = f"{contract.title or ''} {contract.description or ''} {contract.entity or ''}".lower()
             sector_matches = sum(1 for kw in sector_keywords if kw in contract_text)
-            sector_ratio = min(sector_matches / 3, 1.0)  # 3+ keyword matches = full score
-            score += sector_ratio * 20
+            sector_ratio = min(sector_matches / 3, 1.0)
+            score += sector_ratio * 15
         else:
-            # Direct sector text match
             contract_text = f"{contract.title or ''} {contract.description or ''}".lower()
             if user.sector.lower() in contract_text:
-                score += 20
+                score += 15
 
     # --- Budget match (15 points max) ---
     if contract.amount and contract.amount > 0:
@@ -75,41 +176,33 @@ def calculate_match_score(user: User, contract: Contract) -> int:
         budget_max = user.budget_max or float('inf')
 
         if budget_min <= contract.amount <= budget_max:
-            score += 15  # Full points if within range
+            score += 15
         elif contract.amount < budget_min:
-            # Partial points if slightly under budget (might still be interesting)
             ratio = contract.amount / budget_min if budget_min > 0 else 0
-            if ratio > 0.5:  # At least 50% of minimum budget
+            if ratio > 0.5:
                 score += 7
         elif budget_max != float('inf') and contract.amount > budget_max:
-            # Partial points if slightly over budget (might still be interesting)
             ratio = budget_max / contract.amount if contract.amount > 0 else 0
-            if ratio > 0.5:  # No more than 2x the maximum budget
+            if ratio > 0.5:
                 score += 5
 
-    # --- Location match (10 points max) ---
+    # --- Location match (bonus, not counted in main 100) ---
     if user.city:
         user_city = user.city.lower()
-        # Check entity name (often includes location like "Alcaldía de Medellín")
         entity_text = f"{contract.entity or ''}".lower()
         if user_city in entity_text:
-            score += 10
-        # Also check description for location mentions
-        elif user_city in f"{contract.description or ''}".lower():
-            score += 5
+            score += 5  # Small bonus for location match
 
-    # --- Recency bonus (15 points max) ---
+    # --- Recency bonus (10 points max) ---
     if contract.publication_date:
         days_old = (now - contract.publication_date).days
         if days_old <= 1:
-            score += 15
+            score += 10
         elif days_old <= 3:
-            score += 12
-        elif days_old <= 7:
             score += 8
+        elif days_old <= 7:
+            score += 5
         elif days_old <= 14:
-            score += 4
-        elif days_old <= 30:
             score += 2
 
     return min(100, max(0, round(score)))
@@ -136,6 +229,11 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
         now = datetime.utcnow()
         since = now - timedelta(days=days_back)
 
+        # Pre-compute user embedding ONCE for semantic matching (Silicon Valley optimization)
+        user_embedding = compute_user_embedding(user)
+        if user_embedding is not None:
+            logger.debug(f"User {user_id} embedding computed for semantic matching")
+
         # Build query with pre-filters for efficiency
         query = uow.session.query(Contract).filter(
             Contract.publication_date >= since,
@@ -159,7 +257,8 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
 
         scored = []
         for c in contracts:
-            score = calculate_match_score(user, c)
+            # Pass user embedding for semantic scoring (contract embedding computed inside)
+            score = calculate_match_score(user, c, user_embedding=user_embedding)
             if score >= min_score:
                 scored.append({
                     "id": c.id,
@@ -222,9 +321,12 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
             Contract.publication_date >= since
         ).order_by(Contract.publication_date.desc()).all()
 
+        # Pre-compute user embedding for semantic matching
+        user_embedding = compute_user_embedding(user)
+
         alerts = []
         for c in contracts:
-            score = calculate_match_score(user, c)
+            score = calculate_match_score(user, c, user_embedding=user_embedding)
             if score >= 60:
                 alerts.append({
                     "id": c.id,
@@ -351,8 +453,10 @@ def notify_high_priority_matches(new_count: int):
             return
 
         for user in users:
+            # Pre-compute user embedding once per user for efficiency
+            user_embedding = compute_user_embedding(user)
             for contract in new_contracts:
-                score = calculate_match_score(user, contract)
+                score = calculate_match_score(user, contract, user_embedding=user_embedding)
                 if score >= 85:
                     _queue_push_notification(user, contract, score)
 

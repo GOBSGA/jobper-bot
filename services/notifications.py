@@ -3,6 +3,7 @@ Jobper Services — Email (Resend) + Web Push notifications
 """
 from __future__ import annotations
 
+import html
 import json
 import logging
 from datetime import datetime
@@ -15,17 +16,41 @@ from core.database import UnitOfWork
 logger = logging.getLogger(__name__)
 
 
+def _escape(text: str) -> str:
+    """Escape HTML to prevent XSS in email templates."""
+    if not text:
+        return ""
+    return html.escape(str(text))
+
+
 # =============================================================================
 # EMAIL VIA RESEND (API, no SDK)
 # =============================================================================
 
 RESEND_API = "https://api.resend.com/emails"
 
+# Retry config for transient failures
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 1
 
-def send_email(to: str, template: str, data: dict) -> bool:
-    """Send transactional email via Resend API."""
+
+def send_email(to: str, template: str, data: dict, retry: int = 0) -> bool:
+    """
+    Send transactional email via Resend API.
+
+    IMPORTANT: If using Resend's sandbox domain (onboarding@resend.dev),
+    emails only send to verified addresses in the Resend dashboard.
+    For production, configure your own domain in Resend.
+    """
+    import time
+
     if not Config.RESEND_API_KEY:
         logger.warning("Resend API key not configured, skipping email")
+        return False
+
+    # Validate email format (basic check)
+    if not to or "@" not in to:
+        logger.error(f"Invalid email address: {to}")
         return False
 
     subject, html = _render_template(template, data)
@@ -43,14 +68,46 @@ def send_email(to: str, template: str, data: dict) -> bool:
                 "subject": subject,
                 "html": html,
             },
-            timeout=10,
+            timeout=15,  # Increased timeout
         )
+
         if resp.status_code in (200, 201):
             logger.info(f"Email sent: {template} → {to}")
             return True
-        else:
-            logger.error(f"Resend error {resp.status_code}: {resp.text}")
-            return False
+
+        # Handle specific error codes
+        error_body = resp.text
+        logger.error(f"Resend error {resp.status_code}: {error_body}")
+
+        # Sandbox domain warning
+        if "not authorized" in error_body.lower() or "verify" in error_body.lower():
+            logger.warning(
+                f"Resend may be rejecting email to {to} - "
+                "sandbox domain only sends to verified emails. "
+                "Configure a custom domain in Resend for production."
+            )
+
+        # Retry on server errors (5xx) or rate limits (429)
+        if resp.status_code in (429, 500, 502, 503, 504) and retry < MAX_RETRIES:
+            time.sleep(RETRY_DELAY_SECONDS * (retry + 1))
+            return send_email(to, template, data, retry + 1)
+
+        return False
+
+    except requests.exceptions.Timeout:
+        logger.error(f"Email send timeout to {to}")
+        if retry < MAX_RETRIES:
+            time.sleep(RETRY_DELAY_SECONDS)
+            return send_email(to, template, data, retry + 1)
+        return False
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Email send failed (network): {e}")
+        if retry < MAX_RETRIES:
+            time.sleep(RETRY_DELAY_SECONDS)
+            return send_email(to, template, data, retry + 1)
+        return False
+
     except Exception as e:
         logger.error(f"Email send failed: {e}")
         return False
@@ -75,6 +132,10 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         "renewal_reminder": _tmpl_renewal_reminder,
         "renewal_urgent": _tmpl_renewal_urgent,
         "subscription_expired": _tmpl_subscription_expired,
+        # Payment verification templates
+        "payment_review_needed": _tmpl_payment_review_needed,
+        "payment_auto_approved": _tmpl_payment_auto_approved,
+        "payment_rejected": _tmpl_payment_rejected,
     }
 
     fn = templates.get(template)
@@ -112,11 +173,13 @@ def _button(url: str, text: str) -> str:
 
 def _tmpl_magic_link(data: dict) -> tuple[str, str]:
     url = data.get("url", "")
+    # FIX: Config is 60 minutes, not 15. Also add fallback link for email clients that block buttons.
     content = f"""
 <h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Inicia sesión en Jobper</h2>
-<p style="color:#475569;line-height:1.6">Haz clic en el botón para acceder a tu cuenta. Este enlace expira en 15 minutos.</p>
+<p style="color:#475569;line-height:1.6">Haz clic en el botón para acceder a tu cuenta. Este enlace expira en 60 minutos.</p>
 {_button(url, "Iniciar sesión")}
 <p style="color:#94a3b8;font-size:13px">Si no solicitaste este enlace, puedes ignorar este correo.</p>
+<p style="color:#64748b;font-size:12px;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">¿El botón no funciona? Copia y pega este enlace en tu navegador:<br><span style="color:#3b82f6;word-break:break-all">{_escape(url)}</span></p>
 """
     return "Tu enlace de acceso a Jobper", _base_html(content)
 
@@ -135,11 +198,12 @@ def _tmpl_welcome(data: dict) -> tuple[str, str]:
 
 
 def _tmpl_contract_alert(data: dict) -> tuple[str, str]:
-    title = data.get("title", "Nuevo contrato")
-    entity = data.get("entity", "")
+    # FIX: Escape user-provided data to prevent XSS
+    title = _escape(data.get("title", "Nuevo contrato"))
+    entity = _escape(data.get("entity", ""))
     amount = data.get("amount", "")
     url = data.get("url", Config.FRONTEND_URL)
-    match_pct = data.get("match_score", 0)
+    match_pct = int(data.get("match_score", 0))
 
     amount_str = f"${amount:,.0f} COP" if amount else "No especificado"
     content = f"""
@@ -152,7 +216,7 @@ def _tmpl_contract_alert(data: dict) -> tuple[str, str]:
 </div>
 {_button(url, "Ver contrato")}
 """
-    return f"Contrato relevante: {title[:60]}", _base_html(content)
+    return f"Contrato relevante: {_escape(title[:60])}", _base_html(content)
 
 
 def _tmpl_trial_expiring(data: dict) -> tuple[str, str]:
@@ -167,15 +231,19 @@ def _tmpl_trial_expiring(data: dict) -> tuple[str, str]:
 
 
 def _tmpl_weekly_report(data: dict) -> tuple[str, str]:
-    count = data.get("count", 0)
+    count = int(data.get("count", 0))
     top = data.get("top_contracts", [])
 
+    # FIX: Escape user-provided data to prevent XSS
     contracts_html = ""
     for c in top[:5]:
+        title = _escape(str(c.get('title', ''))[:80])
+        entity = _escape(str(c.get('entity', '')))
+        amount = _escape(str(c.get('amount', 'N/A')))
         contracts_html += f"""
 <div style="border-bottom:1px solid #e2e8f0;padding:12px 0">
-  <p style="margin:0;font-weight:600;color:#0f172a">{c.get('title', '')[:80]}</p>
-  <p style="margin:4px 0 0;color:#475569;font-size:13px">{c.get('entity', '')} — {c.get('amount', 'N/A')}</p>
+  <p style="margin:0;font-weight:600;color:#0f172a">{title}</p>
+  <p style="margin:4px 0 0;color:#475569;font-size:13px">{entity} — {amount}</p>
 </div>"""
 
     content = f"""
@@ -230,6 +298,78 @@ def _tmpl_payment_confirmed(data: dict) -> tuple[str, str]:
 {_button(Config.FRONTEND_URL + "/dashboard", "Ir al Dashboard")}
 """
     return "Pago confirmado — Jobper", _base_html(content)
+
+
+def _tmpl_payment_review_needed(data: dict) -> tuple[str, str]:
+    """Admin notification: payment needs manual review."""
+    user_id = data.get("user_id", "")
+    payment_id = data.get("payment_id", "")
+    plan = data.get("plan", "")
+    amount = data.get("amount", 0)
+    reference = data.get("reference", "")
+    issues = data.get("issues", [])
+    confidence = data.get("confidence", 0)
+
+    issues_html = "".join(f"<li style='color:#dc2626'>{_escape(issue)}</li>" for issue in issues)
+
+    content = f"""
+<h2 style="margin:0 0 8px;color:#f59e0b;font-size:18px">⚠️ Pago requiere revisión manual</h2>
+<p style="color:#475569;line-height:1.6">Un comprobante de pago no pudo ser verificado automáticamente.</p>
+<div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:16px;margin:12px 0">
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Usuario ID:</strong> {user_id}</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Payment ID:</strong> {payment_id}</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Plan:</strong> {plan}</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Monto esperado:</strong> ${amount:,.0f} COP</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Referencia:</strong> {reference}</p>
+  <p style="margin:0;color:#0f172a"><strong>Confianza IA:</strong> {confidence:.0%}</p>
+</div>
+<p style="color:#475569;font-weight:600">Problemas detectados:</p>
+<ul style="color:#dc2626;margin:8px 0">{issues_html}</ul>
+<p style="color:#475569;line-height:1.6">Revisa el comprobante y aprueba o rechaza el pago desde el panel de admin.</p>
+{_button(Config.FRONTEND_URL + "/admin/payments", "Revisar pagos")}
+"""
+    return f"⚠️ Pago requiere revisión — {reference}", _base_html(content)
+
+
+def _tmpl_payment_auto_approved(data: dict) -> tuple[str, str]:
+    """Admin notification: payment was auto-approved by AI."""
+    user_id = data.get("user_id", "")
+    plan = data.get("plan", "")
+    amount = data.get("amount", 0)
+    reference = data.get("reference", "")
+    confidence = data.get("confidence", 0)
+
+    content = f"""
+<h2 style="margin:0 0 8px;color:#16a34a;font-size:18px">✅ Pago auto-aprobado</h2>
+<p style="color:#475569;line-height:1.6">Un pago fue verificado y aprobado automáticamente.</p>
+<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:16px;margin:12px 0">
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Usuario ID:</strong> {user_id}</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Plan:</strong> {plan}</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Monto:</strong> ${amount:,.0f} COP</p>
+  <p style="margin:0 0 4px;color:#0f172a"><strong>Referencia:</strong> {reference}</p>
+  <p style="margin:0;color:#0f172a"><strong>Confianza IA:</strong> {confidence:.0%}</p>
+</div>
+<p style="color:#94a3b8;font-size:13px">Este pago fue verificado automáticamente. El comprobante queda guardado para auditoría.</p>
+"""
+    return f"✅ Pago auto-aprobado — {reference}", _base_html(content)
+
+
+def _tmpl_payment_rejected(data: dict) -> tuple[str, str]:
+    """User notification: their payment was rejected."""
+    plan = data.get("plan", "")
+    reason = data.get("reason", "El comprobante no pudo ser verificado.")
+
+    content = f"""
+<h2 style="margin:0 0 8px;color:#dc2626;font-size:18px">Pago no verificado</h2>
+<p style="color:#475569;line-height:1.6">No pudimos verificar tu comprobante de pago para el plan <strong>{plan.title()}</strong>.</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:12px 0">
+  <p style="margin:0;color:#dc2626"><strong>Motivo:</strong> {_escape(reason)}</p>
+</div>
+<p style="color:#475569;line-height:1.6">Puedes intentar nuevamente con un comprobante más claro, o contactarnos si crees que es un error.</p>
+{_button(Config.FRONTEND_URL + "/payments", "Intentar de nuevo")}
+<p style="color:#94a3b8;font-size:13px">Si tienes dudas, responde a este correo o escríbenos a soporte@jobper.co</p>
+"""
+    return "Pago no verificado — Jobper", _base_html(content)
 
 
 # =============================================================================

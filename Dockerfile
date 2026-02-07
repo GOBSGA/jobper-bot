@@ -15,9 +15,9 @@ RUN npm run build
 # --- Stage 2: Python backend ---
 FROM python:3.11-slim
 
-# System deps for psycopg2, lxml
+# System deps for psycopg2, lxml, health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev libxml2-dev libxslt1-dev \
+    gcc libpq-dev libxml2-dev libxslt1-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -35,8 +35,16 @@ COPY --from=frontend /dashboard/dist ./dashboard/dist
 # Create uploads directory
 RUN mkdir -p uploads/comprobantes
 
+# Environment
+ENV PORT=5001
+ENV PYTHONUNBUFFERED=1
+
 # Expose port
 EXPOSE 5001
 
-# Run with gunicorn
-CMD ["gunicorn", "app:create_app()", "-c", "gunicorn.conf.py"]
+# Health check for Railway
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -sf http://localhost:${PORT}/api/health || exit 1
+
+# Run with gunicorn (Railway sets PORT env var)
+CMD gunicorn "app:create_app()" --bind 0.0.0.0:${PORT} --workers 2 --timeout 120
