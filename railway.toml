@@ -7,8 +7,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/api/health"
-healthcheckTimeout = 60
-startCommand = "gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --preload"
+# Healthcheck disabled temporarily to see startup logs
+startCommand = "python -c 'from app import create_app; print(\"App loaded OK\")' && gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
