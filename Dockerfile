@@ -44,9 +44,5 @@ ENV PYTHONUNBUFFERED=1
 # Expose port
 EXPOSE 5001
 
-# Health check for Railway
-HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -sf http://localhost:${PORT}/api/health || exit 1
-
-# Run with gunicorn (Railway sets PORT env var)
-CMD gunicorn "app:create_app()" --bind 0.0.0.0:${PORT} --workers 2 --timeout 120
+# Note: healthcheck is configured in railway.toml, not here
+# CMD is overridden by railway.toml startCommand
