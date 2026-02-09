@@ -7,7 +7,8 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Healthcheck disabled temporarily to see startup logs
-startCommand = "python -c 'from app import create_app; print(\"App loaded OK\")' && gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+startCommand = "gunicorn 'app:create_app()' --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --access-logfile - --error-logfile -"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+healthcheckPath = "/api/health"
+healthcheckTimeout = 60

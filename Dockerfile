@@ -34,15 +34,21 @@ COPY . .
 # Copy built frontend from stage 1
 COPY --from=frontend /dashboard/dist ./dashboard/dist
 
-# Create uploads directory
-RUN mkdir -p uploads/comprobantes
+# Create directories
+RUN mkdir -p uploads/comprobantes .cache/huggingface
 
-# Environment
+# Environment - set BEFORE model download so it goes to the right place
 ENV PORT=5001
 ENV PYTHONUNBUFFERED=1
+ENV HF_HOME=/app/.cache/huggingface
+ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
+ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache/huggingface
+
+# Pre-download the sentence-transformers model during build (avoids timeout in production)
+RUN python -c "from sentence_transformers import SentenceTransformer; print('Downloading model...'); SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2'); print('Model ready')" || echo "Model preload skipped"
 
 # Expose port
 EXPOSE 5001
 
-# Note: healthcheck is configured in railway.toml, not here
-# CMD is overridden by railway.toml startCommand
+# Default command (overridden by railway.toml startCommand)
+CMD ["gunicorn", "app:create_app()", "--bind", "0.0.0.0:5001", "--workers", "1", "--timeout", "120"]

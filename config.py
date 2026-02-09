@@ -93,8 +93,13 @@ class Config:
     FLASK_DEBUG: bool = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     SECRET_KEY: str = os.getenv("SECRET_KEY", os.getenv("JWT_SECRET", "dev-secret-change-me"))
 
-    # CORS
-    CORS_ORIGINS: list = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    # CORS - allow all origins by default (SPA serves from same origin in production)
+    # Set CORS_ORIGINS env var to restrict if needed (comma-separated list)
+    CORS_ORIGINS: list = (
+        os.getenv("CORS_ORIGINS", "*").split(",")
+        if os.getenv("CORS_ORIGINS")
+        else ["*"]
+    )
 
     # ======================================================================
     # RATE LIMITING
