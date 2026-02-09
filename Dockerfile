@@ -51,4 +51,5 @@ RUN python -c "from sentence_transformers import SentenceTransformer; print('Dow
 EXPOSE 5001
 
 # Default command (overridden by railway.toml startCommand)
-CMD ["gunicorn", "app:create_app()", "--bind", "0.0.0.0:5001", "--workers", "1", "--timeout", "120"]
+# Using shell form to properly handle the factory pattern
+CMD gunicorn "app:create_app()" --bind 0.0.0.0:${PORT:-5001} --workers 1 --timeout 120
