@@ -19,8 +19,13 @@ from config import Config
 
 _log_handlers = [logging.StreamHandler()]
 
-# Only add file handler if we can write to it (not in Railway/Docker)
-if os.environ.get("RAILWAY_ENVIRONMENT") is None:
+# Only add file handler in local dev (Railway sets various env vars)
+_is_production = any([
+    os.environ.get("RAILWAY_ENVIRONMENT"),
+    os.environ.get("RAILWAY_SERVICE_NAME"),
+    os.environ.get("PORT") and os.environ.get("PORT") != "5001",  # Railway sets dynamic PORT
+])
+if not _is_production:
     try:
         _log_handlers.append(logging.FileHandler("jobper.log", encoding="utf-8"))
     except (PermissionError, OSError):
