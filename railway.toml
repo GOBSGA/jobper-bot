@@ -7,7 +7,7 @@ builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "echo 'Starting Jobper...' && echo 'PORT='$PORT && python -c 'from app import create_app; print(\"Import OK\")' && exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --log-level debug 'app:create_app()'"
+startCommand = "./start.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 healthcheckPath = "/api/health"

@@ -50,6 +50,8 @@ RUN python -c "from sentence_transformers import SentenceTransformer; print('Dow
 # Expose port
 EXPOSE 5001
 
-# Default command (overridden by railway.toml startCommand)
-# Using shell form to properly handle the factory pattern
-CMD gunicorn "app:create_app()" --bind 0.0.0.0:${PORT:-5001} --workers 1 --timeout 120
+# Make startup script executable
+RUN chmod +x start.sh
+
+# Default command
+CMD ["./start.sh"]
