@@ -44,23 +44,32 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def create_app() -> Flask:
+    logger.info("create_app: Starting...")
     app = Flask(__name__)
     app.config["SECRET_KEY"] = Config.JWT_SECRET
+    logger.info("create_app: Flask app created")
 
     # CORS
     CORS(app, origins=Config.CORS_ORIGINS, supports_credentials=True)
+    logger.info("create_app: CORS configured")
 
     # Database — create tables on first run
     _init_db()
+    logger.info("create_app: DB initialized")
 
     # Register all API blueprints
+    logger.info("create_app: Importing blueprints...")
     from api.routes import ALL_BLUEPRINTS
+    logger.info(f"create_app: Registering {len(ALL_BLUEPRINTS)} blueprints...")
     for bp in ALL_BLUEPRINTS:
         app.register_blueprint(bp)
+    logger.info("create_app: Blueprints registered")
 
     # Error handlers (JSON responses for 400-500)
+    logger.info("create_app: Registering error handlers...")
     from core.middleware import register_error_handlers
     register_error_handlers(app)
+    logger.info("create_app: Error handlers registered")
 
     # Serve uploaded files (comprobantes) with path traversal protection
     uploads_dir = os.path.join(Config.BASE_DIR, "uploads")
