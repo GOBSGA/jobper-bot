@@ -141,24 +141,36 @@ def _init_db():
 # ---------------------------------------------------------------------------
 
 import threading
+import fcntl
 _bg_lock = threading.Lock()
 _bg_started = False
+_scheduler_lock_file = None
 
 
 def _start_background_services():
-    global _bg_started
-    with _bg_lock:  # Thread-safe to prevent double-start race condition
+    """Start background scheduler. Uses file lock to ensure only one worker runs it."""
+    global _bg_started, _scheduler_lock_file
+    with _bg_lock:
         if _bg_started:
             return
         _bg_started = True
+
+    # Use file lock to ensure only one Gunicorn worker runs the scheduler
+    try:
+        _scheduler_lock_file = open("/tmp/jobper_scheduler.lock", "w")
+        fcntl.flock(_scheduler_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        logger.info("This worker acquired scheduler lock")
+    except (IOError, OSError):
+        logger.info("Another worker has scheduler lock, skipping scheduler in this worker")
+        return
 
     import time
     from datetime import datetime, timedelta
 
     def _scheduler_loop():
         """Run ingestion on startup, then every 30 minutes for competitive advantage."""
-        # Wait 60 seconds before first ingestion to let web server stabilize
-        time.sleep(60)
+        # Wait 90 seconds before first ingestion to let all workers stabilize
+        time.sleep(90)
         try:
             from services.ingestion import ingest_all
             # First run: only 7 days to avoid overload. Full backfill can be triggered manually.
