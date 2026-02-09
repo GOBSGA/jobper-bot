@@ -148,36 +148,10 @@ _scheduler_lock_file = None
 
 
 def _start_background_services():
-    """Start background scheduler. Uses file lock to ensure only one worker runs it."""
-    global _bg_started, _scheduler_lock_file
-    with _bg_lock:
-        if _bg_started:
-            return
-        _bg_started = True
-
-    # Use file lock to ensure only one Gunicorn worker runs the scheduler
-    try:
-        _scheduler_lock_file = open("/tmp/jobper_scheduler.lock", "w")
-        fcntl.flock(_scheduler_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        logger.info("This worker acquired scheduler lock")
-    except (IOError, OSError):
-        logger.info("Another worker has scheduler lock, skipping scheduler in this worker")
-        return
-
-    import time
-    from datetime import datetime, timedelta
-
-    def _scheduler_loop():
-        """Run ingestion on startup, then every 30 minutes for competitive advantage."""
-        # Wait 90 seconds before first ingestion to let all workers stabilize
-        time.sleep(90)
-        try:
-            from services.ingestion import ingest_all
-            # First run: only 7 days to avoid overload. Full backfill can be triggered manually.
-            result = ingest_all(days_back=7)
-            logger.info(f"Initial ingestion: {result}")
-        except Exception as e:
-            logger.error(f"Initial ingestion failed: {e}")
+    """Start background scheduler. DISABLED for initial deployment stability."""
+    # TODO: Re-enable after confirming basic app works
+    logger.info("Background scheduler DISABLED for deployment stability")
+    return
 
         # Track last daily digest
         last_digest_date = None

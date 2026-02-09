@@ -9,10 +9,10 @@ echo "JWT_SECRET set: $([ -n "$JWT_SECRET" ] && echo 'YES' || echo 'NO')"
 echo "Starting Gunicorn on port $PORT..."
 exec gunicorn \
     --bind "0.0.0.0:${PORT:-5001}" \
-    --workers 2 \
-    --threads 2 \
-    --timeout 120 \
-    --log-level info \
+    --workers 1 \
+    --threads 4 \
+    --timeout 30 \
+    --log-level debug \
     --access-logfile - \
     --error-logfile - \
     --capture-output \
