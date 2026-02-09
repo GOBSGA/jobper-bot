@@ -14,16 +14,22 @@ from flask_cors import CORS
 from config import Config
 
 # ---------------------------------------------------------------------------
-# Logging
+# Logging - use stdout only in production (Railway), file + stdout in dev
 # ---------------------------------------------------------------------------
+
+_log_handlers = [logging.StreamHandler()]
+
+# Only add file handler if we can write to it (not in Railway/Docker)
+if os.environ.get("RAILWAY_ENVIRONMENT") is None:
+    try:
+        _log_handlers.append(logging.FileHandler("jobper.log", encoding="utf-8"))
+    except (PermissionError, OSError):
+        pass  # Skip file logging if not writable
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler("jobper.log", encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
+    handlers=_log_handlers,
 )
 logger = logging.getLogger(__name__)
 
