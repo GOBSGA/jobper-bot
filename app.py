@@ -137,56 +137,12 @@ def _init_db():
 
 
 # ---------------------------------------------------------------------------
-# Background services: ingestion + periodic scraping
+# Background services: DISABLED for deployment stability
 # ---------------------------------------------------------------------------
 
-import threading
-import fcntl
-_bg_lock = threading.Lock()
-_bg_started = False
-_scheduler_lock_file = None
-
-
 def _start_background_services():
-    """Start background scheduler. DISABLED for initial deployment stability."""
-    # TODO: Re-enable after confirming basic app works
+    """Background scheduler disabled. Can be re-enabled after app is stable."""
     logger.info("Background scheduler DISABLED for deployment stability")
-    return
-
-        # Track last daily digest
-        last_digest_date = None
-
-        while True:
-            time.sleep(30 * 60)  # Every 30 minutes
-            try:
-                from services.ingestion import ingest_all
-                result = ingest_all(days_back=3)  # Recent contracts only
-                logger.info(f"Scheduled ingestion: {result}")
-            except Exception as e:
-                logger.error(f"Scheduled ingestion failed: {e}")
-
-            # Check expiring subscriptions/trials and send reminders
-            try:
-                from services.ingestion import check_expiring_subscriptions
-                check_expiring_subscriptions()
-            except Exception as e:
-                logger.error(f"Expiration check failed: {e}")
-
-            # Run daily digest once per day (around 8am Colombia time)
-            now = datetime.now()
-            today = now.date()
-            if last_digest_date != today and now.hour >= 8:
-                try:
-                    from services.notifications import send_daily_digest
-                    result = send_daily_digest()
-                    logger.info(f"Daily digest: {result}")
-                    last_digest_date = today
-                except Exception as e:
-                    logger.error(f"Daily digest failed: {e}")
-
-    thread = threading.Thread(target=_scheduler_loop, daemon=True, name="ingestion-scheduler")
-    thread.start()
-    logger.info("Background ingestion scheduler started")
 
 
 # ---------------------------------------------------------------------------
