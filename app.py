@@ -157,10 +157,12 @@ def _start_background_services():
 
     def _scheduler_loop():
         """Run ingestion on startup, then every 30 minutes for competitive advantage."""
-        time.sleep(5)  # Let Flask finish starting
+        # Wait 60 seconds before first ingestion to let web server stabilize
+        time.sleep(60)
         try:
             from services.ingestion import ingest_all
-            result = ingest_all(days_back=30)  # First run: auto-detects if aggressive needed
+            # First run: only 7 days to avoid overload. Full backfill can be triggered manually.
+            result = ingest_all(days_back=7)
             logger.info(f"Initial ingestion: {result}")
         except Exception as e:
             logger.error(f"Initial ingestion failed: {e}")

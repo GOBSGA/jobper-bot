@@ -35,15 +35,19 @@ def ingest_secop(days_back: int = 7, dataset_key: str = "procesos") -> dict:
     return _persist_contracts(raw, f"secop_{dataset_key}")
 
 
-def ingest_all(days_back: int = 7) -> dict:
+def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
     """Run all SECOP scrapers and persist results."""
     results = {}
 
-    # Check if this is a first run (low contract count = aggressive ingestion)
+    # Check if this is a first run (low contract count)
+    # Only go aggressive if explicitly requested - otherwise cap at 30 days to avoid overload
     count = get_contract_count()
-    if count < 500:
-        days_back = max(days_back, 365)
-        logger.info(f"Low contract count ({count}), using aggressive days_back={days_back}")
+    if count < 500 and not force_aggressive:
+        days_back = max(days_back, 30)  # Moderate first run (30 days = ~5-10k contracts)
+        logger.info(f"Low contract count ({count}), using moderate days_back={days_back}")
+    elif force_aggressive and count < 500:
+        days_back = 365
+        logger.info(f"Forced aggressive backfill: days_back={days_back}")
 
     # Scrape all SECOP datasets
     for dataset_key in ["procesos", "adjudicados", "secop1", "ejecucion", "tvec"]:

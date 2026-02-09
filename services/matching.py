@@ -460,17 +460,23 @@ def _compute_market_stats(user_id: int) -> dict:
 
 def notify_high_priority_matches(new_count: int):
     """After ingestion, find high-priority matches and queue notifications."""
+    # Skip matching on large batches to avoid blocking the server
+    MAX_CONTRACTS_FOR_MATCHING = 500
+    if new_count > MAX_CONTRACTS_FOR_MATCHING:
+        logger.info(f"Skipping real-time matching: {new_count} contracts too large (max {MAX_CONTRACTS_FOR_MATCHING}). Users will see matches on next search.")
+        return
+
     logger.info(f"Checking high-priority matches for {new_count} new contracts...")
 
     with UnitOfWork() as uow:
         # Get users with notifications enabled
         users = uow.users.get_active_with_notifications()
 
-        # Get contracts from last hour (just ingested)
+        # Get contracts from last hour (just ingested), limit to avoid overload
         since = datetime.utcnow() - timedelta(hours=1)
         new_contracts = uow.session.query(Contract).filter(
             Contract.publication_date >= since
-        ).all()
+        ).limit(MAX_CONTRACTS_FOR_MATCHING).all()
 
         if not new_contracts:
             return
