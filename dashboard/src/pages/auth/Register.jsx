@@ -41,7 +41,7 @@ export default function Register() {
         password,
         referral_code: referralCode || undefined,
       });
-      login(res.access_token, res.refresh_token, res.user);
+      login(res);
       navigate("/onboarding");
     } catch (err) {
       setError(err.error || "Error al crear la cuenta. Intenta de nuevo.");

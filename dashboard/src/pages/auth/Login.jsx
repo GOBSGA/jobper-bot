@@ -25,7 +25,7 @@ export default function Login() {
     setError("");
     try {
       const res = await api.post("/auth/login-password", { email, password });
-      login(res.access_token, res.refresh_token, res.user);
+      login(res);
       navigate("/contracts");
     } catch (err) {
       setError(err.error || "Correo o contraseña incorrectos");
