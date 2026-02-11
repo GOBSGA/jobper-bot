@@ -77,15 +77,24 @@ def logout_endpoint():
 @validate(RegisterSchema)
 def register():
     """Register with email + password."""
-    from services.auth import register_with_password
-    result = register_with_password(
-        g.validated.email,
-        g.validated.password,
-        referral_code=g.validated.referral_code
-    )
-    if "error" in result:
-        return jsonify(result), 400
-    return jsonify(result)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Register attempt for: {g.validated.email}")
+    try:
+        from services.auth import register_with_password
+        result = register_with_password(
+            g.validated.email,
+            g.validated.password,
+            referral_code=g.validated.referral_code
+        )
+        if "error" in result:
+            logger.warning(f"Register failed: {result.get('error')}")
+            return jsonify(result), 400
+        logger.info(f"Register success for: {g.validated.email}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Register exception: {e}", exc_info=True)
+        raise
 
 
 @auth_bp.post("/login-password")
@@ -93,11 +102,20 @@ def register():
 @validate(LoginPasswordSchema)
 def login_password():
     """Login with email + password."""
-    from services.auth import login_with_password
-    result = login_with_password(g.validated.email, g.validated.password)
-    if "error" in result:
-        return jsonify(result), 401
-    return jsonify(result)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Login attempt for: {g.validated.email}")
+    try:
+        from services.auth import login_with_password
+        result = login_with_password(g.validated.email, g.validated.password)
+        if "error" in result:
+            logger.warning(f"Login failed: {result.get('error')}")
+            return jsonify(result), 401
+        logger.info(f"Login success for: {g.validated.email}")
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Login exception: {e}", exc_info=True)
+        raise
 
 
 # =============================================================================
