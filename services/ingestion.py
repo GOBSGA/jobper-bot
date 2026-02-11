@@ -35,6 +35,38 @@ def ingest_secop(days_back: int = 7, dataset_key: str = "procesos") -> dict:
     return _persist_contracts(raw, f"secop_{dataset_key}")
 
 
+def ingest_private_source(source_key: str, days_back: int = 30) -> dict:
+    """Fetch contracts from a private/multilateral source."""
+    try:
+        if source_key == "ecopetrol":
+            from scrapers.private.ecopetrol import EcopetrolScraper
+            scraper = EcopetrolScraper()
+        elif source_key == "epm":
+            from scrapers.private.epm import EPMScraper
+            scraper = EPMScraper()
+        elif source_key == "worldbank":
+            from scrapers.private.multilateral.worldbank import WorldBankScraper
+            scraper = WorldBankScraper()
+        elif source_key == "idb":
+            from scrapers.private.multilateral.idb import IDBScraper
+            scraper = IDBScraper()
+        elif source_key == "ungm":
+            from scrapers.private.multilateral.ungm import UNGMScraper
+            scraper = UNGMScraper()
+        else:
+            logger.warning(f"Unknown private source: {source_key}")
+            return {"new": 0, "skipped": 0, "errors": 0}
+
+        raw = scraper.fetch_contracts(days_back=days_back)
+        return _persist_contracts(raw, source_key)
+    except ImportError as e:
+        logger.warning(f"[{source_key}] Scraper not available: {e}")
+        return {"new": 0, "skipped": 0, "errors": 0}
+    except Exception as e:
+        logger.error(f"[{source_key}] Ingestion failed: {e}")
+        return {"new": 0, "skipped": 0, "errors": 1}
+
+
 def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
     """Run all SECOP scrapers and persist results."""
     results = {}
@@ -49,13 +81,23 @@ def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
         days_back = 365
         logger.info(f"Forced aggressive backfill: days_back={days_back}")
 
-    # Scrape all SECOP datasets
+    # Scrape all SECOP datasets (government)
     for dataset_key in ["procesos", "adjudicados", "secop1", "ejecucion", "tvec"]:
         try:
             results[dataset_key] = ingest_secop(days_back=days_back, dataset_key=dataset_key)
         except Exception as e:
             logger.error(f"[{dataset_key}] Ingestion failed: {e}")
             results[dataset_key] = {"new": 0, "skipped": 0, "errors": 1}
+
+    # Scrape private & multilateral sources
+    private_sources = ["ecopetrol", "epm", "worldbank", "idb", "ungm"]
+    for source_key in private_sources:
+        try:
+            logger.info(f"Ingesting private source: {source_key}")
+            results[source_key] = ingest_private_source(source_key, days_back=30)
+        except Exception as e:
+            logger.error(f"[{source_key}] Private ingestion failed: {e}")
+            results[source_key] = {"new": 0, "skipped": 0, "errors": 1}
 
     total_new = sum(r.get("new", 0) for r in results.values())
     total_skipped = sum(r.get("skipped", 0) for r in results.values())
