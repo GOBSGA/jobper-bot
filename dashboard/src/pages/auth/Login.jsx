@@ -5,7 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Logo from "../../components/ui/Logo";
-import { Mail, ArrowLeft, Lock, User } from "lucide-react";
+import { Mail, ArrowLeft, Lock, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -14,6 +14,7 @@ export default function Login() {
   const [mode, setMode] = useState("password"); // "password" or "magic"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -110,15 +111,24 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <Input
-                label="Contraseña"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                error={error}
-                required
-              />
+              <div className="relative">
+                <Input
+                  label="Contraseña"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  error={error}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-[34px] text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Entrando..." : "Iniciar sesión"}
               </Button>
