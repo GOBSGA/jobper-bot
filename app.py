@@ -150,6 +150,17 @@ def _init_db():
                     logger.info("PostgreSQL FTS index verified")
             except Exception as e:
                 logger.warning(f"FTS index creation skipped: {e}")
+
+            # Migration: Add password_hash column for password auth
+            try:
+                with engine.connect() as conn:
+                    conn.execute(text(
+                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)"
+                    ))
+                    conn.commit()
+                    logger.info("Migration: password_hash column verified")
+            except Exception as e:
+                logger.warning(f"Migration password_hash skipped: {e}")
     except Exception as e:
         logger.error(f"Database init failed: {e}")
 
