@@ -19,9 +19,9 @@ RUN npm run build && \
 # --- Stage 2: Python backend ---
 FROM python:3.11-slim
 
-# System deps for psycopg2, lxml, health check
+# System deps for psycopg2, lxml, bcrypt, health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev libxml2-dev libxslt1-dev curl \
+    gcc libpq-dev libxml2-dev libxslt1-dev libffi-dev curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
