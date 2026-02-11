@@ -10,7 +10,11 @@ WORKDIR /dashboard
 COPY dashboard/package*.json ./
 RUN npm ci
 COPY dashboard/ ./
-RUN npm run build
+RUN npm run build && \
+    echo "=== Frontend build complete ===" && \
+    ls -la dist/ && \
+    echo "=== dist/assets ===" && \
+    ls -la dist/assets/ || echo "No assets folder"
 
 # --- Stage 2: Python backend ---
 FROM python:3.11-slim
@@ -33,6 +37,9 @@ COPY . .
 
 # Copy built frontend from stage 1
 COPY --from=frontend /dashboard/dist ./dashboard/dist
+RUN echo "=== Verifying frontend in final image ===" && \
+    ls -la dashboard/ && \
+    ls -la dashboard/dist/ || echo "ERROR: dashboard/dist not found!"
 
 # Create directories
 RUN mkdir -p uploads/comprobantes .cache/huggingface
