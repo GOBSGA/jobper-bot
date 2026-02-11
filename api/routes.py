@@ -10,7 +10,7 @@ from flask import Blueprint, jsonify, g, request
 from core.middleware import require_auth, require_plan, require_admin, rate_limit, validate, audit, PLAN_ORDER
 
 from api.schemas import (
-    LoginSchema, VerifySchema, RefreshSchema,
+    LoginSchema, VerifySchema, RefreshSchema, RegisterSchema, LoginPasswordSchema,
     ProfileUpdateSchema,
     SearchSchema, FavoriteSchema,
     PipelineAddSchema, PipelineMoveSchema, PipelineNoteSchema,
@@ -70,6 +70,34 @@ def logout_endpoint():
     token = request.headers.get("Authorization", "")[7:]
     logout(token)
     return jsonify({"ok": True})
+
+
+@auth_bp.post("/register")
+@rate_limit(5)
+@validate(RegisterSchema)
+def register():
+    """Register with email + password."""
+    from services.auth import register_with_password
+    result = register_with_password(
+        g.validated.email,
+        g.validated.password,
+        referral_code=g.validated.referral_code
+    )
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@auth_bp.post("/login-password")
+@rate_limit(10)
+@validate(LoginPasswordSchema)
+def login_password():
+    """Login with email + password."""
+    from services.auth import login_with_password
+    result = login_with_password(g.validated.email, g.validated.password)
+    if "error" in result:
+        return jsonify(result), 401
+    return jsonify(result)
 
 
 # =============================================================================

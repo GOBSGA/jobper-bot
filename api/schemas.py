@@ -29,6 +29,17 @@ class RefreshSchema(BaseModel):
     refresh_token: str = Field(min_length=10)
 
 
+class RegisterSchema(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=6, max_length=128)
+    referral_code: Optional[str] = Field(None, max_length=20)
+
+
+class LoginPasswordSchema(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+
 # =============================================================================
 # PROFILE
 # =============================================================================

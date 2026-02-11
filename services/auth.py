@@ -124,6 +124,108 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
 
 
 # =============================================================================
+# PASSWORD AUTH
+# =============================================================================
+
+def _hash_password(password: str) -> str:
+    """Hash password using bcrypt."""
+    import bcrypt
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash."""
+    import bcrypt
+    try:
+        return bcrypt.checkpw(password.encode(), password_hash.encode())
+    except Exception:
+        return False
+
+
+def register_with_password(email: str, password: str, referral_code: str = None) -> dict:
+    """
+    Register a new user with email + password.
+    Returns: {access_token, refresh_token, user} or {error: str}
+    """
+    email = email.lower().strip()
+
+    if len(password) < 6:
+        return {"error": "La contraseña debe tener al menos 6 caracteres"}
+
+    with UnitOfWork() as uow:
+        # Check if user exists
+        existing = uow.users.get_by_email(email)
+        if existing:
+            return {"error": "Ya existe una cuenta con este correo"}
+
+        # Create user
+        user_referral_code = f"JOB-{secrets.token_hex(4).upper()}"
+        user = User(
+            email=email,
+            password_hash=_hash_password(password),
+            email_verified=True,  # Skip email verification for password auth
+            plan="trial",
+            trial_ends_at=datetime.utcnow() + timedelta(days=14),
+            referral_code=user_referral_code,
+        )
+        uow.users.create(user)
+        uow.commit()
+
+        # Generate JWT
+        access = _create_access_token(user)
+        refresh = _create_refresh_token(user)
+        user_data = _user_to_public(user)
+
+    # Track referral
+    if referral_code:
+        try:
+            from services.referrals import track_signup
+            track_signup(referral_code, user_data["id"])
+        except Exception as e:
+            logger.error(f"Referral tracking failed: {e}")
+
+    logger.info(f"New user registered with password: {email}")
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "user": user_data,
+        "is_new": True,
+    }
+
+
+def login_with_password(email: str, password: str) -> dict:
+    """
+    Login with email + password.
+    Returns: {access_token, refresh_token, user} or {error: str}
+    """
+    email = email.lower().strip()
+
+    with UnitOfWork() as uow:
+        user = uow.users.get_by_email(email)
+
+        if not user:
+            return {"error": "Correo o contraseña incorrectos"}
+
+        if not user.password_hash:
+            return {"error": "Esta cuenta usa magic link. Revisa tu correo."}
+
+        if not _verify_password(password, user.password_hash):
+            return {"error": "Correo o contraseña incorrectos"}
+
+        # Generate JWT
+        access = _create_access_token(user)
+        refresh = _create_refresh_token(user)
+        user_data = _user_to_public(user)
+
+    logger.info(f"User logged in with password: {email}")
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "user": user_data,
+    }
+
+
+# =============================================================================
 # JWT
 # =============================================================================
 

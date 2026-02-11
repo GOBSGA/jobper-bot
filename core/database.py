@@ -51,6 +51,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # For password auth (optional, magic link still works)
     company_name = Column(String(200), nullable=True)
     sector = Column(Text, nullable=True)  # texto libre
     keywords = Column(JSONType, default=list)

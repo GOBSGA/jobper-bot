@@ -5,6 +5,7 @@ import Layout from "./components/layout/Layout";
 
 // Auth pages
 import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
 import Verify from "./pages/auth/Verify";
 import Onboarding from "./pages/auth/Onboarding";
 import OnboardingConversational from "./pages/auth/OnboardingConversational";
@@ -55,6 +56,7 @@ export default function App() {
       <Route element={<PublicOnly />}>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Route>
       <Route path="/verify" element={<Verify />} />
       <Route path="/onboarding" element={<OnboardingConversational />} />
