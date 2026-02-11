@@ -88,7 +88,10 @@ def create_app() -> Flask:
 
     # Serve built frontend in production (when dashboard/dist exists)
     frontend_dir = os.path.join(Config.BASE_DIR, "dashboard", "dist")
+    logger.info(f"Frontend dir: {frontend_dir}")
+    logger.info(f"Frontend dir exists: {os.path.isdir(frontend_dir)}")
     if os.path.isdir(frontend_dir):
+        logger.info(f"Frontend files: {os.listdir(frontend_dir)}")
         @app.route("/", defaults={"path": ""})
         @app.route("/<path:path>")
         def serve_frontend(path):
@@ -98,6 +101,12 @@ def create_app() -> Flask:
             return send_from_directory(frontend_dir, "index.html")
     else:
         # Dev mode: health endpoint only
+        logger.warning(f"Frontend NOT found at {frontend_dir} - serving API only")
+        # List what IS in the dashboard folder for debugging
+        dashboard_dir = os.path.join(Config.BASE_DIR, "dashboard")
+        if os.path.isdir(dashboard_dir):
+            logger.info(f"Dashboard dir contents: {os.listdir(dashboard_dir)}")
+
         @app.route("/")
         def root():
             return {
