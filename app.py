@@ -155,12 +155,44 @@ def _init_db():
 
 
 # ---------------------------------------------------------------------------
-# Background services: DISABLED for deployment stability
+# Background services
 # ---------------------------------------------------------------------------
 
 def _start_background_services():
-    """Background scheduler disabled. Can be re-enabled after app is stable."""
-    logger.info("Background scheduler DISABLED for deployment stability")
+    """Start background scheduler for periodic tasks."""
+    import threading
+    import time
+
+    def scheduler_loop():
+        """Run periodic tasks in background."""
+        # Wait 5 minutes after startup before first run
+        time.sleep(300)
+
+        while True:
+            try:
+                # Run ingestion every 6 hours (moderate: 7 days back)
+                logger.info("Scheduler: Starting periodic ingestion...")
+                from services.ingestion import ingest_all
+                result = ingest_all(days_back=7)
+                total_new = sum(r.get("new", 0) for r in result.values())
+                logger.info(f"Scheduler: Ingestion complete - {total_new} new contracts")
+
+                # Check subscription renewals every 6 hours
+                logger.info("Scheduler: Checking subscription renewals...")
+                from services.payments import check_renewals
+                check_renewals()
+                logger.info("Scheduler: Renewal check complete")
+
+            except Exception as e:
+                logger.error(f"Scheduler error: {e}")
+
+            # Sleep 6 hours
+            time.sleep(6 * 60 * 60)
+
+    # Start scheduler in daemon thread
+    thread = threading.Thread(target=scheduler_loop, daemon=True, name="scheduler")
+    thread.start()
+    logger.info("Background scheduler started (first run in 5 minutes, then every 6 hours)")
 
 
 # ---------------------------------------------------------------------------
