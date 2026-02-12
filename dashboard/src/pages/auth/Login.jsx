@@ -88,6 +88,13 @@ export default function Login() {
             </div>
           )}
 
+          {/* Error Alert */}
+          {error && !sent && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-4">
+              <p className="text-sm text-red-800">{error}</p>
+            </div>
+          )}
+
           {sent ? (
             <div className="rounded-xl bg-green-50 border border-green-200 p-6 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
@@ -118,7 +125,6 @@ export default function Login() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  error={error}
                   required
                 />
                 <button
@@ -147,7 +153,6 @@ export default function Login() {
                 placeholder="tu@empresa.co"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                error={error}
                 required
               />
               <Button type="submit" className="w-full" disabled={loading}>

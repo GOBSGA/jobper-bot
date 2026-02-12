@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Logo from "../../components/ui/Logo";
+import PrivacyPolicyModal from "../../components/PrivacyPolicyModal";
 import { UserPlus, Eye, EyeOff } from "lucide-react";
 
 export default function Register() {
@@ -19,6 +20,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const submit = async (e) => {
     e.preventDefault();
@@ -42,7 +44,8 @@ export default function Register() {
         referral_code: referralCode || undefined,
       });
       login(res);
-      navigate("/onboarding");
+      // Show privacy policy modal instead of navigating directly
+      setShowPrivacyModal(true);
     } catch (err) {
       setError(err.error || "Error al crear la cuenta. Intenta de nuevo.");
     } finally {
@@ -50,9 +53,29 @@ export default function Register() {
     }
   };
 
+  const handlePrivacyAccept = () => {
+    // Privacy policy accepted, proceed to onboarding
+    setShowPrivacyModal(false);
+    navigate("/onboarding");
+  };
+
+  const handlePrivacyReject = () => {
+    // Privacy policy rejected, go to main page (contracts list)
+    setShowPrivacyModal(false);
+    navigate("/contracts");
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center hero-gradient px-4">
-      <div className="w-full max-w-sm">
+    <>
+      {showPrivacyModal && (
+        <PrivacyPolicyModal
+          onAccept={handlePrivacyAccept}
+          onReject={handlePrivacyReject}
+        />
+      )}
+
+      <div className="min-h-screen flex items-center justify-center hero-gradient px-4">
+        <div className="w-full max-w-sm">
         <div className="bg-white rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8">
           <div className="text-center mb-6">
             <Logo size={56} className="mx-auto mb-5" />
@@ -65,6 +88,13 @@ export default function Register() {
               <p className="text-sm text-brand-700">
                 Te invitó un amigo — ¡ambos ganan 7 días extra!
               </p>
+            </div>
+          )}
+
+          {/* Error Alert */}
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-4 mb-4">
+              <p className="text-sm text-red-800">{error}</p>
             </div>
           )}
 
@@ -100,7 +130,6 @@ export default function Register() {
               placeholder="Repite tu contraseña"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              error={error}
               required
             />
             <Button type="submit" className="w-full" disabled={loading}>
@@ -127,5 +156,6 @@ export default function Register() {
         </p>
       </div>
     </div>
+    </>
   );
 }

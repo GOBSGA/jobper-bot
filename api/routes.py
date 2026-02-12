@@ -415,6 +415,19 @@ def update_profile():
     return jsonify(result)
 
 
+@user_bp.post("/accept-privacy-policy")
+@require_auth
+@audit("accept_privacy_policy")
+def accept_privacy_policy():
+    """Accept privacy policy after registration."""
+    from services.auth import accept_privacy_policy as accept_pp
+
+    result = accept_pp(g.user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 @user_bp.get("/stats")
 @require_auth
 def user_stats():

@@ -74,6 +74,9 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     email_verified = Column(Boolean, default=False)
 
+    # Privacy & Legal
+    privacy_policy_accepted_at = Column(DateTime, nullable=True)
+
     # Notifications
     notifications_enabled = Column(Boolean, default=True)
 

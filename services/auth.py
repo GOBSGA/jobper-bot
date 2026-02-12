@@ -325,6 +325,7 @@ def _user_to_public(user: User) -> dict:
         "notifications_enabled": user.notifications_enabled,
         "whatsapp_number": user.whatsapp_number,
         "whatsapp_enabled": user.whatsapp_enabled,
+        "privacy_policy_accepted_at": user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -366,3 +367,20 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
 
         uow.commit()
         return _user_to_public(user)
+
+
+def accept_privacy_policy(user_id: int) -> dict:
+    """
+    Mark privacy policy as accepted by user.
+    Returns: {ok: True} or {error: str}
+    """
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        user.privacy_policy_accepted_at = datetime.utcnow()
+        uow.commit()
+
+        logger.info(f"User {user_id} accepted privacy policy")
+        return {"ok": True, "accepted_at": user.privacy_policy_accepted_at.isoformat()}
