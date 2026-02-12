@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { api } from "../lib/api";
-import Button from "./ui/Button";
 import { ShieldCheck, X } from "lucide-react";
+
+// Note: Button component is used inline below instead of import
 
 export default function PrivacyPolicyModal({ onAccept, onReject }) {
   const [loading, setLoading] = useState(false);
@@ -130,18 +131,17 @@ export default function PrivacyPolicyModal({ onAccept, onReject }) {
         </div>
 
         <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 px-6 py-4 flex gap-3">
-          <Button
+          <button
             onClick={handleReject}
-            variant="outline"
-            className="flex-1"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 disabled:opacity-50 inline-flex items-center justify-center"
             disabled={loading}
           >
             <X className="h-4 w-4 mr-2" />
             Rechazar
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handleAccept}
-            className="flex-1"
+            className="flex-1 px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 inline-flex items-center justify-center"
             disabled={loading}
           >
             {loading ? "Aceptando..." : (
@@ -150,7 +150,7 @@ export default function PrivacyPolicyModal({ onAccept, onReject }) {
                 Aceptar Política
               </>
             )}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
