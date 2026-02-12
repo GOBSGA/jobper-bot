@@ -284,24 +284,28 @@ def get_demo_contracts(limit: int = 6) -> list:
             # Fallback: just get any recent contracts
             contracts = uow.session.query(Contract).order_by(Contract.created_at.desc()).limit(limit).all()
 
-        # Try to get variety by entity
+        # Try to get variety by entity (O(N) instead of O(N²))
         seen_entities = set()
+        seen_contract_ids = set()
         result = []
+
+        # First pass: unique entities
         for c in contracts:
             if len(result) >= limit:
                 break
             entity_key = (c.entity or "")[:20]
             if entity_key not in seen_entities:
                 seen_entities.add(entity_key)
+                seen_contract_ids.add(c.id)
                 result.append(_contract_to_dict(c, is_favorited=False))
 
-        # Fill remaining slots if needed
+        # Second pass: fill remaining (using ID set for O(1) lookup)
         for c in contracts:
             if len(result) >= limit:
                 break
-            d = _contract_to_dict(c, is_favorited=False)
-            if d not in result:
-                result.append(d)
+            if c.id not in seen_contract_ids:
+                seen_contract_ids.add(c.id)
+                result.append(_contract_to_dict(c, is_favorited=False))
 
         return result
 

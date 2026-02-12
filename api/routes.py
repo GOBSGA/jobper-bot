@@ -92,10 +92,7 @@ def logout_endpoint():
 @validate(RegisterSchema)
 def register():
     """Register with email + password."""
-    import logging
-
-    logger = logging.getLogger(__name__)
-    logger.info(f"Register attempt for: {g.validated.email}")
+    logger.info("Register attempt")
     try:
         from services.auth import register_with_password
 
@@ -105,11 +102,12 @@ def register():
         if "error" in result:
             logger.warning(f"Register failed: {result.get('error')}")
             return jsonify(result), 400
-        logger.info(f"Register success for: {g.validated.email}")
+        logger.info("Register success")
         return jsonify(result)
     except Exception as e:
         logger.error(f"Register exception: {e}", exc_info=True)
-        raise
+        # Don't expose stack trace to client
+        return jsonify({"error": "Error interno. Por favor intenta de nuevo."}), 500
 
 
 @auth_bp.post("/login-password")
@@ -117,10 +115,7 @@ def register():
 @validate(LoginPasswordSchema)
 def login_password():
     """Login with email + password."""
-    import logging
-
-    logger = logging.getLogger(__name__)
-    logger.info(f"Login attempt for: {g.validated.email}")
+    logger.info("Login attempt")
     try:
         from services.auth import login_with_password
 
@@ -128,11 +123,12 @@ def login_password():
         if "error" in result:
             logger.warning(f"Login failed: {result.get('error')}")
             return jsonify(result), 401
-        logger.info(f"Login success for: {g.validated.email}")
+        logger.info("Login success")
         return jsonify(result)
     except Exception as e:
         logger.error(f"Login exception: {e}", exc_info=True)
-        raise
+        # Don't expose stack trace to client
+        return jsonify({"error": "Error interno. Por favor intenta de nuevo."}), 500
 
 
 # =============================================================================

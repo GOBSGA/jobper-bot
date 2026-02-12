@@ -444,20 +444,30 @@ def _compute_market_stats(user_id: int) -> dict:
                     break
 
             if sector_keywords:
+                # Build OR conditions for all keywords in ONE query (O(1) instead of O(N))
+                from sqlalchemy import or_
+
+                keyword_conditions = []
                 for kw in sector_keywords:
                     pattern = f"%{kw}%"
-                    q = uow.session.query(Contract).filter(
-                        Contract.publication_date >= last_30d,
-                        (Contract.title.ilike(pattern) | Contract.description.ilike(pattern)),
-                    )
-                    sector_count += q.count()
+                    keyword_conditions.append(Contract.title.ilike(pattern))
+                    keyword_conditions.append(Contract.description.ilike(pattern))
 
+                # Single query with OR for all keywords
+                sector_count = (
+                    uow.session.query(Contract)
+                    .filter(Contract.publication_date >= last_30d, or_(*keyword_conditions))
+                    .count()
+                )
+
+                # Value query with first keyword (with safety check)
+                first_keyword = sector_keywords[0] if sector_keywords else ""
                 sector_value_q = (
                     uow.session.query(func.sum(Contract.amount))
                     .filter(
                         Contract.publication_date >= last_30d,
                         Contract.amount.isnot(None),
-                        Contract.title.ilike(f"%{sector_keywords[0]}%"),
+                        Contract.title.ilike(f"%{first_keyword}%") if first_keyword else True,
                     )
                     .scalar()
                     or 0
@@ -506,10 +516,18 @@ def notify_high_priority_matches(new_count: int):
         for user in users:
             # Pre-compute user embedding once per user for efficiency
             user_embedding = compute_user_embedding(user)
+            matches_found = 0
+            MAX_NOTIFICATIONS_PER_USER = 5  # Limit to avoid spam
+
             for contract in new_contracts:
+                # Early termination: stop after finding enough matches
+                if matches_found >= MAX_NOTIFICATIONS_PER_USER:
+                    break
+
                 score = calculate_match_score(user, contract, user_embedding=user_embedding)
                 if score >= 85:
                     _queue_push_notification(user, contract, score)
+                    matches_found += 1
 
 
 def _queue_push_notification(user: User, contract: Contract, score: int):
