@@ -326,7 +326,9 @@ def _user_to_public(user: User) -> dict:
         "whatsapp_number": user.whatsapp_number,
         "whatsapp_enabled": user.whatsapp_enabled,
         "privacy_policy_accepted_at": (
-            user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None
+            user.privacy_policy_accepted_at.isoformat()
+            if hasattr(user, "privacy_policy_accepted_at") and user.privacy_policy_accepted_at
+            else None
         ),
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
