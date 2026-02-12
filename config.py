@@ -128,8 +128,19 @@ class Config:
     if _cors_origins_env:
         CORS_ORIGINS: list = [origin.strip() for origin in _cors_origins_env.split(",")]
     elif IS_PRODUCTION:
-        # In production, default to FRONTEND_URL only (same-origin)
-        CORS_ORIGINS: list = [FRONTEND_URL]
+        # In production, auto-include both www and non-www variants
+        cors_list = []
+        if FRONTEND_URL:
+            cors_list.append(FRONTEND_URL)
+            # Auto-add www variant if not present
+            if FRONTEND_URL.startswith("https://") and "www." not in FRONTEND_URL:
+                www_variant = FRONTEND_URL.replace("https://", "https://www.")
+                cors_list.append(www_variant)
+            # Also add non-www variant if www is in URL
+            elif "www." in FRONTEND_URL:
+                non_www_variant = FRONTEND_URL.replace("https://www.", "https://")
+                cors_list.append(non_www_variant)
+        CORS_ORIGINS: list = cors_list
     else:
         # Development: allow localhost variants
         CORS_ORIGINS: list = [
