@@ -40,18 +40,80 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Monitoring
+# ---------------------------------------------------------------------------
+
+def _init_sentry():
+    """Initialize Sentry for error tracking (if configured)."""
+    if not Config.SENTRY_DSN:
+        logger.info("Sentry not configured (SENTRY_DSN not set)")
+        return
+
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+        sentry_sdk.init(
+            dsn=Config.SENTRY_DSN,
+            environment=Config.SENTRY_ENVIRONMENT,
+            traces_sample_rate=Config.SENTRY_TRACES_SAMPLE_RATE,
+            integrations=[
+                FlaskIntegration(),
+                SqlalchemyIntegration(),
+            ],
+            # Capture specific errors
+            before_send=_sentry_before_send,
+        )
+        logger.info(f"Sentry initialized for environment: {Config.SENTRY_ENVIRONMENT}")
+
+    except ImportError:
+        logger.warning("Sentry SDK not installed. Install with: pip install sentry-sdk")
+    except Exception as e:
+        logger.error(f"Failed to initialize Sentry: {e}")
+
+
+def _sentry_before_send(event, hint):
+    """Filter events before sending to Sentry."""
+    # Don't send certain errors that are expected/handled
+    if 'exc_info' in hint:
+        exc_type, exc_value, tb = hint['exc_info']
+
+        # Ignore rate limit errors (expected behavior)
+        if isinstance(exc_value, Exception) and '429' in str(exc_value):
+            return None
+
+        # Ignore validation errors (user input errors)
+        if 'ValidationError' in str(exc_type):
+            return None
+
+    return event
+
+
+# ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
 
 def create_app() -> Flask:
     logger.info("create_app: Starting...")
+
+    # Initialize Sentry for error tracking (if configured)
+    _init_sentry()
+
+    # Validate configuration
+    is_valid, errors = Config.validate()
+    if not is_valid:
+        for error in errors:
+            logger.error(f"Configuration error: {error}")
+        raise RuntimeError("Configuration validation failed. Check logs for details.")
+
     app = Flask(__name__)
     app.config["SECRET_KEY"] = Config.JWT_SECRET
     logger.info("create_app: Flask app created")
 
     # CORS
     CORS(app, origins=Config.CORS_ORIGINS, supports_credentials=True)
-    logger.info("create_app: CORS configured")
+    logger.info(f"create_app: CORS configured with origins: {Config.CORS_ORIGINS}")
 
     # Database — create tables on first run
     _init_db()
@@ -115,6 +177,106 @@ def create_app() -> Flask:
                 "version": "5.0.0",
             }
 
+    # Health check endpoint
+    @app.route("/health")
+    def health_check():
+        """
+        Health check endpoint that verifies all critical services.
+        Returns 200 if healthy, 503 if any service is down.
+        """
+        from datetime import datetime
+        import time
+
+        health_status = {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "version": "5.0.0",
+            "checks": {}
+        }
+        all_healthy = True
+
+        # Check Database
+        try:
+            start = time.time()
+            from core.database import get_engine
+            from sqlalchemy import text
+            engine = get_engine()
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                conn.commit()
+            health_status["checks"]["database"] = {
+                "status": "healthy",
+                "response_time_ms": round((time.time() - start) * 1000, 2),
+                "type": "postgresql" if Config.is_postgresql() else "sqlite"
+            }
+        except Exception as e:
+            all_healthy = False
+            health_status["checks"]["database"] = {
+                "status": "unhealthy",
+                "error": str(e)
+            }
+
+        # Check Redis (if configured)
+        if Config.REDIS_URL:
+            try:
+                start = time.time()
+                from core.cache import cache
+                test_key = "health_check_test"
+                cache.set(test_key, "ok", ttl=10)
+                result = cache.get(test_key)
+                cache.delete(test_key)
+                if result == "ok":
+                    health_status["checks"]["redis"] = {
+                        "status": "healthy",
+                        "response_time_ms": round((time.time() - start) * 1000, 2)
+                    }
+                else:
+                    raise Exception("Redis test failed: value mismatch")
+            except Exception as e:
+                all_healthy = False
+                health_status["checks"]["redis"] = {
+                    "status": "unhealthy",
+                    "error": str(e)
+                }
+        else:
+            health_status["checks"]["redis"] = {
+                "status": "not_configured",
+                "message": "Redis is optional"
+            }
+
+        # Check Elasticsearch (if configured)
+        if Config.ELASTICSEARCH_URL:
+            try:
+                start = time.time()
+                import requests
+                resp = requests.get(f"{Config.ELASTICSEARCH_URL}/_cluster/health", timeout=5)
+                if resp.status_code == 200:
+                    health_status["checks"]["elasticsearch"] = {
+                        "status": "healthy",
+                        "response_time_ms": round((time.time() - start) * 1000, 2)
+                    }
+                else:
+                    raise Exception(f"HTTP {resp.status_code}")
+            except Exception as e:
+                # Elasticsearch is optional, don't mark as unhealthy
+                health_status["checks"]["elasticsearch"] = {
+                    "status": "degraded",
+                    "error": str(e),
+                    "message": "Elasticsearch is optional"
+                }
+        else:
+            health_status["checks"]["elasticsearch"] = {
+                "status": "not_configured",
+                "message": "Elasticsearch is optional"
+            }
+
+        # Overall status
+        if not all_healthy:
+            health_status["status"] = "unhealthy"
+            return health_status, 503
+
+        return health_status, 200
+
     # Start background ingestion + scheduler
     _start_background_services()
 
@@ -125,6 +287,26 @@ def create_app() -> Flask:
 # ---------------------------------------------------------------------------
 # DB bootstrap
 # ---------------------------------------------------------------------------
+
+def _run_alembic_migrations():
+    """Run Alembic migrations automatically on startup."""
+    try:
+        from alembic.config import Config as AlembicConfig
+        from alembic import command
+
+        alembic_cfg = AlembicConfig("alembic.ini")
+        # Set the database URL from our Config
+        alembic_cfg.set_main_option("sqlalchemy.url", Config.DATABASE_URL)
+
+        # Run migrations to head
+        logger.info("Running Alembic migrations...")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations completed successfully")
+    except Exception as e:
+        # Don't fail startup if migrations fail - log and continue
+        # This allows the app to run even if no migrations exist yet
+        logger.warning(f"Alembic migrations skipped: {e}")
+
 
 def _init_db():
     try:
@@ -151,16 +333,8 @@ def _init_db():
             except Exception as e:
                 logger.warning(f"FTS index creation skipped: {e}")
 
-            # Migration: Add password_hash column for password auth
-            try:
-                with engine.connect() as conn:
-                    conn.execute(text(
-                        "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)"
-                    ))
-                    conn.commit()
-                    logger.info("Migration: password_hash column verified")
-            except Exception as e:
-                logger.warning(f"Migration password_hash skipped: {e}")
+            # Run Alembic migrations automatically
+            _run_alembic_migrations()
     except Exception as e:
         logger.error(f"Database init failed: {e}")
 

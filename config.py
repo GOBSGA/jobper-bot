@@ -4,6 +4,7 @@ Configuración centralizada de Jobper v4.0 — CRM de Contratos para Colombia
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -12,6 +13,13 @@ load_dotenv()
 
 class Config:
     """Configuración cargada desde variables de entorno."""
+
+    # ======================================================================
+    # ENVIRONMENT
+    # ======================================================================
+    ENV: str = os.getenv("ENV", "development")  # development, staging, production
+    IS_PRODUCTION: bool = ENV == "production"
+    IS_DEVELOPMENT: bool = ENV == "development"
 
     # ======================================================================
     # RUTAS
@@ -35,7 +43,19 @@ class Config:
     # ======================================================================
     # SECURITY: JWT_SECRET must be set in production. Generate with:
     # python -c "import secrets; print(secrets.token_hex(32))"
-    JWT_SECRET: str = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY") or "dev-fallback-change-in-prod"
+    _jwt_secret = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")
+
+    # In production, JWT_SECRET is REQUIRED
+    if not _jwt_secret:
+        if IS_PRODUCTION:
+            print("FATAL ERROR: JWT_SECRET environment variable must be set in production!", file=sys.stderr)
+            print("Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"", file=sys.stderr)
+            sys.exit(1)
+        else:
+            # Development fallback
+            _jwt_secret = "dev-fallback-INSECURE-change-in-prod"
+
+    JWT_SECRET: str = _jwt_secret
     JWT_ACCESS_EXPIRY_MINUTES: int = 10080  # 7 days
     JWT_REFRESH_EXPIRY_DAYS: int = 30
     MAGIC_LINK_EXPIRY_MINUTES: int = 60  # 60 minutes (was 15 - too short with email delays)
@@ -73,6 +93,15 @@ class Config:
     BANCOLOMBIA_HOLDER: str = os.getenv("BANCOLOMBIA_HOLDER", "")
 
     # ======================================================================
+    # PAGOS AUTOMÁTICOS (Wompi)
+    # ======================================================================
+    # WOMPI_EVENTS_SECRET is used to verify webhook signatures
+    # Get it from Wompi dashboard: https://comercios.wompi.co/webhooks
+    WOMPI_EVENTS_SECRET: str = os.getenv("WOMPI_EVENTS_SECRET", "")
+    WOMPI_PUBLIC_KEY: str = os.getenv("WOMPI_PUBLIC_KEY", "")
+    WOMPI_PRIVATE_KEY: str = os.getenv("WOMPI_PRIVATE_KEY", "")
+
+    # ======================================================================
     # WEB PUSH
     # ======================================================================
     VAPID_PRIVATE_KEY: str = os.getenv("VAPID_PRIVATE_KEY", "")
@@ -93,13 +122,25 @@ class Config:
     FLASK_DEBUG: bool = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     SECRET_KEY: str = os.getenv("SECRET_KEY", os.getenv("JWT_SECRET", "dev-secret-change-me"))
 
-    # CORS - allow all origins by default (SPA serves from same origin in production)
-    # Set CORS_ORIGINS env var to restrict if needed (comma-separated list)
-    CORS_ORIGINS: list = (
-        os.getenv("CORS_ORIGINS", "*").split(",")
-        if os.getenv("CORS_ORIGINS")
-        else ["*"]
-    )
+    # CORS - In production, CORS_ORIGINS must be set explicitly
+    # Set CORS_ORIGINS env var (comma-separated list) or defaults to FRONTEND_URL
+    _cors_origins_env = os.getenv("CORS_ORIGINS")
+
+    if _cors_origins_env:
+        CORS_ORIGINS: list = [origin.strip() for origin in _cors_origins_env.split(",")]
+    elif IS_PRODUCTION:
+        # In production, default to FRONTEND_URL only (same-origin)
+        CORS_ORIGINS: list = [FRONTEND_URL]
+    else:
+        # Development: allow localhost variants
+        CORS_ORIGINS: list = [
+            "http://localhost:3000",
+            "http://localhost:5000",
+            "http://localhost:5001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5000",
+            "http://127.0.0.1:5001",
+        ]
 
     # ======================================================================
     # RATE LIMITING
@@ -114,6 +155,14 @@ class Config:
     ADMIN_TOKEN: str = os.getenv("ADMIN_TOKEN", "")
     # ADMIN_EMAIL is required for payment notifications - no default to avoid data leaks
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
+
+    # ======================================================================
+    # MONITORING & LOGGING
+    # ======================================================================
+    # Sentry for error tracking (optional but recommended in production)
+    SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
+    SENTRY_TRACES_SAMPLE_RATE: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+    SENTRY_ENVIRONMENT: str = ENV  # Uses ENV value (development, staging, production)
 
     # ======================================================================
     # APIs DE LICITACIONES — GOBIERNO COLOMBIA
@@ -465,14 +514,34 @@ class Config:
     # ======================================================================
     @classmethod
     def validate(cls) -> tuple[bool, list[str]]:
-        """Valida la configuración y retorna errores si los hay."""
+        """Valida la configuración y retorna errores/warnings."""
         errors = []
-        if not cls.JWT_SECRET:
-            errors.append("JWT_SECRET no configurado")
+        warnings = []
+
+        # Critical errors (block startup in production)
+        if not cls.JWT_SECRET and cls.IS_PRODUCTION:
+            errors.append("CRITICAL: JWT_SECRET must be set in production")
+
+        if not cls.DATABASE_URL:
+            errors.append("CRITICAL: DATABASE_URL not configured")
+
+        # Important warnings (should be set but not blocking)
         if not cls.RESEND_API_KEY:
-            errors.append("RESEND_API_KEY no configurado (emails no funcionarán)")
+            warnings.append("WARNING: RESEND_API_KEY not set - emails will not be sent")
+
         if not cls.ADMIN_EMAIL:
-            errors.append("ADMIN_EMAIL no configurado (notificaciones de pago no funcionarán)")
+            warnings.append("WARNING: ADMIN_EMAIL not set - payment notifications will fail")
+
+        if cls.CORS_ORIGINS == ["*"] and cls.IS_PRODUCTION:
+            warnings.append("WARNING: CORS is set to '*' in production - security risk")
+
+        if not cls.WOMPI_EVENTS_SECRET and cls.IS_PRODUCTION:
+            warnings.append("WARNING: WOMPI_EVENTS_SECRET not set - payment webhooks cannot be verified")
+
+        # Print all warnings
+        for warning in warnings:
+            print(f"⚠️  {warning}", file=sys.stderr)
+
         return len(errors) == 0, errors
 
     @classmethod

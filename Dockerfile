@@ -41,8 +41,12 @@ RUN echo "=== Verifying frontend in final image ===" && \
     ls -la dashboard/ && \
     ls -la dashboard/dist/ || echo "ERROR: dashboard/dist not found!"
 
-# Create directories
-RUN mkdir -p uploads/comprobantes .cache/huggingface
+# Create non-root user for security
+RUN groupadd -r jobper && useradd -r -g jobper jobper
+
+# Create directories with proper permissions
+RUN mkdir -p uploads/comprobantes .cache/huggingface && \
+    chown -R jobper:jobper /app
 
 # Environment - set BEFORE model download so it goes to the right place
 ENV PORT=5001
@@ -52,13 +56,22 @@ ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
 ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache/huggingface
 
 # Pre-download the sentence-transformers model during build (avoids timeout in production)
+# Run as jobper user to ensure cache directory is writable
+USER jobper
 RUN python -c "from sentence_transformers import SentenceTransformer; print('Downloading model...'); SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2'); print('Model ready')" || echo "Model preload skipped"
+
+# Make startup script executable
+RUN chmod +x start.sh || true
 
 # Expose port
 EXPOSE 5001
 
-# Make startup script executable
-RUN chmod +x start.sh
+# Health check - verify app is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Run as non-root user
+USER jobper
 
 # Default command
 CMD ["./start.sh"]

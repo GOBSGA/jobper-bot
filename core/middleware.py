@@ -121,11 +121,34 @@ def require_admin(fn):
 # @rate_limit — Per-IP and per-user rate limiting
 # =============================================================================
 
+def _get_client_ip() -> str:
+    """
+    Get the real client IP address, accounting for proxies.
+    When behind a proxy (Railway, Heroku, etc.), use X-Forwarded-For header.
+    """
+    # First, try X-Forwarded-For (set by proxies/load balancers)
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # X-Forwarded-For can contain multiple IPs: "client, proxy1, proxy2"
+        # Take the first one (the original client)
+        ip = forwarded_for.split(",")[0].strip()
+        return ip
+
+    # Fallback to X-Real-IP (some proxies use this)
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip.strip()
+
+    # Finally, fallback to direct connection IP
+    return request.remote_addr or "unknown"
+
+
 def rate_limit(max_per_minute: int):
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
-            ip = request.remote_addr or "unknown"
+            # Get real client IP (accounting for proxies)
+            ip = _get_client_ip()
             ip_key = f"ip:{ip}:{fn.__qualname__}"
 
             if rate_limiter.is_limited(ip_key, max_per_minute):
