@@ -1,16 +1,14 @@
 """
 Jobper Services — Admin panel (KPIs, users, payments, scrapers, logs)
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
 
-from core.database import (
-    UnitOfWork, User, Contract, Payment, Subscription,
-    AuditLog, DataSource, PrivateContract,
-)
 from core.cache import cache
+from core.database import AuditLog, Contract, DataSource, Payment, PrivateContract, Subscription, UnitOfWork, User
 
 logger = logging.getLogger(__name__)
 
@@ -23,33 +21,43 @@ def get_kpis() -> dict:
         thirty_ago = now - timedelta(days=30)
 
         # Active subscriptions
-        active_subs = uow.session.query(Subscription).filter(
-            Subscription.status == "active",
-            Subscription.ends_at > now,
-        ).all()
+        active_subs = (
+            uow.session.query(Subscription)
+            .filter(
+                Subscription.status == "active",
+                Subscription.ends_at > now,
+            )
+            .all()
+        )
 
         mrr = sum(s.amount for s in active_subs)
         active_paid = len(active_subs)
 
         # Trial users
-        trial_users = uow.session.query(User).filter(
-            User.plan == "trial",
-            User.trial_ends_at > now,
-        ).count()
+        trial_users = (
+            uow.session.query(User)
+            .filter(
+                User.plan == "trial",
+                User.trial_ends_at > now,
+            )
+            .count()
+        )
 
         # Contracts today
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        contracts_today = uow.session.query(Contract).filter(
-            Contract.created_at >= today_start
-        ).count()
+        contracts_today = uow.session.query(Contract).filter(Contract.created_at >= today_start).count()
 
         total_contracts = uow.contracts.count()
 
         # Churn (cancelled in last 30 days)
-        churned = uow.session.query(Subscription).filter(
-            Subscription.status == "cancelled",
-            Subscription.ends_at >= thirty_ago,
-        ).count()
+        churned = (
+            uow.session.query(Subscription)
+            .filter(
+                Subscription.status == "cancelled",
+                Subscription.ends_at >= thirty_ago,
+            )
+            .count()
+        )
 
     return {
         "mrr": mrr,
@@ -166,6 +174,7 @@ def get_system_health() -> dict:
     # Elasticsearch
     try:
         from search.engine import is_healthy as es_healthy
+
         health["elasticsearch"] = es_healthy()
     except Exception:
         pass
@@ -173,6 +182,7 @@ def get_system_health() -> dict:
     # Celery
     try:
         from core.tasks import get_celery
+
         celery = get_celery()
         health["celery"] = celery is not None
     except Exception:

@@ -3,13 +3,14 @@ Jobper Services — Contract Ingestion Pipeline
 Scrapes SECOP I & II sources and persists new contracts to the database.
 Supports multi-dataset ingestion with aggressive first-run loading.
 """
+
 from __future__ import annotations
 
 import logging
 import threading
 from datetime import datetime
 
-from core.database import UnitOfWork, Contract, DataSource
+from core.database import Contract, DataSource, UnitOfWork
 from scrapers.base import ContractData
 
 logger = logging.getLogger(__name__)
@@ -40,18 +41,23 @@ def ingest_private_source(source_key: str, days_back: int = 30) -> dict:
     try:
         if source_key == "ecopetrol":
             from scrapers.private.ecopetrol import EcopetrolScraper
+
             scraper = EcopetrolScraper()
         elif source_key == "epm":
             from scrapers.private.epm import EPMScraper
+
             scraper = EPMScraper()
         elif source_key == "worldbank":
             from scrapers.private.multilateral.worldbank import WorldBankScraper
+
             scraper = WorldBankScraper()
         elif source_key == "idb":
             from scrapers.private.multilateral.idb import IDBScraper
+
             scraper = IDBScraper()
         elif source_key == "ungm":
             from scrapers.private.multilateral.ungm import UNGMScraper
+
             scraper = UNGMScraper()
         else:
             logger.warning(f"Unknown private source: {source_key}")
@@ -103,9 +109,7 @@ def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
     total_skipped = sum(r.get("skipped", 0) for r in results.values())
     total_errors = sum(r.get("errors", 0) for r in results.values())
 
-    logger.info(
-        f"Ingestion complete: {total_new} new, {total_skipped} skipped, {total_errors} errors"
-    )
+    logger.info(f"Ingestion complete: {total_new} new, {total_skipped} skipped, {total_errors} errors")
 
     # Trigger post-ingestion notifications if we got new contracts
     if total_new > 0:
@@ -125,6 +129,7 @@ def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
 def _post_ingestion_notify(new_count: int):
     """After ingestion, check for high-priority matches and notify users."""
     from services.matching import notify_high_priority_matches
+
     notify_high_priority_matches(new_count)
 
 
@@ -171,17 +176,13 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
             uow.commit()
 
             # Update data source last fetch timestamp
-            ds = uow.session.query(DataSource).filter(
-                DataSource.source_key == source_key
-            ).first()
+            ds = uow.session.query(DataSource).filter(DataSource.source_key == source_key).first()
             if ds:
                 ds.last_successful_fetch = datetime.utcnow()
                 ds.error_count = 0
                 uow.commit()
 
-        logger.info(
-            f"[{source_key}] Ingested: {new_count} new, {skip_count} skipped, {error_count} errors"
-        )
+        logger.info(f"[{source_key}] Ingested: {new_count} new, {skip_count} skipped, {error_count} errors")
     except Exception as e:
         logger.error(f"[{source_key}] Ingestion failed: {e}")
         error_count += 1
@@ -194,12 +195,14 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
 def check_expiring_subscriptions():
     """Check subscription renewals and expire trials."""
     from datetime import timedelta
+
     from core.database import User
     from core.tasks import task_send_email
 
     # Delegate paid subscription renewals to payments service
     try:
         from services.payments import check_renewals
+
         check_renewals()
     except Exception as e:
         logger.error(f"Renewal check failed: {e}")
@@ -211,20 +214,28 @@ def check_expiring_subscriptions():
             # Remind trial users expiring in ~3 days
             remind_start = now + timedelta(days=2)
             remind_end = now + timedelta(days=4)
-            expiring_trials = uow.session.query(User).filter(
-                User.plan == "trial",
-                User.trial_ends_at.between(remind_start, remind_end),
-            ).all()
+            expiring_trials = (
+                uow.session.query(User)
+                .filter(
+                    User.plan == "trial",
+                    User.trial_ends_at.between(remind_start, remind_end),
+                )
+                .all()
+            )
             for user in expiring_trials:
                 days_left = max(0, (user.trial_ends_at - now).days)
                 task_send_email.delay(user.email, "trial_expiring", {"days_left": days_left})
                 logger.info(f"Trial reminder sent to {user.email} ({days_left}d left)")
 
             # Expire overdue trials
-            expired_trials = uow.session.query(User).filter(
-                User.plan == "trial",
-                User.trial_ends_at < now,
-            ).all()
+            expired_trials = (
+                uow.session.query(User)
+                .filter(
+                    User.plan == "trial",
+                    User.trial_ends_at < now,
+                )
+                .all()
+            )
             for user in expired_trials:
                 user.plan = "free"
                 logger.info(f"Trial expired for user {user.email}")

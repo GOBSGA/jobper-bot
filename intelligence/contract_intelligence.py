@@ -5,44 +5,48 @@ Análisis profundo de contratos usando NLP avanzado y heurísticas de negocio.
 Este módulo es el cerebro de Jobper - extrae información estructurada,
 detecta oportunidades ocultas, y genera insights accionables.
 """
+
 from __future__ import annotations
 
-import re
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class ContractType(str, Enum):
     """Tipos de contrato detectados."""
-    GOODS = "goods"                      # Compra de bienes
-    SERVICES = "services"                # Servicios profesionales
-    CONSTRUCTION = "construction"        # Obra civil
-    CONSULTING = "consulting"            # Consultoría
-    IT_DEVELOPMENT = "it_development"    # Desarrollo de software
-    IT_INFRASTRUCTURE = "it_infra"       # Infraestructura TI
-    MAINTENANCE = "maintenance"          # Mantenimiento
-    TRAINING = "training"                # Capacitación
-    RESEARCH = "research"                # Investigación
-    MIXED = "mixed"                      # Múltiples tipos
+
+    GOODS = "goods"  # Compra de bienes
+    SERVICES = "services"  # Servicios profesionales
+    CONSTRUCTION = "construction"  # Obra civil
+    CONSULTING = "consulting"  # Consultoría
+    IT_DEVELOPMENT = "it_development"  # Desarrollo de software
+    IT_INFRASTRUCTURE = "it_infra"  # Infraestructura TI
+    MAINTENANCE = "maintenance"  # Mantenimiento
+    TRAINING = "training"  # Capacitación
+    RESEARCH = "research"  # Investigación
+    MIXED = "mixed"  # Múltiples tipos
     UNKNOWN = "unknown"
 
 
 class ContractComplexity(str, Enum):
     """Nivel de complejidad del contrato."""
-    SIMPLE = "simple"           # < 5 requisitos, 1 entregable
-    MODERATE = "moderate"       # 5-15 requisitos
-    COMPLEX = "complex"         # 15+ requisitos, múltiples fases
+
+    SIMPLE = "simple"  # < 5 requisitos, 1 entregable
+    MODERATE = "moderate"  # 5-15 requisitos
+    COMPLEX = "complex"  # 15+ requisitos, múltiples fases
     HIGHLY_COMPLEX = "highly_complex"  # Multidisciplinario, consorcio requerido
 
 
 class CompetitionLevel(str, Enum):
     """Nivel de competencia esperado."""
-    LOW = "low"           # Pocos competidores esperados
+
+    LOW = "low"  # Pocos competidores esperados
     MODERATE = "moderate"
     HIGH = "high"
     VERY_HIGH = "very_high"
@@ -51,7 +55,8 @@ class CompetitionLevel(str, Enum):
 @dataclass
 class ContractRequirement:
     """Requisito extraído de un contrato."""
-    type: str                    # "experience", "certification", "financial", "technical", "legal"
+
+    type: str  # "experience", "certification", "financial", "technical", "legal"
     description: str
     is_mandatory: bool = True
     years_required: Optional[int] = None
@@ -62,16 +67,18 @@ class ContractRequirement:
 @dataclass
 class ContractInsight:
     """Insight generado sobre un contrato."""
-    type: str                    # "opportunity", "risk", "recommendation", "market"
+
+    type: str  # "opportunity", "risk", "recommendation", "market"
     title: str
     description: str
-    importance: int              # 1-5, donde 5 es crítico
+    importance: int  # 1-5, donde 5 es crítico
     action_items: List[str] = field(default_factory=list)
 
 
 @dataclass
 class ContractAnalysis:
     """Análisis completo de un contrato."""
+
     # Identificación
     contract_id: str
     analyzed_at: datetime
@@ -99,9 +106,9 @@ class ContractAnalysis:
     mentioned_standards: List[str] = field(default_factory=list)
 
     # Scoring
-    opportunity_score: float = 0.0      # 0-100
-    fit_score: float = 0.0              # 0-100 (vs perfil usuario)
-    win_probability: float = 0.0        # 0-100
+    opportunity_score: float = 0.0  # 0-100
+    fit_score: float = 0.0  # 0-100 (vs perfil usuario)
+    win_probability: float = 0.0  # 0-100
 
     # Insights
     insights: List[ContractInsight] = field(default_factory=list)
@@ -130,7 +137,7 @@ class ContractAnalysis:
             "win_probability": self.win_probability,
             "insights_count": len(self.insights),
             "executive_summary": self.executive_summary,
-            "recommended_action": self.recommended_action
+            "recommended_action": self.recommended_action,
         }
 
 
@@ -145,44 +152,91 @@ class ContractIntelligence:
     # Patrones para detección de tipos de contrato
     TYPE_PATTERNS = {
         ContractType.IT_DEVELOPMENT: [
-            r"desarrollo\s+de\s+software", r"aplicaci[oó]n\s+m[oó]vil", r"sistema\s+de\s+informaci[oó]n",
-            r"plataforma\s+digital", r"software\s+a\s+la\s+medida", r"desarrollo\s+web",
-            r"app\s+m[oó]vil", r"api\s+rest", r"microservicios", r"software\s+development"
+            r"desarrollo\s+de\s+software",
+            r"aplicaci[oó]n\s+m[oó]vil",
+            r"sistema\s+de\s+informaci[oó]n",
+            r"plataforma\s+digital",
+            r"software\s+a\s+la\s+medida",
+            r"desarrollo\s+web",
+            r"app\s+m[oó]vil",
+            r"api\s+rest",
+            r"microservicios",
+            r"software\s+development",
         ],
         ContractType.IT_INFRASTRUCTURE: [
-            r"infraestructura\s+tecnol[oó]gica", r"data\s*center", r"servidores",
-            r"redes\s+y\s+comunicaciones", r"ciberseguridad", r"cloud", r"nube",
-            r"hosting", r"backup", r"disaster\s+recovery"
+            r"infraestructura\s+tecnol[oó]gica",
+            r"data\s*center",
+            r"servidores",
+            r"redes\s+y\s+comunicaciones",
+            r"ciberseguridad",
+            r"cloud",
+            r"nube",
+            r"hosting",
+            r"backup",
+            r"disaster\s+recovery",
         ],
         ContractType.CONSTRUCTION: [
-            r"construcci[oó]n", r"obra\s+civil", r"edificaci[oó]n", r"infraestructura\s+f[ií]sica",
-            r"remodelaci[oó]n", r"adecuaci[oó]n", r"mantenimiento\s+locativo",
-            r"v[ií]as", r"acueducto", r"alcantarillado"
+            r"construcci[oó]n",
+            r"obra\s+civil",
+            r"edificaci[oó]n",
+            r"infraestructura\s+f[ií]sica",
+            r"remodelaci[oó]n",
+            r"adecuaci[oó]n",
+            r"mantenimiento\s+locativo",
+            r"v[ií]as",
+            r"acueducto",
+            r"alcantarillado",
         ],
         ContractType.CONSULTING: [
-            r"consultor[ií]a", r"asesor[ií]a", r"estudio\s+de", r"diagn[oó]stico",
-            r"evaluaci[oó]n", r"interventor[ií]a", r"auditor[ií]a", r"an[aá]lisis"
+            r"consultor[ií]a",
+            r"asesor[ií]a",
+            r"estudio\s+de",
+            r"diagn[oó]stico",
+            r"evaluaci[oó]n",
+            r"interventor[ií]a",
+            r"auditor[ií]a",
+            r"an[aá]lisis",
         ],
         ContractType.GOODS: [
-            r"suministro", r"compra\s+de", r"adquisici[oó]n", r"provisi[oó]n",
-            r"dotaci[oó]n", r"equipos", r"materiales", r"insumos"
+            r"suministro",
+            r"compra\s+de",
+            r"adquisici[oó]n",
+            r"provisi[oó]n",
+            r"dotaci[oó]n",
+            r"equipos",
+            r"materiales",
+            r"insumos",
         ],
         ContractType.SERVICES: [
-            r"prestaci[oó]n\s+de\s+servicios", r"servicio\s+de", r"operaci[oó]n",
-            r"soporte", r"mesa\s+de\s+ayuda", r"outsourcing"
+            r"prestaci[oó]n\s+de\s+servicios",
+            r"servicio\s+de",
+            r"operaci[oó]n",
+            r"soporte",
+            r"mesa\s+de\s+ayuda",
+            r"outsourcing",
         ],
         ContractType.TRAINING: [
-            r"capacitaci[oó]n", r"formaci[oó]n", r"entrenamiento", r"taller",
-            r"diplomado", r"curso", r"seminario"
+            r"capacitaci[oó]n",
+            r"formaci[oó]n",
+            r"entrenamiento",
+            r"taller",
+            r"diplomado",
+            r"curso",
+            r"seminario",
         ],
         ContractType.MAINTENANCE: [
-            r"mantenimiento\s+preventivo", r"mantenimiento\s+correctivo",
-            r"soporte\s+t[eé]cnico", r"garant[ií]a\s+extendida"
+            r"mantenimiento\s+preventivo",
+            r"mantenimiento\s+correctivo",
+            r"soporte\s+t[eé]cnico",
+            r"garant[ií]a\s+extendida",
         ],
         ContractType.RESEARCH: [
-            r"investigaci[oó]n", r"estudio\s+cient[ií]fico", r"i\+d",
-            r"innovaci[oó]n", r"desarrollo\s+experimental"
-        ]
+            r"investigaci[oó]n",
+            r"estudio\s+cient[ií]fico",
+            r"i\+d",
+            r"innovaci[oó]n",
+            r"desarrollo\s+experimental",
+        ],
     }
 
     # Patrones para requisitos
@@ -191,70 +245,101 @@ class ContractIntelligence:
             r"experiencia\s+(?:m[ií]nima\s+)?(?:de\s+)?(\d+)\s+a[ñn]os?",
             r"(\d+)\s+a[ñn]os?\s+de\s+experiencia",
             r"experiencia\s+espec[ií]fica\s+en",
-            r"haber\s+ejecutado\s+(?:al\s+menos\s+)?(\d+)\s+contratos?"
+            r"haber\s+ejecutado\s+(?:al\s+menos\s+)?(\d+)\s+contratos?",
         ],
         "financial": [
             r"capacidad\s+financiera",
             r"patrimonio\s+(?:l[ií]quido\s+)?(?:m[ií]nimo\s+)?(?:de\s+)?\$?\s*([\d.,]+)",
             r"capital\s+de\s+trabajo",
-            r"facturaci[oó]n\s+(?:anual\s+)?(?:m[ií]nima\s+)?(?:de\s+)?\$?\s*([\d.,]+)"
+            r"facturaci[oó]n\s+(?:anual\s+)?(?:m[ií]nima\s+)?(?:de\s+)?\$?\s*([\d.,]+)",
         ],
         "certification": [
             r"certificaci[oó]n\s+(?:en\s+)?iso\s*(\d+)",
             r"certificado\s+(?:en\s+)?(pmp|scrum|itil|cobit)",
             r"registro\s+(?:nacional\s+)?de\s+consultores",
-            r"tarjeta\s+profesional"
+            r"tarjeta\s+profesional",
         ],
         "legal": [
             r"rut\s+actualizado",
             r"c[aá]mara\s+de\s+comercio",
             r"antecedentes\s+(?:disciplinarios|fiscales|judiciales)",
-            r"paz\s+y\s+salvo"
+            r"paz\s+y\s+salvo",
         ],
         "consortium": [
-            r"consorcio", r"uni[oó]n\s+temporal", r"asociaci[oó]n",
-            r"se\s+permite\s+(?:la\s+)?participaci[oó]n\s+conjunta"
-        ]
+            r"consorcio",
+            r"uni[oó]n\s+temporal",
+            r"asociaci[oó]n",
+            r"se\s+permite\s+(?:la\s+)?participaci[oó]n\s+conjunta",
+        ],
     }
 
     # Patrones para tecnologías
     TECHNOLOGY_PATTERNS = [
-        r"python", r"java(?:script)?", r"\.net", r"node\.?js", r"react", r"angular", r"vue",
-        r"aws", r"azure", r"google\s+cloud", r"gcp", r"kubernetes", r"docker",
-        r"postgresql", r"mysql", r"oracle", r"sql\s+server", r"mongodb",
-        r"power\s*bi", r"tableau", r"sap", r"oracle\s+erp", r"dynamics",
-        r"cisco", r"fortinet", r"palo\s+alto", r"vmware",
-        r"agile", r"scrum", r"devops", r"ci/cd"
+        r"python",
+        r"java(?:script)?",
+        r"\.net",
+        r"node\.?js",
+        r"react",
+        r"angular",
+        r"vue",
+        r"aws",
+        r"azure",
+        r"google\s+cloud",
+        r"gcp",
+        r"kubernetes",
+        r"docker",
+        r"postgresql",
+        r"mysql",
+        r"oracle",
+        r"sql\s+server",
+        r"mongodb",
+        r"power\s*bi",
+        r"tableau",
+        r"sap",
+        r"oracle\s+erp",
+        r"dynamics",
+        r"cisco",
+        r"fortinet",
+        r"palo\s+alto",
+        r"vmware",
+        r"agile",
+        r"scrum",
+        r"devops",
+        r"ci/cd",
     ]
 
     # Estándares y certificaciones comunes
     STANDARDS_PATTERNS = [
-        r"iso\s*\d+", r"cmmi", r"itil", r"cobit", r"pmi", r"pmbok",
-        r"owasp", r"gdpr", r"habeas\s+data", r"ley\s+\d+",
-        r"nist", r"soc\s*[12]", r"hipaa"
+        r"iso\s*\d+",
+        r"cmmi",
+        r"itil",
+        r"cobit",
+        r"pmi",
+        r"pmbok",
+        r"owasp",
+        r"gdpr",
+        r"habeas\s+data",
+        r"ley\s+\d+",
+        r"nist",
+        r"soc\s*[12]",
+        r"hipaa",
     ]
 
     def __init__(self):
         """Inicializa el motor de inteligencia."""
         # Compilar patrones para eficiencia
         self._type_patterns = {
-            t: [re.compile(p, re.IGNORECASE) for p in patterns]
-            for t, patterns in self.TYPE_PATTERNS.items()
+            t: [re.compile(p, re.IGNORECASE) for p in patterns] for t, patterns in self.TYPE_PATTERNS.items()
         }
         self._req_patterns = {
-            t: [re.compile(p, re.IGNORECASE) for p in patterns]
-            for t, patterns in self.REQUIREMENT_PATTERNS.items()
+            t: [re.compile(p, re.IGNORECASE) for p in patterns] for t, patterns in self.REQUIREMENT_PATTERNS.items()
         }
         self._tech_patterns = [re.compile(p, re.IGNORECASE) for p in self.TECHNOLOGY_PATTERNS]
         self._std_patterns = [re.compile(p, re.IGNORECASE) for p in self.STANDARDS_PATTERNS]
 
         logger.info("ContractIntelligence inicializado")
 
-    def analyze(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Optional[Dict[str, Any]] = None
-    ) -> ContractAnalysis:
+    def analyze(self, contract: Dict[str, Any], user_profile: Optional[Dict[str, Any]] = None) -> ContractAnalysis:
         """
         Realiza análisis completo de un contrato.
 
@@ -274,7 +359,7 @@ class ContractIntelligence:
             analyzed_at=datetime.now(),
             contract_type=self._detect_contract_type(text),
             complexity=ContractComplexity.MODERATE,  # Se actualiza después
-            competition_level=CompetitionLevel.MODERATE  # Se actualiza después
+            competition_level=CompetitionLevel.MODERATE,  # Se actualiza después
         )
 
         # Extraer requisitos
@@ -354,11 +439,7 @@ class ContractIntelligence:
             for pattern in patterns:
                 matches = pattern.finditer(text)
                 for match in matches:
-                    req = ContractRequirement(
-                        type=req_type,
-                        description=match.group(0),
-                        is_mandatory=True
-                    )
+                    req = ContractRequirement(type=req_type, description=match.group(0), is_mandatory=True)
 
                     # Extraer valores numéricos si aplica
                     groups = match.groups()
@@ -381,7 +462,7 @@ class ContractIntelligence:
         patterns = [
             r"experiencia\s+(?:m[ií]nima\s+)?(?:de\s+)?(\d+)\s+a[ñn]os?",
             r"(\d+)\s+a[ñn]os?\s+de\s+experiencia",
-            r"m[ií]nimo\s+(\d+)\s+a[ñn]os?"
+            r"m[ií]nimo\s+(\d+)\s+a[ñn]os?",
         ]
 
         max_years = 0
@@ -406,7 +487,7 @@ class ContractIntelligence:
         # Buscar en el texto
         patterns = [
             r"patrimonio\s+(?:l[ií]quido\s+)?(?:m[ií]nimo\s+)?(?:de\s+)?\$?\s*([\d.,]+)",
-            r"capital\s+(?:de\s+trabajo\s+)?(?:m[ií]nimo\s+)?(?:de\s+)?\$?\s*([\d.,]+)"
+            r"capital\s+(?:de\s+trabajo\s+)?(?:m[ií]nimo\s+)?(?:de\s+)?\$?\s*([\d.,]+)",
         ]
 
         for pattern in patterns:
@@ -470,7 +551,7 @@ class ContractIntelligence:
         patterns = [
             r"entrega(?:r|ble)?\s+(?:de\s+)?([^.,;]+)",
             r"producto\s+(?:final\s+)?([^.,;]+)",
-            r"resultado\s+(?:esperado\s+)?([^.,;]+)"
+            r"resultado\s+(?:esperado\s+)?([^.,;]+)",
         ]
 
         for pattern in patterns:
@@ -490,9 +571,10 @@ class ContractIntelligence:
             return True
 
         patterns = [
-            r"consorcio", r"uni[oó]n\s+temporal",
+            r"consorcio",
+            r"uni[oó]n\s+temporal",
             r"se\s+permite\s+(?:la\s+)?participaci[oó]n\s+conjunta",
-            r"propuestas?\s+conjuntas?"
+            r"propuestas?\s+conjuntas?",
         ]
 
         return any(re.search(p, text, re.IGNORECASE) for p in patterns)
@@ -503,7 +585,7 @@ class ContractIntelligence:
         restriction_patterns = [
             r"solo\s+empresas?\s+colombianas?",
             r"exclusivamente\s+nacional",
-            r"personas?\s+jur[ií]dicas?\s+colombianas?"
+            r"personas?\s+jur[ií]dicas?\s+colombianas?",
         ]
 
         return not any(re.search(p, text, re.IGNORECASE) for p in restriction_patterns)
@@ -514,7 +596,7 @@ class ContractIntelligence:
             r"domicilio\s+en\s+la\s+ciudad",
             r"presencia\s+(?:f[ií]sica\s+)?en",
             r"oficina\s+(?:en\s+)?(?:la\s+)?ciudad",
-            r"sede\s+(?:principal\s+)?en"
+            r"sede\s+(?:principal\s+)?en",
         ]
 
         return any(re.search(p, text, re.IGNORECASE) for p in patterns)
@@ -526,7 +608,7 @@ class ContractIntelligence:
             (r"(\d+)\s*meses?", 30),
             (r"(\d+)\s*d[ií]as?", 1),
             (r"(\d+)\s*semanas?", 7),
-            (r"(\d+)\s*a[ñn]os?", 365)
+            (r"(\d+)\s*a[ñn]os?", 365),
         ]
 
         for pattern, multiplier in patterns:
@@ -554,11 +636,7 @@ class ContractIntelligence:
 
         return None
 
-    def _calculate_complexity(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any]
-    ) -> ContractComplexity:
+    def _calculate_complexity(self, analysis: ContractAnalysis, contract: Dict[str, Any]) -> ContractComplexity:
         """Calcula el nivel de complejidad del contrato."""
         score = 0
 
@@ -606,11 +684,7 @@ class ContractIntelligence:
             return ContractComplexity.MODERATE
         return ContractComplexity.SIMPLE
 
-    def _calculate_competition(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any]
-    ) -> CompetitionLevel:
+    def _calculate_competition(self, analysis: ContractAnalysis, contract: Dict[str, Any]) -> CompetitionLevel:
         """Estima el nivel de competencia esperado."""
         score = 0
         amount = contract.get("amount", 0) or 0
@@ -649,11 +723,7 @@ class ContractIntelligence:
             return CompetitionLevel.MODERATE
         return CompetitionLevel.LOW
 
-    def _calculate_opportunity_score(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any]
-    ) -> float:
+    def _calculate_opportunity_score(self, analysis: ContractAnalysis, contract: Dict[str, Any]) -> float:
         """Calcula score de oportunidad (qué tan buena es la oportunidad)."""
         score = 50.0  # Base
 
@@ -702,10 +772,7 @@ class ContractIntelligence:
         return max(0, min(100, score))
 
     def _calculate_fit_score(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
+        self, analysis: ContractAnalysis, contract: Dict[str, Any], user_profile: Dict[str, Any]
     ) -> float:
         """Calcula qué tan bien encaja el usuario con el contrato."""
         score = 0.0
@@ -770,11 +837,7 @@ class ContractIntelligence:
 
         return max(0, min(100, score * (4 / factors)))  # Normalizar a 100
 
-    def _calculate_win_probability(
-        self,
-        analysis: ContractAnalysis,
-        user_profile: Dict[str, Any]
-    ) -> float:
+    def _calculate_win_probability(self, analysis: ContractAnalysis, user_profile: Dict[str, Any]) -> float:
         """
         Estima la probabilidad de ganar el contrato.
 
@@ -810,10 +873,7 @@ class ContractIntelligence:
         return max(5, min(80, base_probability))  # Entre 5% y 80%
 
     def _generate_insights(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any],
-        user_profile: Optional[Dict[str, Any]]
+        self, analysis: ContractAnalysis, contract: Dict[str, Any], user_profile: Optional[Dict[str, Any]]
     ) -> List[ContractInsight]:
         """Genera insights accionables sobre el contrato."""
         insights = []
@@ -827,105 +887,106 @@ class ContractIntelligence:
                 days_left = (deadline - datetime.now()).days
 
                 if days_left <= 3:
-                    insights.append(ContractInsight(
-                        type="risk",
-                        title="Deadline Crítico",
-                        description=f"Solo quedan {days_left} días para presentar propuesta",
-                        importance=5,
-                        action_items=[
-                            "Verificar si tienes toda la documentación lista",
-                            "Considerar si es viable participar con tan poco tiempo"
-                        ]
-                    ))
+                    insights.append(
+                        ContractInsight(
+                            type="risk",
+                            title="Deadline Crítico",
+                            description=f"Solo quedan {days_left} días para presentar propuesta",
+                            importance=5,
+                            action_items=[
+                                "Verificar si tienes toda la documentación lista",
+                                "Considerar si es viable participar con tan poco tiempo",
+                            ],
+                        )
+                    )
                 elif days_left <= 7:
-                    insights.append(ContractInsight(
-                        type="recommendation",
-                        title="Actuar Pronto",
-                        description=f"Quedan {days_left} días - tiempo justo para preparar propuesta",
-                        importance=4,
-                        action_items=[
-                            "Iniciar preparación de documentos hoy",
-                            "Revisar requisitos en detalle"
-                        ]
-                    ))
+                    insights.append(
+                        ContractInsight(
+                            type="recommendation",
+                            title="Actuar Pronto",
+                            description=f"Quedan {days_left} días - tiempo justo para preparar propuesta",
+                            importance=4,
+                            action_items=["Iniciar preparación de documentos hoy", "Revisar requisitos en detalle"],
+                        )
+                    )
             except (ValueError, TypeError):
                 pass
 
         # Insight de oportunidad de nicho
         if analysis.competition_level == CompetitionLevel.LOW:
-            insights.append(ContractInsight(
-                type="opportunity",
-                title="Baja Competencia Esperada",
-                description="Este contrato tiene requisitos específicos que reducen la competencia",
-                importance=4,
-                action_items=[
-                    "Asegurarte de cumplir todos los requisitos específicos",
-                    "Destacar tu experiencia diferenciadora"
-                ]
-            ))
+            insights.append(
+                ContractInsight(
+                    type="opportunity",
+                    title="Baja Competencia Esperada",
+                    description="Este contrato tiene requisitos específicos que reducen la competencia",
+                    importance=4,
+                    action_items=[
+                        "Asegurarte de cumplir todos los requisitos específicos",
+                        "Destacar tu experiencia diferenciadora",
+                    ],
+                )
+            )
 
         # Insight de consorcio
         if analysis.requires_consortium:
-            insights.append(ContractInsight(
-                type="recommendation",
-                title="Considerar Consorcio",
-                description="Por el tamaño o complejidad, un consorcio podría ser necesario",
-                importance=3,
-                action_items=[
-                    "Identificar posibles socios complementarios",
-                    "Evaluar división de responsabilidades"
-                ]
-            ))
+            insights.append(
+                ContractInsight(
+                    type="recommendation",
+                    title="Considerar Consorcio",
+                    description="Por el tamaño o complejidad, un consorcio podría ser necesario",
+                    importance=3,
+                    action_items=[
+                        "Identificar posibles socios complementarios",
+                        "Evaluar división de responsabilidades",
+                    ],
+                )
+            )
 
         # Insight de certificaciones
         if analysis.certifications_required:
             certs = ", ".join(analysis.certifications_required[:3])
-            insights.append(ContractInsight(
-                type="risk" if len(analysis.certifications_required) > 2 else "recommendation",
-                title="Certificaciones Requeridas",
-                description=f"Se requieren: {certs}",
-                importance=4,
-                action_items=[
-                    "Verificar que tienes las certificaciones vigentes",
-                    "Adjuntar copias actualizadas en la propuesta"
-                ]
-            ))
+            insights.append(
+                ContractInsight(
+                    type="risk" if len(analysis.certifications_required) > 2 else "recommendation",
+                    title="Certificaciones Requeridas",
+                    description=f"Se requieren: {certs}",
+                    importance=4,
+                    action_items=[
+                        "Verificar que tienes las certificaciones vigentes",
+                        "Adjuntar copias actualizadas en la propuesta",
+                    ],
+                )
+            )
 
         # Insight de tecnologías
         if analysis.key_technologies:
             techs = ", ".join(analysis.key_technologies[:5])
-            insights.append(ContractInsight(
-                type="market",
-                title="Stack Tecnológico",
-                description=f"Tecnologías mencionadas: {techs}",
-                importance=2,
-                action_items=[
-                    "Destacar experiencia con estas tecnologías",
-                    "Incluir casos de éxito relevantes"
-                ]
-            ))
+            insights.append(
+                ContractInsight(
+                    type="market",
+                    title="Stack Tecnológico",
+                    description=f"Tecnologías mencionadas: {techs}",
+                    importance=2,
+                    action_items=["Destacar experiencia con estas tecnologías", "Incluir casos de éxito relevantes"],
+                )
+            )
 
         # Insight de monto alto
         amount = contract.get("amount", 0) or 0
         if amount > 1_000_000_000:
-            insights.append(ContractInsight(
-                type="opportunity",
-                title="Contrato de Alto Valor",
-                description=f"Monto superior a $1.000M - alta rentabilidad potencial",
-                importance=4,
-                action_items=[
-                    "Evaluar capacidad financiera requerida",
-                    "Considerar garantías necesarias"
-                ]
-            ))
+            insights.append(
+                ContractInsight(
+                    type="opportunity",
+                    title="Contrato de Alto Valor",
+                    description=f"Monto superior a $1.000M - alta rentabilidad potencial",
+                    importance=4,
+                    action_items=["Evaluar capacidad financiera requerida", "Considerar garantías necesarias"],
+                )
+            )
 
         return sorted(insights, key=lambda x: x.importance, reverse=True)
 
-    def _generate_executive_summary(
-        self,
-        analysis: ContractAnalysis,
-        contract: Dict[str, Any]
-    ) -> str:
+    def _generate_executive_summary(self, analysis: ContractAnalysis, contract: Dict[str, Any]) -> str:
         """Genera un resumen ejecutivo del análisis."""
         parts = []
 
@@ -941,7 +1002,7 @@ class ContractIntelligence:
             ContractType.MAINTENANCE: "Mantenimiento",
             ContractType.RESEARCH: "Investigación",
             ContractType.MIXED: "Mixto",
-            ContractType.UNKNOWN: "No clasificado"
+            ContractType.UNKNOWN: "No clasificado",
         }
 
         parts.append(f"Contrato de {type_names.get(analysis.contract_type, 'tipo desconocido')}")
@@ -963,17 +1024,13 @@ class ContractIntelligence:
             CompetitionLevel.LOW: "Se espera baja competencia",
             CompetitionLevel.MODERATE: "Competencia moderada esperada",
             CompetitionLevel.HIGH: "Alta competencia esperada",
-            CompetitionLevel.VERY_HIGH: "Muy alta competencia esperada"
+            CompetitionLevel.VERY_HIGH: "Muy alta competencia esperada",
         }
         parts.append(comp_text.get(analysis.competition_level, ""))
 
         return ". ".join(parts) + "."
 
-    def _generate_recommendation(
-        self,
-        analysis: ContractAnalysis,
-        user_profile: Optional[Dict[str, Any]]
-    ) -> str:
+    def _generate_recommendation(self, analysis: ContractAnalysis, user_profile: Optional[Dict[str, Any]]) -> str:
         """Genera recomendación de acción."""
         if analysis.win_probability >= 40 and analysis.fit_score >= 70:
             return "ALTA PRIORIDAD: Este contrato tiene buen fit con tu perfil y probabilidad razonable de ganar. Recomendamos participar."

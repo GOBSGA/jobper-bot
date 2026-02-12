@@ -1,6 +1,7 @@
 """
 Jobper Services — Email (Resend) + Web Push notifications
 """
+
 from __future__ import annotations
 
 import html
@@ -116,6 +117,7 @@ def send_email(to: str, template: str, data: dict, retry: int = 0) -> bool:
 # =============================================================================
 # EMAIL TEMPLATES
 # =============================================================================
+
 
 def _render_template(template: str, data: dict) -> tuple[str, str]:
     """Return (subject, html) for a template."""
@@ -237,9 +239,9 @@ def _tmpl_weekly_report(data: dict) -> tuple[str, str]:
     # FIX: Escape user-provided data to prevent XSS
     contracts_html = ""
     for c in top[:5]:
-        title = _escape(str(c.get('title', ''))[:80])
-        entity = _escape(str(c.get('entity', '')))
-        amount = _escape(str(c.get('amount', 'N/A')))
+        title = _escape(str(c.get("title", ""))[:80])
+        entity = _escape(str(c.get("entity", "")))
+        amount = _escape(str(c.get("amount", "N/A")))
         contracts_html += f"""
 <div style="border-bottom:1px solid #e2e8f0;padding:12px 0">
   <p style="margin:0;font-weight:600;color:#0f172a">{title}</p>
@@ -376,28 +378,29 @@ def _tmpl_payment_rejected(data: dict) -> tuple[str, str]:
 # WEB PUSH
 # =============================================================================
 
+
 def send_push(user_id: int, title: str, body: str, url: str = "") -> bool:
     """Send web push notification to all user's subscriptions."""
     if not Config.VAPID_PRIVATE_KEY:
         return False
 
     try:
-        from pywebpush import webpush, WebPushException
+        from pywebpush import WebPushException, webpush
 
         with UnitOfWork() as uow:
-            subs = uow.push_subs.session.query(
-                uow.push_subs.model
-            ).filter_by(user_id=user_id).all()
+            subs = uow.push_subs.session.query(uow.push_subs.model).filter_by(user_id=user_id).all()
 
             if not subs:
                 return False
 
-            payload = json.dumps({
-                "title": title,
-                "body": body,
-                "url": url or Config.FRONTEND_URL,
-                "icon": f"{Config.FRONTEND_URL}/icon-192.png",
-            })
+            payload = json.dumps(
+                {
+                    "title": title,
+                    "body": body,
+                    "url": url or Config.FRONTEND_URL,
+                    "icon": f"{Config.FRONTEND_URL}/icon-192.png",
+                }
+            )
 
             for sub in subs:
                 try:
@@ -506,13 +509,7 @@ def send_whatsapp_contract_alert(user_id: int, contract: dict) -> bool:
 
     amount_str = f"${amount:,.0f} COP" if amount else "No especificado"
 
-    msg = (
-        f"📋 *Nuevo contrato relevante*\n\n"
-        f"*{title}*\n"
-        f"🏢 {entity}\n"
-        f"💰 {amount_str}\n\n"
-        f"👉 {url}"
-    )
+    msg = f"📋 *Nuevo contrato relevante*\n\n" f"*{title}*\n" f"🏢 {entity}\n" f"💰 {amount_str}\n\n" f"👉 {url}"
     return send_whatsapp(user.whatsapp_number, msg)
 
 
@@ -535,6 +532,7 @@ def send_whatsapp_renewal_reminder(user_id: int, days_left: int, plan: str) -> b
 # =============================================================================
 # BULK ALERTS
 # =============================================================================
+
 
 def send_contract_alert_to_matching_users(contract: dict):
     """Send alert to users whose profile matches this contract (>70% match).
@@ -576,10 +574,13 @@ def send_contract_alert_to_matching_users(contract: dict):
                 # WhatsApp alert (if enabled)
                 if user.whatsapp_enabled and user.whatsapp_number:
                     try:
-                        send_whatsapp_contract_alert(user.id, {
-                            **contract,
-                            "url": f"{Config.FRONTEND_URL}/contracts/{contract.get('id', '')}",
-                        })
+                        send_whatsapp_contract_alert(
+                            user.id,
+                            {
+                                **contract,
+                                "url": f"{Config.FRONTEND_URL}/contracts/{contract.get('id', '')}",
+                            },
+                        )
                     except Exception:
                         pass  # Non-blocking
 
@@ -610,6 +611,7 @@ def _quick_match_score(user, contract: dict) -> int:
 # =============================================================================
 # DAILY DIGEST
 # =============================================================================
+
 
 def send_daily_digest():
     """
@@ -644,12 +646,14 @@ def send_daily_digest():
                 # Format contracts for email
                 top_contracts = []
                 for c in matched[:5]:
-                    top_contracts.append({
-                        "title": c.get("title", "")[:100],
-                        "entity": c.get("entity", ""),
-                        "amount": f"${c.get('amount', 0):,.0f} COP" if c.get("amount") else "N/A",
-                        "match_score": c.get("match_score", 0),
-                    })
+                    top_contracts.append(
+                        {
+                            "title": c.get("title", "")[:100],
+                            "entity": c.get("entity", ""),
+                            "amount": f"${c.get('amount', 0):,.0f} COP" if c.get("amount") else "N/A",
+                            "match_score": c.get("match_score", 0),
+                        }
+                    )
 
                 if top_contracts:
                     send_email(
@@ -680,7 +684,9 @@ def _tmpl_daily_digest(data: dict) -> tuple[str, str]:
 
     contracts_html = ""
     for c in top[:5]:
-        score_color = "#16a34a" if c.get("match_score", 0) >= 80 else "#3b82f6" if c.get("match_score", 0) >= 60 else "#6b7280"
+        score_color = (
+            "#16a34a" if c.get("match_score", 0) >= 80 else "#3b82f6" if c.get("match_score", 0) >= 60 else "#6b7280"
+        )
         contracts_html += f"""
 <div style="border-bottom:1px solid #e2e8f0;padding:12px 0">
   <div style="display:flex;justify-content:space-between;align-items:center">
@@ -761,4 +767,3 @@ def _tmpl_subscription_expired(data: dict) -> tuple[str, str]:
 <p style="color:#94a3b8;font-size:13px">No te preocupes, tus favoritos y configuración están guardados.</p>
 """
     return f"Tu plan {plan.title()} ha expirado", _base_html(content)
-

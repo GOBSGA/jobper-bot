@@ -2,15 +2,15 @@
 Clase base para scrapers de licitaciones.
 Incluye retry con exponential backoff y rate limiting.
 """
+
 from __future__ import annotations
 
+import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
-
-import logging
 
 import requests
 
@@ -64,18 +64,11 @@ class BaseScraper(ABC):
         self.api_url = api_url
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({
-            "Accept": "application/json",
-            "User-Agent": "Jobper-Bot/2.0"
-        })
+        self.session.headers.update({"Accept": "application/json", "User-Agent": "Jobper-Bot/2.0"})
 
     @abstractmethod
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene contratos de la API según los filtros.
@@ -140,7 +133,7 @@ class BaseScraper(ABC):
 
             # Exponential backoff before retry
             if attempt < MAX_RETRIES - 1:
-                wait = RETRY_BACKOFF * (2 ** attempt)
+                wait = RETRY_BACKOFF * (2**attempt)
                 logger.info(f"Reintentando en {wait}s...")
                 time.sleep(wait)
 

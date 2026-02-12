@@ -2,11 +2,12 @@
 Monitor de deadlines para Jobper Bot v3.0
 Detecta y notifica contratos con fechas límite próximas
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 from config import Config
 from database.manager import DatabaseManager
@@ -75,7 +76,7 @@ class DeadlineMonitor:
             "alerts_sent": 0,
             "users_notified": 0,
             "errors": 0,
-            "by_urgency": {1: 0, 2: 0, 3: 0}
+            "by_urgency": {1: 0, 2: 0, 3: 0},
         }
 
         try:
@@ -107,9 +108,7 @@ class DeadlineMonitor:
                 for user in active_users:
                     # Verificar si ya se envió esta alerta
                     if self.db.is_deadline_alert_sent(
-                        user_id=user["id"],
-                        contract_id=contract["id"],
-                        urgency_level=urgency_level
+                        user_id=user["id"], contract_id=contract["id"], urgency_level=urgency_level
                     ):
                         continue
 
@@ -118,18 +117,12 @@ class DeadlineMonitor:
                         continue
 
                     # Enviar alerta
-                    success = self._send_deadline_alert(
-                        user=user,
-                        contract=contract,
-                        urgency_level=urgency_level
-                    )
+                    success = self._send_deadline_alert(user=user, contract=contract, urgency_level=urgency_level)
 
                     if success:
                         # Marcar como enviada
                         self.db.mark_deadline_alert_sent(
-                            user_id=user["id"],
-                            contract_id=contract["id"],
-                            urgency_level=urgency_level
+                            user_id=user["id"], contract_id=contract["id"], urgency_level=urgency_level
                         )
                         stats["alerts_sent"] += 1
                         stats["by_urgency"][urgency_level] += 1
@@ -224,10 +217,7 @@ class DeadlineMonitor:
         if not user_keywords:
             return False
 
-        contract_text = (
-            (contract.get("title") or "") + " " +
-            (contract.get("description") or "")
-        ).lower()
+        contract_text = ((contract.get("title") or "") + " " + (contract.get("description") or "")).lower()
 
         return any(kw.lower() in contract_text for kw in user_keywords)
 
@@ -247,12 +237,7 @@ class DeadlineMonitor:
 
         return keywords
 
-    def _send_deadline_alert(
-        self,
-        user: Dict[str, Any],
-        contract: Dict[str, Any],
-        urgency_level: int
-    ) -> bool:
+    def _send_deadline_alert(self, user: Dict[str, Any], contract: Dict[str, Any], urgency_level: int) -> bool:
         """
         Envía una alerta de deadline a un usuario.
 
@@ -275,15 +260,11 @@ class DeadlineMonitor:
             message = self._format_alert_message(contract, urgency_info)
 
             # Enviar
-            success = self.whatsapp.send_message(
-                to=user["phone"],
-                body=message
-            )
+            success = self.whatsapp.send_message(to=user["phone"], body=message)
 
             if success:
                 logger.info(
-                    f"Alerta enviada a {user['phone']}: "
-                    f"{contract.get('title', '')[:50]} - {urgency_info['label']}"
+                    f"Alerta enviada a {user['phone']}: " f"{contract.get('title', '')[:50]} - {urgency_info['label']}"
                 )
 
             return success
@@ -292,11 +273,7 @@ class DeadlineMonitor:
             logger.error(f"Error enviando alerta: {e}")
             return False
 
-    def _format_alert_message(
-        self,
-        contract: Dict[str, Any],
-        urgency_info: Dict[str, str]
-    ) -> str:
+    def _format_alert_message(self, contract: Dict[str, Any], urgency_info: Dict[str, str]) -> str:
         """Formatea el mensaje de alerta."""
         deadline = contract.get("deadline")
         if isinstance(deadline, datetime):
@@ -335,11 +312,7 @@ Responde "silenciar" para pausar alertas urgentes.
 
         return message
 
-    def get_pending_deadlines_for_user(
-        self,
-        user_id: int,
-        days: int = 7
-    ) -> List[Dict[str, Any]]:
+    def get_pending_deadlines_for_user(self, user_id: int, days: int = 7) -> List[Dict[str, Any]]:
         """
         Obtiene contratos con deadlines próximos para un usuario específico.
 

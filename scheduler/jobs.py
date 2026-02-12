@@ -2,22 +2,23 @@
 Scheduler de tareas para Jobper Bot v3.0
 Maneja reportes semanales, alertas urgentes y tareas programadas
 """
+
 from __future__ import annotations
 
 import logging
 import threading
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import schedule
 
+from alerts.deadline_monitor import get_deadline_monitor
 from config import Config
 from database.manager import DatabaseManager
 from database.models import ConversationState, Country
-from scrapers.sam import CombinedScraper
 from matching.engine import get_matching_engine
 from notifications.whatsapp import WhatsAppClient
-from alerts.deadline_monitor import get_deadline_monitor
+from scrapers.sam import CombinedScraper
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,7 @@ class JobScheduler:
         logger.info("✅ Reportes semanales completados")
 
     def _process_country_users(
-        self,
-        all_users: List[Dict[str, Any]],
-        country_filter: str,
-        countries_to_fetch: List[str]
+        self, all_users: List[Dict[str, Any]], country_filter: str, countries_to_fetch: List[str]
     ):
         """Procesa usuarios de un país específico."""
 
@@ -97,11 +95,7 @@ class JobScheduler:
                 all_keywords.update(include_kw)
 
         # Fetch contracts una sola vez con todas las keywords
-        contracts = self.scraper.fetch_all(
-            keywords=list(all_keywords),
-            countries=countries_to_fetch,
-            days_back=7
-        )
+        contracts = self.scraper.fetch_all(keywords=list(all_keywords), countries=countries_to_fetch, days_back=7)
 
         if not contracts:
             logger.info(f"No se encontraron contratos para {country_filter}")
@@ -118,19 +112,14 @@ class JobScheduler:
         """Envía reporte personalizado a un usuario."""
 
         # Calcular matches para este usuario
-        top_contracts = self.matcher.get_top_contracts(
-            user=user,
-            contracts=contracts,
-            limit=10,
-            min_score=25
-        )
+        top_contracts = self.matcher.get_top_contracts(user=user, contracts=contracts, limit=10, min_score=25)
 
         if not top_contracts:
             # Enviar mensaje de que no hay contratos
             self.whatsapp.send_message(
                 user["phone"],
                 "📭 *Reporte Semanal*\n\nEsta semana no encontré oportunidades que coincidan con tu perfil. "
-                "Considera ampliar tus criterios escribiendo \"perfil\"."
+                'Considera ampliar tus criterios escribiendo "perfil".',
             )
             return
 
@@ -146,8 +135,7 @@ class JobScheduler:
             else:
                 # Crear registro del contrato
                 contract_record, _ = self.db.get_or_create_contract(
-                    external_id=sc.contract.external_id,
-                    **sc.contract.to_dict()
+                    external_id=sc.contract.external_id, **sc.contract.to_dict()
                 )
                 new_contracts.append(sc)
 
@@ -160,10 +148,7 @@ class JobScheduler:
 
         # Enviar reporte con análisis IA
         success = self.whatsapp.send_weekly_report(
-            to=user["phone"],
-            scored_contracts=new_contracts,
-            user_profile=user_profile,
-            include_ai_analysis=True
+            to=user["phone"], scored_contracts=new_contracts, user_profile=user_profile, include_ai_analysis=True
         )
 
         if success:
@@ -172,9 +157,7 @@ class JobScheduler:
                 contract_record = self.db.get_contract_by_external_id(sc.contract.external_id)
                 if contract_record:
                     self.db.mark_contract_sent(
-                        user_id=user["id"],
-                        contract_id=contract_record["id"],
-                        relevance_score=sc.score
+                        user_id=user["id"], contract_id=contract_record["id"], relevance_score=sc.score
                     )
 
             logger.info(f"✅ Reporte enviado a {user['phone']}: {len(new_contracts)} contratos")
@@ -211,7 +194,7 @@ class JobScheduler:
         user = self.db.get_user_by_phone(phone)
 
         if not user or user.get("state") != ConversationState.ACTIVE.value:
-            return "⚠️ Primero completa tu configuración escribiendo \"menu\""
+            return '⚠️ Primero completa tu configuración escribiendo "menu"'
 
         # Determinar países a buscar (v3.0: siempre incluir multilateral)
         user_countries = user.get("countries", "")
@@ -231,28 +214,20 @@ class JobScheduler:
             min_amount_cop=user.get("min_budget"),
             max_amount_cop=user.get("max_budget"),
             countries=countries,
-            days_back=7
+            days_back=7,
         )
 
         if not contracts:
             return "📭 No encontré oportunidades con tus criterios actuales."
 
         # Calcular matches
-        top_contracts = self.matcher.get_top_contracts(
-            user=user,
-            contracts=contracts,
-            limit=5,
-            min_score=20
-        )
+        top_contracts = self.matcher.get_top_contracts(user=user, contracts=contracts, limit=5, min_score=20)
 
         if not top_contracts:
             return "📭 Encontré contratos pero ninguno coincide bien con tu perfil."
 
         # Enviar como reporte
-        self.whatsapp.send_weekly_report(
-            to=phone,
-            scored_contracts=top_contracts
-        )
+        self.whatsapp.send_weekly_report(to=phone, scored_contracts=top_contracts)
 
         return f"🔍 ¡Encontré {len(top_contracts)} oportunidades! Te las envío ahora."
 
@@ -316,12 +291,7 @@ class JobScheduler:
 
         except Exception as e:
             logger.error(f"Error en check de deadlines urgentes: {e}")
-            return {
-                "contracts_checked": 0,
-                "users_notified": 0,
-                "alerts_sent": 0,
-                "errors": 1
-            }
+            return {"contracts_checked": 0, "users_notified": 0, "alerts_sent": 0, "errors": 1}
 
     def stop(self):
         """Detiene el scheduler."""
@@ -339,12 +309,7 @@ class JobScheduler:
         """
         return self.scraper.get_available_sources()
 
-    def search_specific_source(
-        self,
-        phone: str,
-        source_key: str,
-        keywords: Optional[List[str]] = None
-    ) -> str:
+    def search_specific_source(self, phone: str, source_key: str, keywords: Optional[List[str]] = None) -> str:
         """
         Busca contratos en una fuente específica.
 
@@ -359,7 +324,7 @@ class JobScheduler:
         user = self.db.get_user_by_phone(phone)
 
         if not user or user.get("state") != ConversationState.ACTIVE.value:
-            return "⚠️ Primero completa tu configuración escribiendo \"menu\""
+            return '⚠️ Primero completa tu configuración escribiendo "menu"'
 
         # Obtener keywords del perfil si no se especifican
         if keywords is None:
@@ -372,7 +337,7 @@ class JobScheduler:
             max_amount_cop=user.get("max_budget"),
             countries=["all"],  # No filtrar por país
             days_back=7,
-            include_sources=[source_key]  # Solo esta fuente
+            include_sources=[source_key],  # Solo esta fuente
         )
 
         if not contracts:
@@ -380,20 +345,14 @@ class JobScheduler:
 
         # Calcular matches
         top_contracts = self.matcher.get_top_contracts(
-            user=user,
-            contracts=contracts,
-            limit=5,
-            min_score=15  # Score más bajo para fuente específica
+            user=user, contracts=contracts, limit=5, min_score=15  # Score más bajo para fuente específica
         )
 
         if not top_contracts:
             return f"📭 Encontré contratos en {source_key.upper()} pero ninguno coincide con tu perfil."
 
         # Enviar resultados
-        self.whatsapp.send_weekly_report(
-            to=phone,
-            scored_contracts=top_contracts
-        )
+        self.whatsapp.send_weekly_report(to=phone, scored_contracts=top_contracts)
 
         return f"🔍 ¡Encontré {len(top_contracts)} oportunidades en {source_key.upper()}! Te las envío ahora."
 

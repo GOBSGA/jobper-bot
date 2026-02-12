@@ -11,6 +11,7 @@ Complejidades:
 - Parallel fetch: O(max_latency) vs O(sum_latencies) secuencial
 - Keyword matching: O(L) vs O(K × L) sin optimizar
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -20,7 +21,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Callable, Any, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -29,9 +30,11 @@ logger = logging.getLogger(__name__)
 # CACHE CON TTL
 # =============================================================================
 
+
 @dataclass
 class CacheEntry:
     """Entrada de cache con timestamp."""
+
     data: Any
     timestamp: datetime
     hits: int = 0
@@ -98,10 +101,7 @@ class TTLCache:
             if len(self._cache) >= self._max_entries:
                 self._cleanup()
 
-            self._cache[key] = CacheEntry(
-                data=data,
-                timestamp=datetime.now()
-            )
+            self._cache[key] = CacheEntry(data=data, timestamp=datetime.now())
 
     def _cleanup(self) -> None:
         """
@@ -112,18 +112,14 @@ class TTLCache:
         now = datetime.now()
 
         # Eliminar expiradas
-        expired = [k for k, v in self._cache.items()
-                   if now - v.timestamp > self._ttl]
+        expired = [k for k, v in self._cache.items() if now - v.timestamp > self._ttl]
         for k in expired:
             del self._cache[k]
             self._stats["evictions"] += 1
 
         # Si aún excede, eliminar las menos usadas (LFU)
         if len(self._cache) >= self._max_entries:
-            sorted_entries = sorted(
-                self._cache.items(),
-                key=lambda x: (x[1].hits, x[1].timestamp)
-            )
+            sorted_entries = sorted(self._cache.items(), key=lambda x: (x[1].hits, x[1].timestamp))
             to_remove = len(self._cache) - self._max_entries // 2
             for key, _ in sorted_entries[:to_remove]:
                 del self._cache[key]
@@ -139,16 +135,13 @@ class TTLCache:
         with self._lock:
             total = self._stats["hits"] + self._stats["misses"]
             hit_rate = self._stats["hits"] / total if total > 0 else 0
-            return {
-                **self._stats,
-                "entries": len(self._cache),
-                "hit_rate": f"{hit_rate:.1%}"
-            }
+            return {**self._stats, "entries": len(self._cache), "hit_rate": f"{hit_rate:.1%}"}
 
 
 # =============================================================================
 # EJECUCIÓN PARALELA
 # =============================================================================
+
 
 class ParallelExecutor:
     """
@@ -165,11 +158,7 @@ class ParallelExecutor:
         self.max_workers = max_workers
         self.timeout = timeout
 
-    def execute_all(
-        self,
-        tasks: List[Tuple[str, Callable, dict]],
-        fail_fast: bool = False
-    ) -> Dict[str, Any]:
+    def execute_all(self, tasks: List[Tuple[str, Callable, dict]], fail_fast: bool = False) -> Dict[str, Any]:
         """
         Ejecuta múltiples tareas en paralelo.
 
@@ -187,10 +176,7 @@ class ParallelExecutor:
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Enviar todas las tareas
-            future_to_name = {
-                executor.submit(func, **kwargs): name
-                for name, func, kwargs in tasks
-            }
+            future_to_name = {executor.submit(func, **kwargs): name for name, func, kwargs in tasks}
 
             # Recoger resultados conforme terminan
             for future in as_completed(future_to_name, timeout=self.timeout):
@@ -215,6 +201,7 @@ class ParallelExecutor:
 # BÚSQUEDA OPTIMIZADA DE KEYWORDS
 # =============================================================================
 
+
 class KeywordMatcher:
     """
     Matcher de keywords optimizado con regex compilado.
@@ -237,11 +224,7 @@ class KeywordMatcher:
         if keywords:
             self.set_keywords(keywords)
 
-    def set_keywords(
-        self,
-        include: List[str] = None,
-        exclude: List[str] = None
-    ) -> None:
+    def set_keywords(self, include: List[str] = None, exclude: List[str] = None) -> None:
         """
         Configura keywords de inclusión y exclusión.
 
@@ -252,7 +235,7 @@ class KeywordMatcher:
             # Crear patrón OR para todas las keywords
             # Escapar caracteres especiales de regex
             escaped = [re.escape(kw) for kw in self._keywords]
-            pattern_str = '|'.join(escaped)
+            pattern_str = "|".join(escaped)
             self._pattern = re.compile(pattern_str, re.IGNORECASE)
         else:
             self._pattern = None
@@ -261,7 +244,7 @@ class KeywordMatcher:
         if exclude:
             escaped_ex = [re.escape(kw.lower()) for kw in exclude if kw]
             if escaped_ex:
-                pattern_str = '|'.join(escaped_ex)
+                pattern_str = "|".join(escaped_ex)
                 self._exclude_pattern = re.compile(pattern_str, re.IGNORECASE)
         else:
             self._exclude_pattern = None
@@ -324,6 +307,7 @@ class KeywordMatcher:
 # SCRAPER WRAPPER CON OPTIMIZACIONES
 # =============================================================================
 
+
 class OptimizedScraperWrapper:
     """
     Wrapper que añade cache y ejecución paralela a cualquier scraper.
@@ -336,25 +320,12 @@ class OptimizedScraperWrapper:
         ])
     """
 
-    def __init__(
-        self,
-        cache_ttl: int = 15,
-        max_workers: int = 10,
-        request_timeout: int = 30
-    ):
+    def __init__(self, cache_ttl: int = 15, max_workers: int = 10, request_timeout: int = 30):
         self.cache = TTLCache(ttl_minutes=cache_ttl)
-        self.executor = ParallelExecutor(
-            max_workers=max_workers,
-            timeout=request_timeout
-        )
+        self.executor = ParallelExecutor(max_workers=max_workers, timeout=request_timeout)
         self.keyword_matcher = KeywordMatcher()
 
-    def fetch_with_cache(
-        self,
-        scraper_name: str,
-        fetch_func: Callable,
-        **kwargs
-    ) -> List[Any]:
+    def fetch_with_cache(self, scraper_name: str, fetch_func: Callable, **kwargs) -> List[Any]:
         """
         Ejecuta fetch con cache.
 
@@ -375,11 +346,7 @@ class OptimizedScraperWrapper:
 
         return result
 
-    def fetch_parallel(
-        self,
-        tasks: List[Tuple[str, Callable, dict]],
-        use_cache: bool = True
-    ) -> Dict[str, List[Any]]:
+    def fetch_parallel(self, tasks: List[Tuple[str, Callable, dict]], use_cache: bool = True) -> Dict[str, List[Any]]:
         """
         Ejecuta múltiples scrapers en paralelo con cache opcional.
 

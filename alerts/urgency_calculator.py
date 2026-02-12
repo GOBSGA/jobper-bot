@@ -2,16 +2,18 @@
 Calculador de urgencia para Jobper Bot v3.0
 Determina la prioridad de contratos basado en múltiples factores
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class UrgencyScore:
     """Score de urgencia para un contrato."""
+
     total_score: float  # 0-100
     deadline_score: float  # Puntos por deadline cercano
     value_score: float  # Puntos por valor del contrato
@@ -34,10 +36,10 @@ class UrgencyCalculator:
 
     # Pesos para cada factor
     WEIGHTS = {
-        "deadline": 50,      # 50% del score
-        "value": 20,         # 20% del score
-        "match": 20,         # 20% del score
-        "source_type": 10,   # 10% del score
+        "deadline": 50,  # 50% del score
+        "value": 20,  # 20% del score
+        "match": 20,  # 20% del score
+        "source_type": 10,  # 10% del score
     }
 
     # Prioridades por score total
@@ -48,12 +50,7 @@ class UrgencyCalculator:
         0: "low",
     }
 
-    def calculate(
-        self,
-        contract: Dict[str, Any],
-        user: Dict[str, Any],
-        relevance_score: float = 0
-    ) -> UrgencyScore:
+    def calculate(self, contract: Dict[str, Any], user: Dict[str, Any], relevance_score: float = 0) -> UrgencyScore:
         """
         Calcula el score de urgencia para un contrato.
 
@@ -107,13 +104,10 @@ class UrgencyCalculator:
             match_score=match_score,
             priority=priority,
             days_until_deadline=days_until,
-            reasons=reasons
+            reasons=reasons,
         )
 
-    def _calculate_deadline_score(
-        self,
-        contract: Dict[str, Any]
-    ) -> tuple[float, Optional[int]]:
+    def _calculate_deadline_score(self, contract: Dict[str, Any]) -> tuple[float, Optional[int]]:
         """
         Calcula score basado en cercanía del deadline.
 
@@ -161,11 +155,7 @@ class UrgencyCalculator:
         else:
             return 0.0, days_until
 
-    def _calculate_value_score(
-        self,
-        contract: Dict[str, Any],
-        user: Dict[str, Any]
-    ) -> float:
+    def _calculate_value_score(self, contract: Dict[str, Any], user: Dict[str, Any]) -> float:
         """Calcula score basado en el valor del contrato."""
         amount = contract.get("amount")
         if not amount:
@@ -224,19 +214,13 @@ class UrgencyCalculator:
 
     def _get_priority(self, score: float) -> str:
         """Determina la prioridad basada en el score total."""
-        for threshold, priority in sorted(
-            self.PRIORITY_THRESHOLDS.items(),
-            reverse=True
-        ):
+        for threshold, priority in sorted(self.PRIORITY_THRESHOLDS.items(), reverse=True):
             if score >= threshold:
                 return priority
         return "low"
 
     def batch_calculate(
-        self,
-        contracts: List[Dict[str, Any]],
-        user: Dict[str, Any],
-        relevance_scores: Optional[Dict[str, float]] = None
+        self, contracts: List[Dict[str, Any]], user: Dict[str, Any], relevance_scores: Optional[Dict[str, float]] = None
     ) -> List[tuple[Dict[str, Any], UrgencyScore]]:
         """
         Calcula urgencia para múltiples contratos.

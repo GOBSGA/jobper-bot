@@ -1,9 +1,10 @@
 """
 HTTP client wrapper with timeouts, retries, and error handling.
 """
+
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -13,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 # Default timeouts (connect, read) in seconds
 DEFAULT_TIMEOUT = (10, 30)  # 10s connect, 30s read
-SHORT_TIMEOUT = (5, 15)      # For quick APIs
-LONG_TIMEOUT = (15, 60)      # For slow APIs (scraping)
+SHORT_TIMEOUT = (5, 15)  # For quick APIs
+LONG_TIMEOUT = (15, 60)  # For slow APIs (scraping)
 
 
 class TimeoutHTTPAdapter(HTTPAdapter):
@@ -25,15 +26,13 @@ class TimeoutHTTPAdapter(HTTPAdapter):
         super().__init__(*args, **kwargs)
 
     def send(self, request, **kwargs):
-        if kwargs.get('timeout') is None:
-            kwargs['timeout'] = self.timeout
+        if kwargs.get("timeout") is None:
+            kwargs["timeout"] = self.timeout
         return super().send(request, **kwargs)
 
 
 def get_session(
-    max_retries: int = 3,
-    timeout: tuple = DEFAULT_TIMEOUT,
-    backoff_factor: float = 0.3
+    max_retries: int = 3, timeout: tuple = DEFAULT_TIMEOUT, backoff_factor: float = 0.3
 ) -> requests.Session:
     """
     Create a requests Session with retries and timeout.
@@ -65,11 +64,7 @@ def get_session(
 
 
 def safe_request(
-    method: str,
-    url: str,
-    timeout: tuple = DEFAULT_TIMEOUT,
-    max_retries: int = 3,
-    **kwargs
+    method: str, url: str, timeout: tuple = DEFAULT_TIMEOUT, max_retries: int = 3, **kwargs
 ) -> Optional[requests.Response]:
     """
     Make an HTTP request with timeout, retries, and error handling.

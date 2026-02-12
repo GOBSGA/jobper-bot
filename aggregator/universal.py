@@ -5,38 +5,36 @@ Agregador central que coordina la extracción de todas las fuentes.
 Este es el punto de entrada principal para obtener contratos
 de todas las fuentes configuradas de manera unificada.
 """
+
 from __future__ import annotations
 
-import logging
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Callable
 from enum import Enum
+from typing import Any, Callable, Dict, List, Optional
 
-from aggregator.source_registry import (
-    SourceRegistry, SourceConfig, SourceStatus, SourcePriority,
-    get_source_registry
-)
-from aggregator.normalizer import (
-    ContractNormalizer, NormalizedContract, get_normalizer
-)
+from aggregator.normalizer import ContractNormalizer, NormalizedContract, get_normalizer
+from aggregator.source_registry import SourceConfig, SourcePriority, SourceRegistry, SourceStatus, get_source_registry
 
 logger = logging.getLogger(__name__)
 
 
 class AggregationMode(str, Enum):
     """Modos de agregación."""
-    FULL = "full"           # Todas las fuentes
-    PRIORITY = "priority"   # Solo fuentes de alta prioridad
-    COUNTRY = "country"     # Fuentes de un país específico
-    SELECTIVE = "selective" # Fuentes específicas
+
+    FULL = "full"  # Todas las fuentes
+    PRIORITY = "priority"  # Solo fuentes de alta prioridad
+    COUNTRY = "country"  # Fuentes de un país específico
+    SELECTIVE = "selective"  # Fuentes específicas
 
 
 @dataclass
 class AggregationResult:
     """Resultado de una agregación."""
+
     # Contratos obtenidos
     contracts: List[NormalizedContract] = field(default_factory=list)
 
@@ -69,11 +67,11 @@ class AggregationResult:
                 k: {
                     "contracts": v.get("contracts", 0),
                     "status": v.get("status", "unknown"),
-                    "duration": round(v.get("duration", 0), 2)
+                    "duration": round(v.get("duration", 0), 2),
                 }
                 for k, v in self.source_results.items()
             },
-            "errors_count": len(self.errors)
+            "errors_count": len(self.errors),
         }
 
 
@@ -89,7 +87,7 @@ class UniversalAggregator:
         self,
         registry: Optional[SourceRegistry] = None,
         normalizer: Optional[ContractNormalizer] = None,
-        max_workers: int = 5
+        max_workers: int = 5,
     ):
         """
         Inicializa el agregador.
@@ -119,7 +117,7 @@ class UniversalAggregator:
         max_amount: Optional[float] = None,
         days_back: int = 7,
         use_cache: bool = True,
-        cache_ttl_minutes: int = 30
+        cache_ttl_minutes: int = 30,
     ) -> AggregationResult:
         """
         Agrega contratos de múltiples fuentes.
@@ -162,21 +160,14 @@ class UniversalAggregator:
                         result.source_results[source_key] = {
                             "contracts": len(cached),
                             "status": "cached",
-                            "duration": 0
+                            "duration": 0,
                         }
                         result.contracts.extend(cached)
                         result.sources_successful += 1
                         continue
 
                 # Enviar a ejecución
-                future = executor.submit(
-                    self._fetch_source,
-                    source_config,
-                    keywords,
-                    min_amount,
-                    max_amount,
-                    days_back
-                )
+                future = executor.submit(self._fetch_source, source_config, keywords, min_amount, max_amount, days_back)
                 futures[future] = source_key
 
             # Procesar resultados
@@ -191,18 +182,15 @@ class UniversalAggregator:
                             "contracts": 0,
                             "status": "error",
                             "error": str(error),
-                            "duration": duration
+                            "duration": duration,
                         }
-                        result.errors.append({
-                            "source": source_key,
-                            "error": str(error)
-                        })
+                        result.errors.append({"source": source_key, "error": str(error)})
                         result.sources_failed += 1
                     else:
                         result.source_results[source_key] = {
                             "contracts": len(contracts),
                             "status": "success",
-                            "duration": duration
+                            "duration": duration,
                         }
                         result.contracts.extend(contracts)
                         result.sources_successful += 1
@@ -217,12 +205,9 @@ class UniversalAggregator:
                         "contracts": 0,
                         "status": "error",
                         "error": str(e),
-                        "duration": 0
+                        "duration": 0,
                     }
-                    result.errors.append({
-                        "source": source_key,
-                        "error": str(e)
-                    })
+                    result.errors.append({"source": source_key, "error": str(e)})
                     result.sources_failed += 1
 
         # Finalizar
@@ -243,10 +228,7 @@ class UniversalAggregator:
         return result
 
     def aggregate_for_user(
-        self,
-        user_profile: Dict[str, Any],
-        limit: int = 50,
-        use_cache: bool = True
+        self, user_profile: Dict[str, Any], limit: int = 50, use_cache: bool = True
     ) -> AggregationResult:
         """
         Agrega contratos relevantes para un usuario específico.
@@ -269,6 +251,7 @@ class UniversalAggregator:
         # Agregar keywords de industria
         if industry:
             from config import Config
+
             industry_config = Config.INDUSTRIES.get(industry, {})
             industry_keywords = industry_config.get("keywords", [])
             keywords = list(set(keywords + industry_keywords))
@@ -288,7 +271,7 @@ class UniversalAggregator:
             keywords=keywords,
             min_amount=min_budget,
             max_amount=max_budget,
-            use_cache=use_cache
+            use_cache=use_cache,
         )
 
         # Ordenar por relevancia usando scoring
@@ -296,10 +279,7 @@ class UniversalAggregator:
             from intelligence.opportunity_scorer import get_opportunity_scorer
 
             scorer = get_opportunity_scorer()
-            scored = scorer.score_batch(
-                [c.to_dict() for c in result.contracts],
-                user_profile
-            )
+            scored = scorer.score_batch([c.to_dict() for c in result.contracts], user_profile)
 
             # Reconstruir lista ordenada
             contract_map = {c.id: c for c in result.contracts}
@@ -315,11 +295,7 @@ class UniversalAggregator:
 
         return result
 
-    def get_new_contracts(
-        self,
-        since: datetime,
-        sources: Optional[List[str]] = None
-    ) -> List[NormalizedContract]:
+    def get_new_contracts(self, since: datetime, sources: Optional[List[str]] = None) -> List[NormalizedContract]:
         """
         Obtiene contratos nuevos desde una fecha.
 
@@ -331,24 +307,15 @@ class UniversalAggregator:
             Lista de contratos nuevos
         """
         result = self.aggregate(
-            mode=AggregationMode.SELECTIVE if sources else AggregationMode.FULL,
-            sources=sources,
-            use_cache=False
+            mode=AggregationMode.SELECTIVE if sources else AggregationMode.FULL, sources=sources, use_cache=False
         )
 
         # Filtrar por fecha
-        new_contracts = [
-            c for c in result.contracts
-            if c.publication_date and c.publication_date >= since
-        ]
+        new_contracts = [c for c in result.contracts if c.publication_date and c.publication_date >= since]
 
         return new_contracts
 
-    def get_expiring_soon(
-        self,
-        days: int = 3,
-        sources: Optional[List[str]] = None
-    ) -> List[NormalizedContract]:
+    def get_expiring_soon(self, days: int = 3, sources: Optional[List[str]] = None) -> List[NormalizedContract]:
         """
         Obtiene contratos que expiran pronto.
 
@@ -360,19 +327,14 @@ class UniversalAggregator:
             Lista de contratos que expiran pronto
         """
         result = self.aggregate(
-            mode=AggregationMode.SELECTIVE if sources else AggregationMode.FULL,
-            sources=sources,
-            use_cache=True
+            mode=AggregationMode.SELECTIVE if sources else AggregationMode.FULL, sources=sources, use_cache=True
         )
 
         now = datetime.now()
         deadline_limit = now + timedelta(days=days)
 
         # Filtrar por deadline
-        expiring = [
-            c for c in result.contracts
-            if c.deadline and now < c.deadline <= deadline_limit
-        ]
+        expiring = [c for c in result.contracts if c.deadline and now < c.deadline <= deadline_limit]
 
         # Ordenar por deadline
         expiring.sort(key=lambda x: x.deadline)
@@ -386,7 +348,7 @@ class UniversalAggregator:
         contract_type: Optional[str] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        limit: int = 50
+        limit: int = 50,
     ) -> List[NormalizedContract]:
         """
         Búsqueda de contratos.
@@ -409,27 +371,21 @@ class UniversalAggregator:
             keywords=query.split() if query else None,
             min_amount=min_amount,
             max_amount=max_amount,
-            use_cache=True
+            use_cache=True,
         )
 
         contracts = result.contracts
 
         # Filtrar por tipo si se especifica
         if contract_type:
-            contracts = [
-                c for c in contracts
-                if c.contract_type == contract_type
-            ]
+            contracts = [c for c in contracts if c.contract_type == contract_type]
 
         # Ordenar por relevancia (simple: coincidencia de query)
         if query:
             query_lower = query.lower()
             contracts.sort(
-                key=lambda c: (
-                    query_lower in (c.title or "").lower(),
-                    query_lower in (c.description or "").lower()
-                ),
-                reverse=True
+                key=lambda c: (query_lower in (c.title or "").lower(), query_lower in (c.description or "").lower()),
+                reverse=True,
             )
 
         return contracts[:limit]
@@ -444,47 +400,30 @@ class UniversalAggregator:
         Returns:
             AggregationResult de la fuente
         """
-        return self.aggregate(
-            mode=AggregationMode.SELECTIVE,
-            sources=[source_key],
-            use_cache=False
-        )
+        return self.aggregate(mode=AggregationMode.SELECTIVE, sources=[source_key], use_cache=False)
 
     def get_statistics(self) -> Dict[str, Any]:
         """Obtiene estadísticas del agregador."""
         cache_stats = {
             "sources_cached": len(self._cache),
             "total_contracts_cached": sum(len(c) for c in self._cache.values()),
-            "cache_age": {
-                k: (datetime.now() - ts).total_seconds()
-                for k, ts in self._cache_timestamps.items()
-            }
+            "cache_age": {k: (datetime.now() - ts).total_seconds() for k, ts in self._cache_timestamps.items()},
         }
 
         registry_stats = self.registry.get_statistics()
 
-        return {
-            "cache": cache_stats,
-            "registry": registry_stats
-        }
+        return {"cache": cache_stats, "registry": registry_stats}
 
     # =========================================================================
     # Métodos privados
     # =========================================================================
 
     def _select_sources(
-        self,
-        mode: AggregationMode,
-        sources: Optional[List[str]],
-        country: Optional[str]
+        self, mode: AggregationMode, sources: Optional[List[str]], country: Optional[str]
     ) -> Dict[str, SourceConfig]:
         """Selecciona fuentes según el modo."""
         if mode == AggregationMode.SELECTIVE and sources:
-            return {
-                k: self.registry.get(k)
-                for k in sources
-                if self.registry.get(k) and self.registry.get(k).enabled
-            }
+            return {k: self.registry.get(k) for k in sources if self.registry.get(k) and self.registry.get(k).enabled}
 
         if mode == AggregationMode.COUNTRY and country:
             return self.registry.get_by_country(country)
@@ -503,7 +442,7 @@ class UniversalAggregator:
         keywords: Optional[List[str]],
         min_amount: Optional[float],
         max_amount: Optional[float],
-        days_back: int
+        days_back: int,
     ) -> tuple:
         """
         Extrae contratos de una fuente.
@@ -524,10 +463,7 @@ class UniversalAggregator:
 
             # Ejecutar fetch
             raw_contracts = scraper.fetch_contracts(
-                keywords=keywords,
-                min_amount=min_amount,
-                max_amount=max_amount,
-                days_back=days_back
+                keywords=keywords, min_amount=min_amount, max_amount=max_amount, days_back=days_back
             )
 
             # Normalizar
@@ -535,18 +471,14 @@ class UniversalAggregator:
                 # Convertir ContractData a dict si es necesario
                 raw_dicts = []
                 for c in raw_contracts:
-                    if hasattr(c, 'to_dict'):
+                    if hasattr(c, "to_dict"):
                         raw_dicts.append(c.to_dict())
-                    elif hasattr(c, '__dict__'):
+                    elif hasattr(c, "__dict__"):
                         raw_dicts.append(c.__dict__)
                     else:
                         raw_dicts.append(c)
 
-                contracts = self.normalizer.normalize_batch(
-                    raw_dicts,
-                    config.key,
-                    config.name
-                )
+                contracts = self.normalizer.normalize_batch(raw_dicts, config.key, config.name)
 
             # Actualizar registro
             self.registry.record_fetch(config.key, len(contracts))
@@ -559,11 +491,7 @@ class UniversalAggregator:
         duration = (datetime.now() - start_time).total_seconds()
         return contracts, duration, error
 
-    def _get_from_cache(
-        self,
-        source_key: str,
-        ttl_minutes: int
-    ) -> Optional[List[NormalizedContract]]:
+    def _get_from_cache(self, source_key: str, ttl_minutes: int) -> Optional[List[NormalizedContract]]:
         """Obtiene contratos del cache si no ha expirado."""
         if source_key not in self._cache:
             return None
@@ -583,10 +511,7 @@ class UniversalAggregator:
         self._cache[source_key] = contracts
         self._cache_timestamps[source_key] = datetime.now()
 
-    def _deduplicate(
-        self,
-        contracts: List[NormalizedContract]
-    ) -> List[NormalizedContract]:
+    def _deduplicate(self, contracts: List[NormalizedContract]) -> List[NormalizedContract]:
         """Elimina contratos duplicados."""
         seen_ids = set()
         unique = []

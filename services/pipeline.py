@@ -1,12 +1,13 @@
 """
 Jobper Services — CRM Pipeline (Lead → Proposal → Submitted → Won → Lost)
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime
 
-from core.database import UnitOfWork, PipelineEntry, Contract
+from core.database import Contract, PipelineEntry, UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +24,7 @@ def get_pipeline(user_id: int) -> dict:
         contract_ids = [e.contract_id for e in entries if e.contract_id]
         titles = {}
         if contract_ids:
-            contracts = uow.session.query(Contract.id, Contract.title).filter(
-                Contract.id.in_(contract_ids)
-            ).all()
+            contracts = uow.session.query(Contract.id, Contract.title).filter(Contract.id.in_(contract_ids)).all()
             titles = {c.id: c.title for c in contracts}
 
         for entry in entries:
@@ -94,10 +93,12 @@ def add_note(user_id: int, entry_id: int, text: str) -> dict:
             return {"error": "Entrada no encontrada"}
 
         notes = list(entry.notes or [])
-        notes.append({
-            "text": text,
-            "created_at": datetime.utcnow().isoformat(),
-        })
+        notes.append(
+            {
+                "text": text,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+        )
         entry.notes = notes
         entry.updated_at = datetime.utcnow()
         uow.commit()
@@ -152,6 +153,7 @@ def get_renewals(user_id: int, days: int = 30) -> list[dict]:
 # =============================================================================
 # HELPERS
 # =============================================================================
+
 
 def _entry_to_dict(entry: PipelineEntry, contract_title: str | None = None) -> dict:
     return {

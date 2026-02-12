@@ -2,11 +2,12 @@
 Scraper para UNGM (United Nations Global Marketplace)
 Obtiene oportunidades de procurement de Naciones Unidas
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
 
 from scrapers.base import ContractData
 from scrapers.private.base_private import PrivatePortalScraper
@@ -42,7 +43,7 @@ class UNGMScraper(PrivatePortalScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de procurement de UNGM.
@@ -62,11 +63,7 @@ class UNGMScraper(PrivatePortalScraper):
 
             # UNGM usa un sistema de búsqueda con POST
             # Primero obtenemos la página principal
-            response = requests.get(
-                self.NOTICES_URL,
-                headers=headers,
-                timeout=30
-            )
+            response = requests.get(self.NOTICES_URL, headers=headers, timeout=30)
             response.raise_for_status()
 
             soup = BeautifulSoup(response.text, "lxml")
@@ -74,10 +71,10 @@ class UNGMScraper(PrivatePortalScraper):
             # Buscar notices en la tabla/lista
             # La estructura de UNGM puede variar, intentamos varios selectores
             notice_elements = (
-                soup.select(".notice-item") or
-                soup.select("table.notices tbody tr") or
-                soup.select(".tenderList .tender-item") or
-                soup.select("[data-notice-id]")
+                soup.select(".notice-item")
+                or soup.select("table.notices tbody tr")
+                or soup.select(".tenderList .tender-item")
+                or soup.select("[data-notice-id]")
             )
 
             if not notice_elements:
@@ -109,11 +106,7 @@ class UNGMScraper(PrivatePortalScraper):
 
         return contracts
 
-    def _parse_notice_element(
-        self,
-        element,
-        keywords: Optional[List[str]] = None
-    ) -> Optional[ContractData]:
+    def _parse_notice_element(self, element, keywords: Optional[List[str]] = None) -> Optional[ContractData]:
         """Parsea un elemento HTML de notice."""
         try:
             # Intentar extraer ID del notice
@@ -166,18 +159,14 @@ class UNGMScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=deadline,
-                raw_data={"notice_id": notice_id}
+                raw_data={"notice_id": notice_id},
             )
 
         except Exception as e:
             logger.debug(f"Error parsing UNGM notice: {e}")
             return None
 
-    def _fetch_notice_detail(
-        self,
-        notice_id: str,
-        keywords: Optional[List[str]] = None
-    ) -> Optional[ContractData]:
+    def _fetch_notice_detail(self, notice_id: str, keywords: Optional[List[str]] = None) -> Optional[ContractData]:
         """
         Obtiene detalles de un notice específico.
         """
@@ -187,11 +176,7 @@ class UNGMScraper(PrivatePortalScraper):
 
             url = f"{self.BASE_URL}/Public/Notice/{notice_id}"
 
-            response = requests.get(
-                url,
-                headers=self._get_headers(),
-                timeout=20
-            )
+            response = requests.get(url, headers=self._get_headers(), timeout=20)
 
             if response.status_code != 200:
                 return None
@@ -241,7 +226,7 @@ class UNGMScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=deadline,
-                raw_data={"notice_id": notice_id, "url": url}
+                raw_data={"notice_id": notice_id, "url": url},
             )
 
         except Exception as e:
@@ -257,12 +242,12 @@ class UNGMScraper(PrivatePortalScraper):
         date_str = date_str.strip()
 
         formats = [
-            "%d-%b-%Y",      # 15-Jan-2024
-            "%d %b %Y",      # 15 Jan 2024
-            "%Y-%m-%d",      # 2024-01-15
-            "%d/%m/%Y",      # 15/01/2024
-            "%m/%d/%Y",      # 01/15/2024
-            "%B %d, %Y",     # January 15, 2024
+            "%d-%b-%Y",  # 15-Jan-2024
+            "%d %b %Y",  # 15 Jan 2024
+            "%Y-%m-%d",  # 2024-01-15
+            "%d/%m/%Y",  # 15/01/2024
+            "%m/%d/%Y",  # 01/15/2024
+            "%B %d, %Y",  # January 15, 2024
         ]
 
         for fmt in formats:

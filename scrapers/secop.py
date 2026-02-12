@@ -3,14 +3,15 @@ Scraper para SECOP I & II - Sistema de Contratación Pública de Colombia
 API: Datos Abiertos Colombia (Socrata)
 Soporta paginación para obtener TODOS los contratos disponibles.
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from scrapers.base import BaseScraper, ContractData
 from config import Config
+from scrapers.base import BaseScraper, ContractData
 
 logger = logging.getLogger(__name__)
 
@@ -90,11 +91,7 @@ class SecopScraper(BaseScraper):
         super().__init__(self.dataset_config["url"])
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """Obtiene contratos con paginación automática."""
         all_contracts = []
@@ -136,7 +133,7 @@ class SecopScraper(BaseScraper):
     ) -> dict:
         """Construye los parámetros de consulta SoQL."""
         cfg = self.dataset_config
-        date_limit = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%dT%H:%M:%S')
+        date_limit = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%dT%H:%M:%S")
 
         conditions = [f"{cfg['date_field']} >= '{date_limit}'"]
 
@@ -151,9 +148,7 @@ class SecopScraper(BaseScraper):
             title_field = cfg["title_field"]
             for kw in keywords:
                 kw_safe = kw.lower().replace("'", "''")
-                keyword_conditions.append(
-                    f"lower({title_field}) like '%{kw_safe}%'"
-                )
+                keyword_conditions.append(f"lower({title_field}) like '%{kw_safe}%'")
             if keyword_conditions:
                 conditions.append(f"({' OR '.join(keyword_conditions)})")
 

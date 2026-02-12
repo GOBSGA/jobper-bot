@@ -2,6 +2,7 @@
 Jobper Core — Celery async tasks with synchronous fallback
 If Celery/Redis unavailable, tasks execute inline (blocking but functional).
 """
+
 from __future__ import annotations
 
 import functools
@@ -29,6 +30,7 @@ def get_celery():
 
     try:
         from celery import Celery
+
         _celery_app = Celery(
             "jobper",
             broker=Config.CELERY_BROKER_URL,
@@ -55,6 +57,7 @@ def get_celery():
 # =============================================================================
 # ASYNC TASK DECORATOR
 # =============================================================================
+
 
 def async_task(fn):
     """
@@ -106,10 +109,12 @@ def async_task(fn):
 # TASK DEFINITIONS
 # =============================================================================
 
+
 @async_task
 def task_send_email(to: str, template: str, data: dict):
     """Send email via Resend."""
     from services.notifications import send_email
+
     return send_email(to, template, data)
 
 
@@ -117,6 +122,7 @@ def task_send_email(to: str, template: str, data: dict):
 def task_send_push(user_id: int, title: str, body: str, url: str = ""):
     """Send web push notification."""
     from services.notifications import send_push
+
     return send_push(user_id, title, body, url)
 
 
@@ -124,6 +130,7 @@ def task_send_push(user_id: int, title: str, body: str, url: str = ""):
 def task_index_contract(contract_id: int):
     """Index contract in Elasticsearch."""
     from search.engine import index_contract_by_id
+
     return index_contract_by_id(contract_id)
 
 
@@ -133,6 +140,7 @@ def task_scrape_source(source_key: str):
     logger.info(f"Scraping source: {source_key}")
     try:
         from aggregator.scheduler import get_aggregation_scheduler
+
         scheduler = get_aggregation_scheduler()
         scheduler.fetch_source(source_key)
     except Exception as e:
@@ -145,6 +153,7 @@ def task_analyze_contract(contract_id: int, user_id: int):
     logger.info(f"Analyzing contract {contract_id} for user {user_id}")
     try:
         from intelligence.analyzer import analyze_contract
+
         return analyze_contract(contract_id, user_id)
     except Exception as e:
         logger.error(f"Analysis failed: {e}")
@@ -157,6 +166,7 @@ def task_send_daily_digest():
     logger.info("Starting daily digest job")
     try:
         from services.notifications import send_daily_digest
+
         result = send_daily_digest()
         logger.info(f"Daily digest completed: {result}")
         return result
@@ -171,6 +181,7 @@ def task_run_ingestion():
     logger.info("Starting ingestion job")
     try:
         from services.ingestion import run_ingestion
+
         result = run_ingestion()
         logger.info(f"Ingestion completed: {result}")
         return result

@@ -1,6 +1,7 @@
 """
 Jobper Services — Contract search, detail, matching, favorites
 """
+
 from __future__ import annotations
 
 import logging
@@ -10,7 +11,7 @@ from sqlalchemy import func, text
 
 from config import Config
 from core.cache import cached
-from core.database import UnitOfWork, Contract, Favorite
+from core.database import Contract, Favorite, UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -19,13 +20,16 @@ logger = logging.getLogger(__name__)
 # SEARCH
 # =============================================================================
 
+
 def search_contracts(query: str, user_id: int, page: int = 1, per_page: int = 20) -> dict:
     """
     Search contracts: tries Elasticsearch first, falls back to PostgreSQL FTS.
     Returns: {results: [...], total, page, pages}
     """
     try:
-        from search.engine import search as es_search, is_healthy
+        from search.engine import is_healthy
+        from search.engine import search as es_search
+
         if is_healthy():
             return es_search(query, user_id, page, per_page)
     except Exception as e:
@@ -59,19 +63,13 @@ def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
             else:
                 # SQLite / simple fallback
                 pattern = f"%{query}%"
-                q = q.filter(
-                    Contract.title.ilike(pattern) | Contract.description.ilike(pattern)
-                )
+                q = q.filter(Contract.title.ilike(pattern) | Contract.description.ilike(pattern))
                 q = q.order_by(Contract.created_at.desc())
         else:
             q = q.order_by(Contract.created_at.desc())
 
         total = q.count()
-        contracts = (
-            q.offset((page - 1) * per_page)
-            .limit(per_page)
-            .all()
-        )
+        contracts = q.offset((page - 1) * per_page).limit(per_page).all()
 
         fav_ids = _get_favorite_ids(uow, user_id)
         results = [_contract_to_dict(c, c.id in fav_ids) for c in contracts]
@@ -88,6 +86,7 @@ def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
 # FEED (matched contracts for user)
 # =============================================================================
 
+
 def get_matched_feed(user_id: int, page: int = 1, per_page: int = 20) -> dict:
     """Get contracts ordered by relevance for user."""
     with UnitOfWork() as uow:
@@ -100,6 +99,7 @@ def get_matched_feed(user_id: int, page: int = 1, per_page: int = 20) -> dict:
         # Filter by user keywords if available
         if user.keywords:
             from sqlalchemy import or_
+
             filters = []
             for kw in user.keywords:
                 filters.append(Contract.title.ilike(f"%{kw}%"))
@@ -125,6 +125,7 @@ def get_matched_feed(user_id: int, page: int = 1, per_page: int = 20) -> dict:
 # DETAIL
 # =============================================================================
 
+
 @cached(ttl=600, key_pattern="contract:{contract_id}:{user_id}")
 def get_contract_detail(contract_id: int, user_id: int) -> dict | None:
     """Get full contract detail with match info."""
@@ -144,6 +145,7 @@ def get_contract_analysis(contract_id: int, user_id: int) -> dict | None:
     """Run AI analysis on contract (Business+ plan)."""
     try:
         from intelligence.analyzer import analyze_contract
+
         return analyze_contract(contract_id, user_id)
     except Exception as e:
         logger.error(f"Analysis failed for contract {contract_id}: {e}")
@@ -154,6 +156,7 @@ def get_contract_analysis(contract_id: int, user_id: int) -> dict | None:
 # FAVORITES
 # =============================================================================
 
+
 def get_favorite_count(user_id: int) -> int:
     """Get total number of favorites for a user."""
     with UnitOfWork() as uow:
@@ -163,19 +166,28 @@ def get_favorite_count(user_id: int) -> int:
 def is_favorited(user_id: int, contract_id: int) -> bool:
     """Check if a contract is already favorited by the user."""
     with UnitOfWork() as uow:
-        return uow.session.query(Favorite).filter(
-            Favorite.user_id == user_id,
-            Favorite.contract_id == contract_id,
-        ).first() is not None
+        return (
+            uow.session.query(Favorite)
+            .filter(
+                Favorite.user_id == user_id,
+                Favorite.contract_id == contract_id,
+            )
+            .first()
+            is not None
+        )
 
 
 def toggle_favorite(user_id: int, contract_id: int) -> dict:
     """Add or remove contract from favorites. Returns {favorited: bool}."""
     with UnitOfWork() as uow:
-        existing = uow.session.query(Favorite).filter(
-            Favorite.user_id == user_id,
-            Favorite.contract_id == contract_id,
-        ).first()
+        existing = (
+            uow.session.query(Favorite)
+            .filter(
+                Favorite.user_id == user_id,
+                Favorite.contract_id == contract_id,
+            )
+            .first()
+        )
 
         if existing:
             uow.favorites.delete(existing)
@@ -198,12 +210,7 @@ def get_favorites(user_id: int, page: int = 1, per_page: int = 20) -> dict:
         )
 
         total = q.count()
-        contracts = (
-            q.order_by(Favorite.created_at.desc())
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-            .all()
-        )
+        contracts = q.order_by(Favorite.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
 
         results = [_contract_to_dict(c, True) for c in contracts]
 
@@ -219,10 +226,9 @@ def get_favorites(user_id: int, page: int = 1, per_page: int = 20) -> dict:
 # HELPERS
 # =============================================================================
 
+
 def _get_favorite_ids(uow, user_id: int) -> set:
-    favs = uow.session.query(Favorite.contract_id).filter(
-        Favorite.user_id == user_id
-    ).all()
+    favs = uow.session.query(Favorite.contract_id).filter(Favorite.user_id == user_id).all()
     return {f[0] for f in favs}
 
 
@@ -251,6 +257,7 @@ def _contract_to_dict(c: Contract, is_favorited: bool = False) -> dict:
 # PUBLIC / DEMO
 # =============================================================================
 
+
 @cached(ttl=300, key_pattern="demo_contracts")
 def get_demo_contracts(limit: int = 6) -> list:
     """
@@ -275,12 +282,7 @@ def get_demo_contracts(limit: int = 6) -> list:
 
         if not contracts:
             # Fallback: just get any recent contracts
-            contracts = (
-                uow.session.query(Contract)
-                .order_by(Contract.created_at.desc())
-                .limit(limit)
-                .all()
-            )
+            contracts = uow.session.query(Contract).order_by(Contract.created_at.desc()).limit(limit).all()
 
         # Try to get variety by entity
         seen_entities = set()
@@ -309,15 +311,16 @@ def get_public_stats() -> dict:
     with UnitOfWork() as uow:
         total = uow.contracts.count()
         from sqlalchemy import func
-        recent_count = uow.session.query(func.count(Contract.id)).filter(
-            Contract.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0)
-        ).scalar() or 0
+
+        recent_count = (
+            uow.session.query(func.count(Contract.id))
+            .filter(Contract.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0))
+            .scalar()
+            or 0
+        )
 
         # Get source breakdown
-        sources = uow.session.query(
-            Contract.source,
-            func.count(Contract.id)
-        ).group_by(Contract.source).all()
+        sources = uow.session.query(Contract.source, func.count(Contract.id)).group_by(Contract.source).all()
 
         return {
             "total_contracts": total,

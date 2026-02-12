@@ -5,31 +5,34 @@ Registro central de fuentes de datos para el agregador.
 Permite registrar, configurar y gestionar múltiples fuentes
 de contratos de manera dinámica.
 """
+
 from __future__ import annotations
 
+import importlib
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Any, Optional, Callable, Type
-import importlib
+from typing import Any, Callable, Dict, List, Optional, Type
 
 logger = logging.getLogger(__name__)
 
 
 class SourceType(str, Enum):
     """Tipos de fuentes de datos."""
-    API = "api"                  # API REST/GraphQL
-    SCRAPER = "scraper"          # Web scraping
-    RSS = "rss"                  # Feed RSS/Atom
-    DATABASE = "database"        # Conexión directa a BD
-    WEBHOOK = "webhook"          # Push desde terceros
-    FILE = "file"                # Archivos (CSV, JSON, XML)
-    CUSTOM = "custom"            # Implementación custom
+
+    API = "api"  # API REST/GraphQL
+    SCRAPER = "scraper"  # Web scraping
+    RSS = "rss"  # Feed RSS/Atom
+    DATABASE = "database"  # Conexión directa a BD
+    WEBHOOK = "webhook"  # Push desde terceros
+    FILE = "file"  # Archivos (CSV, JSON, XML)
+    CUSTOM = "custom"  # Implementación custom
 
 
 class SourceStatus(str, Enum):
     """Estados de una fuente."""
+
     ACTIVE = "active"
     INACTIVE = "inactive"
     ERROR = "error"
@@ -39,19 +42,21 @@ class SourceStatus(str, Enum):
 
 class SourcePriority(str, Enum):
     """Prioridad de actualización."""
-    CRITICAL = "critical"        # Cada 5 min
-    HIGH = "high"                # Cada 15 min
-    NORMAL = "normal"            # Cada hora
-    LOW = "low"                  # Cada 6 horas
-    DAILY = "daily"              # Una vez al día
+
+    CRITICAL = "critical"  # Cada 5 min
+    HIGH = "high"  # Cada 15 min
+    NORMAL = "normal"  # Cada hora
+    LOW = "low"  # Cada 6 horas
+    DAILY = "daily"  # Una vez al día
 
 
 @dataclass
 class SourceConfig:
     """Configuración de una fuente de datos."""
+
     # Identificación
-    key: str                     # Identificador único
-    name: str                    # Nombre legible
+    key: str  # Identificador único
+    name: str  # Nombre legible
     description: str = ""
 
     # Tipo y conexión
@@ -108,7 +113,7 @@ class SourceConfig:
             "status": self.status.value,
             "error_count": self.error_count,
             "total_contracts_fetched": self.total_contracts_fetched,
-            "last_fetch": self.last_fetch.isoformat() if self.last_fetch else None
+            "last_fetch": self.last_fetch.isoformat() if self.last_fetch else None,
         }
 
 
@@ -134,9 +139,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.HIGH,
             update_interval_minutes=30,
-            scraper_class="scrapers.secop.SecopScraper"
+            scraper_class="scrapers.secop.SecopScraper",
         ),
-
         # USA - Gobierno
         "sam_gov": SourceConfig(
             key="sam_gov",
@@ -149,9 +153,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=60,
-            scraper_class="scrapers.sam.SamScraper"
+            scraper_class="scrapers.sam.SamScraper",
         ),
-
         # Multilaterales
         "worldbank": SourceConfig(
             key="worldbank",
@@ -164,9 +167,8 @@ class SourceRegistry:
             categories=["multilateral"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.private.multilateral.worldbank.WorldBankScraper"
+            scraper_class="scrapers.private.multilateral.worldbank.WorldBankScraper",
         ),
-
         "idb": SourceConfig(
             key="idb",
             name="BID - Banco Interamericano de Desarrollo",
@@ -178,9 +180,8 @@ class SourceRegistry:
             categories=["multilateral"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.private.multilateral.idb.IDBScraper"
+            scraper_class="scrapers.private.multilateral.idb.IDBScraper",
         ),
-
         "ungm": SourceConfig(
             key="ungm",
             name="UNGM - UN Global Marketplace",
@@ -192,9 +193,8 @@ class SourceRegistry:
             categories=["multilateral"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.private.multilateral.ungm.UNGMScraper"
+            scraper_class="scrapers.private.multilateral.ungm.UNGMScraper",
         ),
-
         # Colombia - Privados
         "ecopetrol": SourceConfig(
             key="ecopetrol",
@@ -208,9 +208,8 @@ class SourceRegistry:
             sectors=["energia", "construccion", "tecnologia"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.private.ecopetrol.EcopetrolScraper"
+            scraper_class="scrapers.private.ecopetrol.EcopetrolScraper",
         ),
-
         "epm": SourceConfig(
             key="epm",
             name="EPM",
@@ -222,9 +221,8 @@ class SourceRegistry:
             categories=["privado", "energia", "servicios_publicos"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.private.epm.EPMScraper"
+            scraper_class="scrapers.private.epm.EPMScraper",
         ),
-
         # LATAM
         "compranet_mexico": SourceConfig(
             key="compranet_mexico",
@@ -237,9 +235,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.mexico.MexicoScraper"
+            scraper_class="scrapers.latam.mexico.MexicoScraper",
         ),
-
         "mercado_publico_chile": SourceConfig(
             key="mercado_publico_chile",
             name="Mercado Público Chile",
@@ -251,9 +248,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.chile.ChileScraper"
+            scraper_class="scrapers.latam.chile.ChileScraper",
         ),
-
         "osce_peru": SourceConfig(
             key="osce_peru",
             name="OSCE Perú",
@@ -265,9 +261,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.peru.PeruScraper"
+            scraper_class="scrapers.latam.peru.PeruScraper",
         ),
-
         "comprar_argentina": SourceConfig(
             key="comprar_argentina",
             name="Comprar Argentina",
@@ -279,9 +274,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.LOW,
             update_interval_minutes=360,
-            scraper_class="scrapers.latam.argentina.ArgentinaScraper"
+            scraper_class="scrapers.latam.argentina.ArgentinaScraper",
         ),
-
         "comprasnet_brasil": SourceConfig(
             key="comprasnet_brasil",
             name="ComprasNet Brasil",
@@ -293,9 +287,8 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.LOW,
             update_interval_minutes=360,
-            scraper_class="scrapers.latam.brasil.BrasilScraper"
+            scraper_class="scrapers.latam.brasil.BrasilScraper",
         ),
-
         # Europa (para expansión)
         "ted_europa": SourceConfig(
             key="ted_europa",
@@ -309,7 +302,7 @@ class SourceRegistry:
             priority=SourcePriority.LOW,
             update_interval_minutes=360,
             enabled=False,  # Deshabilitado por defecto
-            scraper_class="scrapers.international.ted.TEDScraper"
+            scraper_class="scrapers.international.ted.TEDScraper",
         ),
     }
 
@@ -365,17 +358,11 @@ class SourceRegistry:
 
     def get_by_country(self, country: str) -> Dict[str, SourceConfig]:
         """Obtiene fuentes por país."""
-        return {
-            k: v for k, v in self._sources.items()
-            if v.country == country and v.enabled
-        }
+        return {k: v for k, v in self._sources.items() if v.country == country and v.enabled}
 
     def get_by_priority(self, priority: SourcePriority) -> Dict[str, SourceConfig]:
         """Obtiene fuentes por prioridad."""
-        return {
-            k: v for k, v in self._sources.items()
-            if v.priority == priority and v.enabled
-        }
+        return {k: v for k, v in self._sources.items() if v.priority == priority and v.enabled}
 
     def get_due_for_update(self) -> List[SourceConfig]:
         """
@@ -411,7 +398,7 @@ class SourceRegistry:
             SourcePriority.HIGH: 1,
             SourcePriority.NORMAL: 2,
             SourcePriority.LOW: 3,
-            SourcePriority.DAILY: 4
+            SourcePriority.DAILY: 4,
         }
 
         due.sort(key=lambda x: priority_order.get(x.priority, 5))
@@ -452,12 +439,7 @@ class SourceRegistry:
             logger.error(f"Error cargando scraper {key}: {e}")
             return None
 
-    def update_status(
-        self,
-        key: str,
-        status: SourceStatus,
-        error_message: Optional[str] = None
-    ):
+    def update_status(self, key: str, status: SourceStatus, error_message: Optional[str] = None):
         """Actualiza el estado de una fuente."""
         if key not in self._sources:
             return
@@ -514,7 +496,7 @@ class SourceRegistry:
             "by_country": self._count_by_field("country"),
             "by_type": self._count_by_field("source_type"),
             "by_priority": self._count_by_field("priority"),
-            "total_contracts_fetched": sum(s.total_contracts_fetched for s in self._sources.values())
+            "total_contracts_fetched": sum(s.total_contracts_fetched for s in self._sources.values()),
         }
 
     def _count_by_field(self, field: str) -> Dict[str, int]:

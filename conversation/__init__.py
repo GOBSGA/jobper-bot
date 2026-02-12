@@ -1,5 +1,6 @@
 """Conversation package."""
-from conversation.messages import Messages
+
 from conversation.handlers import ConversationHandler
+from conversation.messages import Messages
 
 __all__ = ["Messages", "ConversationHandler"]

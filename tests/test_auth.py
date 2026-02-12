@@ -1,16 +1,13 @@
 """
 Tests for authentication service.
 """
-import pytest
+
 from datetime import datetime, timedelta
 from unittest.mock import Mock, patch
 
-from services.auth import (
-    register_with_password,
-    login_with_password,
-    _hash_password,
-    _verify_password,
-)
+import pytest
+
+from services.auth import _hash_password, _verify_password, login_with_password, register_with_password
 
 
 class TestPasswordAuth:
@@ -47,8 +44,8 @@ class TestPasswordAuth:
 
         assert _verify_password(password, invalid_hash) is False
 
-    @patch('services.auth.UnitOfWork')
-    @patch('services.auth.task_send_email')
+    @patch("services.auth.UnitOfWork")
+    @patch("services.auth.task_send_email")
     def test_register_with_password_success(self, mock_email, mock_uow):
         """Test successful registration with password."""
         # Mock UnitOfWork
@@ -73,7 +70,7 @@ class TestPasswordAuth:
         # Should commit transaction
         mock_context.commit.assert_called_once()
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_register_with_password_weak_password(self, mock_uow):
         """Test registration with weak password."""
         email = "test@example.com"
@@ -84,7 +81,7 @@ class TestPasswordAuth:
         assert "error" in result
         assert "al menos 6 caracteres" in result["error"]
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_register_with_password_existing_user(self, mock_uow):
         """Test registration when user already exists."""
         # Mock UnitOfWork
@@ -104,7 +101,7 @@ class TestPasswordAuth:
         assert "error" in result
         assert "Ya existe" in result["error"]
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_login_with_password_success(self, mock_uow):
         """Test successful login with password."""
         # Mock UnitOfWork
@@ -130,7 +127,7 @@ class TestPasswordAuth:
         assert "refresh_token" in result
         assert "user" in result
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_login_with_password_wrong_password(self, mock_uow):
         """Test login with wrong password."""
         # Mock UnitOfWork
@@ -153,7 +150,7 @@ class TestPasswordAuth:
         assert "error" in result
         assert "incorrectos" in result["error"]
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_login_with_password_user_not_found(self, mock_uow):
         """Test login with non-existent user."""
         # Mock UnitOfWork
@@ -166,7 +163,7 @@ class TestPasswordAuth:
         assert "error" in result
         assert "incorrectos" in result["error"]
 
-    @patch('services.auth.UnitOfWork')
+    @patch("services.auth.UnitOfWork")
     def test_login_with_password_no_password_hash(self, mock_uow):
         """Test login when user has no password (magic link only)."""
         # Mock UnitOfWork

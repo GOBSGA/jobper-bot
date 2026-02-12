@@ -1,10 +1,12 @@
 """
 Pytest configuration and fixtures for Jobper Bot v3.0 tests
 """
-import pytest
+
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
+from pathlib import Path
+
+import pytest
 
 # Agregar el directorio raíz al path
 root_dir = Path(__file__).parent.parent
@@ -28,7 +30,7 @@ def sample_contract_data():
         url="https://example.com/contract/TEST-001",
         publication_date=datetime.now() - timedelta(days=2),
         deadline=datetime.now() + timedelta(days=5),
-        raw_data={}
+        raw_data={},
     )
 
 
@@ -44,7 +46,7 @@ def sample_user():
         "min_budget": 100_000_000,
         "max_budget": 1_000_000_000,
         "countries": "colombia",
-        "state": "active"
+        "state": "active",
     }
 
 
@@ -56,35 +58,39 @@ def sample_contracts_list(sample_contract_data):
     contracts = [sample_contract_data]
 
     # Agregar más contratos de prueba
-    contracts.append(ContractData(
-        external_id="TEST-002",
-        title="Suministro de equipos de cómputo",
-        description="Adquisición de computadores portátiles y de escritorio para uso institucional.",
-        entity="Alcaldía de Bogotá",
-        amount=200_000_000,
-        currency="COP",
-        country="colombia",
-        source="SECOP II",
-        url="https://example.com/contract/TEST-002",
-        publication_date=datetime.now() - timedelta(days=1),
-        deadline=datetime.now() + timedelta(days=2),  # Urgente
-        raw_data={}
-    ))
+    contracts.append(
+        ContractData(
+            external_id="TEST-002",
+            title="Suministro de equipos de cómputo",
+            description="Adquisición de computadores portátiles y de escritorio para uso institucional.",
+            entity="Alcaldía de Bogotá",
+            amount=200_000_000,
+            currency="COP",
+            country="colombia",
+            source="SECOP II",
+            url="https://example.com/contract/TEST-002",
+            publication_date=datetime.now() - timedelta(days=1),
+            deadline=datetime.now() + timedelta(days=2),  # Urgente
+            raw_data={},
+        )
+    )
 
-    contracts.append(ContractData(
-        external_id="TEST-003",
-        title="IT Consulting Services",
-        description="Professional consulting services for IT infrastructure modernization.",
-        entity="Department of Defense",
-        amount=500_000,
-        currency="USD",
-        country="usa",
-        source="SAM.gov",
-        url="https://sam.gov/opp/TEST-003/view",
-        publication_date=datetime.now() - timedelta(days=3),
-        deadline=datetime.now() + timedelta(days=10),
-        raw_data={}
-    ))
+    contracts.append(
+        ContractData(
+            external_id="TEST-003",
+            title="IT Consulting Services",
+            description="Professional consulting services for IT infrastructure modernization.",
+            entity="Department of Defense",
+            amount=500_000,
+            currency="USD",
+            country="usa",
+            source="SAM.gov",
+            url="https://sam.gov/opp/TEST-003/view",
+            publication_date=datetime.now() - timedelta(days=3),
+            deadline=datetime.now() + timedelta(days=10),
+            raw_data={},
+        )
+    )
 
     return contracts
 
@@ -93,6 +99,7 @@ def sample_contracts_list(sample_contract_data):
 def matching_engine():
     """Fixture para MatchingEngine sin semántico (más rápido para tests)."""
     from matching.engine import MatchingEngine
+
     return MatchingEngine(use_semantic=False)
 
 
@@ -100,6 +107,7 @@ def matching_engine():
 def combined_scraper():
     """Fixture para CombinedScraper."""
     from scrapers.sam import CombinedScraper
+
     return CombinedScraper(include_multilateral=True, include_private=True)
 
 
@@ -107,6 +115,7 @@ def combined_scraper():
 def deadline_monitor():
     """Fixture para DeadlineMonitor."""
     from alerts.deadline_monitor import DeadlineMonitor
+
     return DeadlineMonitor()
 
 
@@ -114,4 +123,5 @@ def deadline_monitor():
 def urgency_calculator():
     """Fixture para UrgencyCalculator."""
     from alerts.urgency_calculator import UrgencyCalculator
+
     return UrgencyCalculator()

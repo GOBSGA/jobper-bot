@@ -3,13 +3,14 @@
 Script de inicialización para Jobper Bot v3.0
 Ejecutar: python scripts/setup.py
 """
-import sys
 import os
+import sys
 
 # Agregar el directorio raíz al path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
@@ -49,8 +50,9 @@ def check_environment():
     # Verificar NLP (opcional pero recomendado)
     print("\n3. Verificando NLP (opcional)...")
     try:
-        import torch
         import sentence_transformers
+        import torch
+
         print(f"   ✅ PyTorch {torch.__version__}")
         print(f"   ✅ Sentence Transformers")
     except ImportError as e:
@@ -69,7 +71,7 @@ def check_database():
     print(f"   URL: {Config.DATABASE_URL[:50]}...")
 
     try:
-        from database.models import init_database, get_session
+        from database.models import get_session, init_database
 
         # Intentar inicializar
         init_database()
@@ -109,6 +111,7 @@ def check_twilio():
         # Intentar inicializar cliente
         try:
             from twilio.rest import Client
+
             client = Client(Config.TWILIO_SID, Config.TWILIO_TOKEN)
             # No hacemos una llamada real, solo verificamos que el cliente se cree
             print("   ✅ Credenciales configuradas")
@@ -136,11 +139,7 @@ def create_test_user():
         if user:
             print(f"   ℹ️  Usuario de prueba ya existe: {test_phone}")
         else:
-            db.create_user(
-                phone=test_phone,
-                industry="tecnologia",
-                countries="all"
-            )
+            db.create_user(phone=test_phone, industry="tecnologia", countries="all")
             print(f"   ✅ Usuario de prueba creado: {test_phone}")
 
         return True
@@ -156,7 +155,8 @@ def show_next_steps():
     print("PRÓXIMOS PASOS")
     print("=" * 60)
 
-    print("""
+    print(
+        """
 1. PARA DESARROLLO LOCAL (sin WhatsApp real):
 
    # Terminal 1 - Servidor Flask
@@ -184,7 +184,8 @@ def show_next_steps():
    # Desplegar en Railway/Render
    # Configurar variables de entorno
    # Usar el dominio proporcionado como webhook
-    """)
+    """
+    )
 
 
 def main():

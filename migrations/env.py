@@ -1,4 +1,5 @@
 """Alembic environment configuration for Jobper v4.0."""
+
 from logging.config import fileConfig
 
 from alembic import context

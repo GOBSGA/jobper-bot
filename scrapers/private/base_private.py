@@ -2,11 +2,12 @@
 Base scraper para portales privados y multilaterales
 Extiende BaseScraper con soporte para autenticación
 """
+
 from __future__ import annotations
 
 import logging
 from abc import abstractmethod
-from typing import Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional
 
 from scrapers.base import BaseScraper, ContractData
 
@@ -95,7 +96,7 @@ class PrivatePortalScraper(BaseScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene contratos del portal.
@@ -117,10 +118,7 @@ class PrivatePortalScraper(BaseScraper):
 
         try:
             return self._fetch_contracts_impl(
-                keywords=keywords,
-                min_amount=min_amount,
-                max_amount=max_amount,
-                days_back=days_back
+                keywords=keywords, min_amount=min_amount, max_amount=max_amount, days_back=days_back
             )
         except Exception as e:
             logger.error(f"{self.portal_name}: Error fetching contracts: {e}")
@@ -132,7 +130,7 @@ class PrivatePortalScraper(BaseScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Implementación del fetch de contratos.
@@ -165,7 +163,7 @@ class PrivatePortalScraper(BaseScraper):
         method: str = "GET",
         params: Optional[Dict] = None,
         data: Optional[Dict] = None,
-        json_data: Optional[Dict] = None
+        json_data: Optional[Dict] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Realiza una request al portal con manejo de errores.
@@ -193,7 +191,7 @@ class PrivatePortalScraper(BaseScraper):
                 json=json_data,
                 headers=self._get_headers(),
                 cookies=self._cookies,
-                timeout=self.timeout
+                timeout=self.timeout,
             )
 
             response.raise_for_status()

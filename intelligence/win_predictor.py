@@ -5,13 +5,14 @@ Sistema de predicción de probabilidad de ganar contratos.
 Utiliza factores históricos y características del contrato/usuario
 para estimar la probabilidad de éxito en una licitación.
 """
+
 from __future__ import annotations
 
 import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,11 @@ logger = logging.getLogger(__name__)
 @dataclass
 class WinFactor:
     """Factor que influye en la probabilidad de ganar."""
+
     name: str
-    weight: float           # Peso en el modelo
-    value: float            # Valor calculado (0-1)
-    impact: str             # "positive", "negative", "neutral"
+    weight: float  # Peso en el modelo
+    value: float  # Valor calculado (0-1)
+    impact: str  # "positive", "negative", "neutral"
     explanation: str
     recommendations: List[str] = field(default_factory=list)
 
@@ -30,12 +32,13 @@ class WinFactor:
 @dataclass
 class WinPrediction:
     """Predicción de probabilidad de ganar."""
+
     # Probabilidad calculada
-    win_probability: float      # 0-100
+    win_probability: float  # 0-100
 
     # Nivel de confianza
-    confidence: str             # "low", "medium", "high"
-    confidence_score: float     # 0-100
+    confidence: str  # "low", "medium", "high"
+    confidence_score: float  # 0-100
 
     # Factores analizados
     factors: List[WinFactor] = field(default_factory=list)
@@ -61,22 +64,15 @@ class WinPrediction:
             "confidence": self.confidence,
             "confidence_score": round(self.confidence_score, 1),
             "competitive_position": self.competitive_position,
-            "factors": [
-                {
-                    "name": f.name,
-                    "impact": f.impact,
-                    "explanation": f.explanation
-                }
-                for f in self.factors
-            ],
+            "factors": [{"name": f.name, "impact": f.impact, "explanation": f.explanation} for f in self.factors],
             "top_positive_factors": self.top_positive_factors,
             "top_negative_factors": self.top_negative_factors,
             "improvement_actions": self.improvement_actions,
             "scenarios": {
                 "best_case": round(self.best_case, 1),
                 "expected": round(self.win_probability, 1),
-                "worst_case": round(self.worst_case, 1)
-            }
+                "worst_case": round(self.worst_case, 1),
+            },
         }
 
 
@@ -90,25 +86,25 @@ class WinPredictor:
 
     # Pesos de factores (deben sumar aproximadamente 1.0)
     FACTOR_WEIGHTS = {
-        "experience_match": 0.20,       # Experiencia relevante
-        "financial_capacity": 0.15,      # Capacidad financiera
-        "technical_fit": 0.15,           # Fit técnico
-        "competition_level": 0.12,       # Nivel de competencia
-        "requirements_met": 0.12,        # Requisitos cumplidos
-        "timing": 0.08,                  # Tiempo de preparación
-        "entity_relationship": 0.08,     # Relación con entidad
-        "price_competitiveness": 0.05,   # Competitividad precio
-        "proposal_quality": 0.05,        # Calidad estimada propuesta
+        "experience_match": 0.20,  # Experiencia relevante
+        "financial_capacity": 0.15,  # Capacidad financiera
+        "technical_fit": 0.15,  # Fit técnico
+        "competition_level": 0.12,  # Nivel de competencia
+        "requirements_met": 0.12,  # Requisitos cumplidos
+        "timing": 0.08,  # Tiempo de preparación
+        "entity_relationship": 0.08,  # Relación con entidad
+        "price_competitiveness": 0.05,  # Competitividad precio
+        "proposal_quality": 0.05,  # Calidad estimada propuesta
     }
 
     # Probabilidades base por tipo de contratación
     BASE_PROBABILITIES = {
-        "minima_cuantia": 0.25,          # Muchos competidores
-        "seleccion_abreviada": 0.15,     # Competencia media
-        "licitacion_publica": 0.08,      # Alta competencia
-        "contratacion_directa": 0.40,    # Invitación directa
-        "concurso_meritos": 0.12,        # Evalúa calidad
-        "default": 0.12                  # Por defecto
+        "minima_cuantia": 0.25,  # Muchos competidores
+        "seleccion_abreviada": 0.15,  # Competencia media
+        "licitacion_publica": 0.08,  # Alta competencia
+        "contratacion_directa": 0.40,  # Invitación directa
+        "concurso_meritos": 0.12,  # Evalúa calidad
+        "default": 0.12,  # Por defecto
     }
 
     def __init__(self):
@@ -119,7 +115,7 @@ class WinPredictor:
         self,
         contract: Dict[str, Any],
         user_profile: Dict[str, Any],
-        user_history: Optional[List[Dict[str, Any]]] = None
+        user_history: Optional[List[Dict[str, Any]]] = None,
     ) -> WinPrediction:
         """
         Predice la probabilidad de ganar un contrato.
@@ -134,10 +130,7 @@ class WinPredictor:
         """
         # Inicializar predicción
         prediction = WinPrediction(
-            win_probability=0,
-            confidence="medium",
-            confidence_score=50,
-            competitive_position="moderate"
+            win_probability=0, confidence="medium", confidence_score=50, competitive_position="moderate"
         )
 
         # Calcular cada factor
@@ -165,18 +158,18 @@ class WinPredictor:
         prediction.win_probability = max(5, min(80, base_prob * 100 * multiplier))
 
         # Calcular confianza
-        prediction.confidence, prediction.confidence_score = self._calculate_confidence(
-            contract, user_profile, factors
-        )
+        prediction.confidence, prediction.confidence_score = self._calculate_confidence(contract, user_profile, factors)
 
         # Extraer factores principales
         prediction.top_positive_factors = [
-            f.name for f in sorted(factors, key=lambda x: x.value * x.weight, reverse=True)[:3]
+            f.name
+            for f in sorted(factors, key=lambda x: x.value * x.weight, reverse=True)[:3]
             if f.impact == "positive"
         ]
 
         prediction.top_negative_factors = [
-            f.name for f in sorted(factors, key=lambda x: (1 - x.value) * x.weight, reverse=True)[:3]
+            f.name
+            for f in sorted(factors, key=lambda x: (1 - x.value) * x.weight, reverse=True)[:3]
             if f.impact == "negative"
         ]
 
@@ -184,9 +177,7 @@ class WinPredictor:
         prediction.improvement_actions = self._generate_improvement_actions(factors)
 
         # Determinar posición competitiva
-        prediction.competitive_position = self._determine_competitive_position(
-            prediction.win_probability
-        )
+        prediction.competitive_position = self._determine_competitive_position(prediction.win_probability)
 
         # Calcular escenarios
         prediction.best_case = min(95, prediction.win_probability * 1.5)
@@ -198,7 +189,7 @@ class WinPredictor:
         self,
         contracts: List[Dict[str, Any]],
         user_profile: Dict[str, Any],
-        user_history: Optional[List[Dict[str, Any]]] = None
+        user_history: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Tuple[Dict[str, Any], WinPrediction]]:
         """
         Predice probabilidades para múltiples contratos.
@@ -222,10 +213,7 @@ class WinPredictor:
     # =========================================================================
 
     def _evaluate_experience_match(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any],
-        user_history: Optional[List[Dict[str, Any]]]
+        self, contract: Dict[str, Any], user_profile: Dict[str, Any], user_history: Optional[List[Dict[str, Any]]]
     ) -> WinFactor:
         """Evalúa match de experiencia."""
         text = self._get_contract_text(contract).lower()
@@ -235,6 +223,7 @@ class WinPredictor:
 
         # Buscar requisitos de experiencia
         import re
+
         exp_match = re.search(r"(\d+)\s*a[ñn]os?\s*(?:de\s+)?experiencia", text)
 
         if exp_match:
@@ -261,10 +250,7 @@ class WinPredictor:
 
         # Bonus por historial similar
         if user_history:
-            similar = sum(
-                1 for h in user_history
-                if self._contracts_similar(h, contract)
-            )
+            similar = sum(1 for h in user_history if self._contracts_similar(h, contract))
             if similar > 0:
                 value = min(1.0, value + 0.1 * similar)
                 explanation += f" + {similar} contratos similares previos"
@@ -275,17 +261,13 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "negative" if value < 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
-    def _evaluate_financial_capacity(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> WinFactor:
+    def _evaluate_financial_capacity(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> WinFactor:
         """Evalúa capacidad financiera."""
         amount = contract.get("amount", 0) or 0
-        max_budget = user_profile.get("max_budget") or float('inf')
+        max_budget = user_profile.get("max_budget") or float("inf")
 
         recommendations = []
 
@@ -323,14 +305,10 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "negative" if value < 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
-    def _evaluate_technical_fit(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> WinFactor:
+    def _evaluate_technical_fit(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> WinFactor:
         """Evalúa fit técnico entre usuario y contrato."""
         text = self._get_contract_text(contract).lower()
         user_industry = user_profile.get("industry", "")
@@ -373,7 +351,7 @@ class WinPredictor:
             value=min(1.0, value),
             impact="positive" if value > 0.5 else "negative" if value < 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def _evaluate_competition_level(self, contract: Dict[str, Any]) -> WinFactor:
@@ -383,8 +361,12 @@ class WinPredictor:
 
         # Factores que reducen competencia
         low_competition_signals = [
-            "consorcio", "experiencia específica", "certificación",
-            "iso", "cmmi", "presencia local"
+            "consorcio",
+            "experiencia específica",
+            "certificación",
+            "iso",
+            "cmmi",
+            "presencia local",
         ]
 
         barriers = sum(1 for s in low_competition_signals if s in text)
@@ -428,14 +410,10 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "negative",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
-    def _evaluate_requirements_met(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> WinFactor:
+    def _evaluate_requirements_met(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> WinFactor:
         """Evalúa qué porcentaje de requisitos se cumplen."""
         text = self._get_contract_text(contract).lower()
 
@@ -484,7 +462,7 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "negative",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def _evaluate_timing(self, contract: Dict[str, Any]) -> WinFactor:
@@ -507,7 +485,7 @@ class WinPredictor:
         else:
             try:
                 if isinstance(deadline, str):
-                    deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                    deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
 
                 days_left = (deadline - datetime.now()).days
 
@@ -538,13 +516,11 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "negative" if value < 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     def _evaluate_entity_relationship(
-        self,
-        contract: Dict[str, Any],
-        user_history: Optional[List[Dict[str, Any]]]
+        self, contract: Dict[str, Any], user_history: Optional[List[Dict[str, Any]]]
     ) -> WinFactor:
         """Evalúa relación previa con la entidad contratante."""
         entity = (contract.get("entity", "") or "").lower()
@@ -555,10 +531,7 @@ class WinPredictor:
             recommendations = ["Construir relación con esta entidad para futuras oportunidades"]
         else:
             # Buscar contratos previos con la entidad
-            previous = sum(
-                1 for h in user_history
-                if entity in (h.get("entity", "") or "").lower()
-            )
+            previous = sum(1 for h in user_history if entity in (h.get("entity", "") or "").lower())
 
             if previous >= 3:
                 value = 0.9
@@ -579,30 +552,25 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
-    def _evaluate_price_competitiveness(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> WinFactor:
+    def _evaluate_price_competitiveness(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> WinFactor:
         """Evalúa competitividad de precio estimada."""
         # Sin información de precios históricos, usamos heurísticas
 
         text = self._get_contract_text(contract).lower()
 
         # Contratos donde precio es más importante
-        price_sensitive = any(kw in text for kw in [
-            "menor precio", "mejor precio", "precio más bajo",
-            "subasta", "mínima cuantía"
-        ])
+        price_sensitive = any(
+            kw in text for kw in ["menor precio", "mejor precio", "precio más bajo", "subasta", "mínima cuantía"]
+        )
 
         # Contratos donde calidad es más importante
-        quality_focused = any(kw in text for kw in [
-            "concurso de méritos", "mejor propuesta", "evaluación técnica",
-            "calidad", "experiencia"
-        ])
+        quality_focused = any(
+            kw in text
+            for kw in ["concurso de méritos", "mejor propuesta", "evaluación técnica", "calidad", "experiencia"]
+        )
 
         if price_sensitive:
             value = 0.4
@@ -623,14 +591,10 @@ class WinPredictor:
             value=value,
             impact="neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
-    def _evaluate_proposal_quality(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> WinFactor:
+    def _evaluate_proposal_quality(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> WinFactor:
         """Evalúa calidad estimada de propuesta."""
         # Heurística basada en perfil del usuario
 
@@ -658,10 +622,7 @@ class WinPredictor:
             recommendations = ["Completar tu perfil para mejores recomendaciones"]
         else:
             explanation = "Perfil incompleto - difícil evaluar capacidad de propuesta"
-            recommendations = [
-                "Completar perfil con industria y palabras clave",
-                "Definir rangos de presupuesto"
-            ]
+            recommendations = ["Completar perfil con industria y palabras clave", "Definir rangos de presupuesto"]
 
         return WinFactor(
             name="Calidad de Propuesta",
@@ -669,7 +630,7 @@ class WinPredictor:
             value=value,
             impact="positive" if value > 0.5 else "neutral",
             explanation=explanation,
-            recommendations=recommendations
+            recommendations=recommendations,
         )
 
     # =========================================================================
@@ -678,11 +639,7 @@ class WinPredictor:
 
     def _get_contract_text(self, contract: Dict[str, Any]) -> str:
         """Obtiene texto del contrato."""
-        parts = [
-            contract.get("title", ""),
-            contract.get("description", ""),
-            contract.get("entity", "")
-        ]
+        parts = [contract.get("title", ""), contract.get("description", ""), contract.get("entity", "")]
         return " ".join(filter(None, parts))
 
     def _get_base_probability(self, contract: Dict[str, Any]) -> float:
@@ -702,11 +659,7 @@ class WinPredictor:
 
         return self.BASE_PROBABILITIES["default"]
 
-    def _contracts_similar(
-        self,
-        contract1: Dict[str, Any],
-        contract2: Dict[str, Any]
-    ) -> bool:
+    def _contracts_similar(self, contract1: Dict[str, Any], contract2: Dict[str, Any]) -> bool:
         """Determina si dos contratos son similares."""
         text1 = self._get_contract_text(contract1).lower()
         text2 = self._get_contract_text(contract2).lower()
@@ -742,10 +695,7 @@ class WinPredictor:
         return any(kw in text for kw in keywords)
 
     def _calculate_confidence(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any],
-        factors: List[WinFactor]
+        self, contract: Dict[str, Any], user_profile: Dict[str, Any], factors: List[WinFactor]
     ) -> Tuple[str, float]:
         """Calcula nivel de confianza en la predicción."""
         score = 50.0  # Base
@@ -783,10 +733,7 @@ class WinPredictor:
         actions = []
 
         # Ordenar por impacto negativo
-        negative_factors = [
-            f for f in factors
-            if f.impact == "negative" and f.recommendations
-        ]
+        negative_factors = [f for f in factors if f.impact == "negative" and f.recommendations]
 
         negative_factors.sort(key=lambda x: x.value)
 

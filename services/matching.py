@@ -9,6 +9,7 @@ Score algorithm:
   - Budget match (15%): contract amount within user's budget range
   - Recency bonus (10%): newer contracts score higher
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,7 @@ from typing import Optional
 import numpy as np
 
 from core.cache import cache
-from core.database import UnitOfWork, User, Contract
+from core.database import Contract, UnitOfWork, User
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ def get_semantic_matcher():
     if _semantic_matcher is None:
         try:
             from nlp.semantic_search import SemanticMatcher
+
             _semantic_matcher = SemanticMatcher()
             logger.info("Semantic matcher loaded successfully")
         except Exception as e:
@@ -153,6 +155,7 @@ def calculate_match_score(
     # --- Sector match (15 points max) ---
     if user.sector:
         from config import Config
+
         sector_keywords = []
         sector_key = user.sector.lower()
         for key, industry in Config.INDUSTRIES.items():
@@ -173,7 +176,7 @@ def calculate_match_score(
     # --- Budget match (15 points max) ---
     if contract.amount and contract.amount > 0:
         budget_min = user.budget_min or 0
-        budget_max = user.budget_max or float('inf')
+        budget_max = user.budget_max or float("inf")
 
         if budget_min <= contract.amount <= budget_max:
             score += 15
@@ -181,7 +184,7 @@ def calculate_match_score(
             ratio = contract.amount / budget_min if budget_min > 0 else 0
             if ratio > 0.5:
                 score += 7
-        elif budget_max != float('inf') and contract.amount > budget_max:
+        elif budget_max != float("inf") and contract.amount > budget_max:
             ratio = budget_max / contract.amount if contract.amount > 0 else 0
             if ratio > 0.5:
                 score += 5
@@ -248,13 +251,9 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
 
         # Pre-filter by budget if user has it set
         if user.budget_min and user.budget_min > 0:
-            query = query.filter(
-                (Contract.amount.is_(None)) | (Contract.amount >= user.budget_min * 0.5)
-            )
+            query = query.filter((Contract.amount.is_(None)) | (Contract.amount >= user.budget_min * 0.5))
         if user.budget_max and user.budget_max > 0:
-            query = query.filter(
-                (Contract.amount.is_(None)) | (Contract.amount <= user.budget_max * 2)
-            )
+            query = query.filter((Contract.amount.is_(None)) | (Contract.amount <= user.budget_max * 2))
 
         # Use streaming/batching for memory efficiency
         contracts = query.order_by(Contract.publication_date.desc()).limit(500).all()
@@ -311,6 +310,7 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
         # Check free tier limits (3 alerts/week)
         from config import Config
         from core.middleware import PLAN_ORDER
+
         user_plan = user.plan or "free"
         is_free_tier = PLAN_ORDER.get(user_plan, 0) < PLAN_ORDER.get("alertas", 2)
 
@@ -340,9 +340,12 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
                 }
 
         since = datetime.utcnow() - timedelta(hours=hours)
-        contracts = uow.session.query(Contract).filter(
-            Contract.publication_date >= since
-        ).order_by(Contract.publication_date.desc()).all()
+        contracts = (
+            uow.session.query(Contract)
+            .filter(Contract.publication_date >= since)
+            .order_by(Contract.publication_date.desc())
+            .all()
+        )
 
         # Pre-compute user embedding for semantic matching
         user_embedding = compute_user_embedding(user)
@@ -351,17 +354,19 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
         for c in contracts:
             score = calculate_match_score(user, c, user_embedding=user_embedding)
             if score >= 60:
-                alerts.append({
-                    "id": c.id,
-                    "title": c.title,
-                    "entity": c.entity,
-                    "amount": c.amount,
-                    "source": c.source,
-                    "url": c.url,
-                    "deadline": c.deadline.isoformat() if c.deadline else None,
-                    "publication_date": c.publication_date.isoformat() if c.publication_date else None,
-                    "match_score": score,
-                })
+                alerts.append(
+                    {
+                        "id": c.id,
+                        "title": c.title,
+                        "entity": c.entity,
+                        "amount": c.amount,
+                        "source": c.source,
+                        "url": c.url,
+                        "deadline": c.deadline.isoformat() if c.deadline else None,
+                        "publication_date": c.publication_date.isoformat() if c.publication_date else None,
+                        "match_score": score,
+                    }
+                )
 
         alerts.sort(key=lambda x: x["match_score"], reverse=True)
 
@@ -415,16 +420,23 @@ def _compute_market_stats(user_id: int) -> dict:
 
         # Total value of recent contracts
         from sqlalchemy import func
-        total_value = uow.session.query(func.sum(Contract.amount)).filter(
-            Contract.publication_date >= last_30d,
-            Contract.amount.isnot(None),
-        ).scalar() or 0
+
+        total_value = (
+            uow.session.query(func.sum(Contract.amount))
+            .filter(
+                Contract.publication_date >= last_30d,
+                Contract.amount.isnot(None),
+            )
+            .scalar()
+            or 0
+        )
 
         # Sector-specific stats if user has sector
         sector_count = 0
         sector_value = 0
         if user and user.sector:
             from config import Config
+
             sector_keywords = []
             for key, industry in Config.INDUSTRIES.items():
                 if key == user.sector.lower() or user.sector.lower() in industry["name"].lower():
@@ -436,15 +448,20 @@ def _compute_market_stats(user_id: int) -> dict:
                     pattern = f"%{kw}%"
                     q = uow.session.query(Contract).filter(
                         Contract.publication_date >= last_30d,
-                        (Contract.title.ilike(pattern) | Contract.description.ilike(pattern))
+                        (Contract.title.ilike(pattern) | Contract.description.ilike(pattern)),
                     )
                     sector_count += q.count()
 
-                sector_value_q = uow.session.query(func.sum(Contract.amount)).filter(
-                    Contract.publication_date >= last_30d,
-                    Contract.amount.isnot(None),
-                    Contract.title.ilike(f"%{sector_keywords[0]}%")
-                ).scalar() or 0
+                sector_value_q = (
+                    uow.session.query(func.sum(Contract.amount))
+                    .filter(
+                        Contract.publication_date >= last_30d,
+                        Contract.amount.isnot(None),
+                        Contract.title.ilike(f"%{sector_keywords[0]}%"),
+                    )
+                    .scalar()
+                    or 0
+                )
                 sector_value = sector_value_q
 
         return {
@@ -463,7 +480,9 @@ def notify_high_priority_matches(new_count: int):
     # Skip matching on large batches to avoid blocking the server
     MAX_CONTRACTS_FOR_MATCHING = 500
     if new_count > MAX_CONTRACTS_FOR_MATCHING:
-        logger.info(f"Skipping real-time matching: {new_count} contracts too large (max {MAX_CONTRACTS_FOR_MATCHING}). Users will see matches on next search.")
+        logger.info(
+            f"Skipping real-time matching: {new_count} contracts too large (max {MAX_CONTRACTS_FOR_MATCHING}). Users will see matches on next search."
+        )
         return
 
     logger.info(f"Checking high-priority matches for {new_count} new contracts...")
@@ -474,9 +493,12 @@ def notify_high_priority_matches(new_count: int):
 
         # Get contracts from last hour (just ingested), limit to avoid overload
         since = datetime.utcnow() - timedelta(hours=1)
-        new_contracts = uow.session.query(Contract).filter(
-            Contract.publication_date >= since
-        ).limit(MAX_CONTRACTS_FOR_MATCHING).all()
+        new_contracts = (
+            uow.session.query(Contract)
+            .filter(Contract.publication_date >= since)
+            .limit(MAX_CONTRACTS_FOR_MATCHING)
+            .all()
+        )
 
         if not new_contracts:
             return
@@ -496,6 +518,7 @@ def _queue_push_notification(user: User, contract: Contract, score: int):
     # Push notification will be sent via the existing push infrastructure
     try:
         from services.notifications import send_push
+
         send_push(
             user.id,
             title=f"Nuevo contrato {score}% compatible",

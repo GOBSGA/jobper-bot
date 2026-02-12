@@ -2,6 +2,7 @@
 Scraper para SEACE - Sistema Electrónico de Contrataciones del Estado (Perú)
 API: SEACE API (seace.gob.pe)
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,11 +26,7 @@ class SeaceScraper(BaseScraper):
         super().__init__(SEACE_DATA_URL)
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene procesos de SEACE.
@@ -76,11 +73,7 @@ class SeaceScraper(BaseScraper):
         return contracts
 
     def _build_query(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> dict:
         """Construye los parámetros de consulta para SEACE."""
 
@@ -94,7 +87,7 @@ class SeaceScraper(BaseScraper):
         filters = {}
 
         # Filtro de fecha (si está disponible en el dataset)
-        date_limit = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        date_limit = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
         filters["fecha_publicacion"] = {"gte": date_limit}
 
         # Filtro de keywords
@@ -103,6 +96,7 @@ class SeaceScraper(BaseScraper):
 
         if filters:
             import json
+
             params["filters"] = json.dumps(filters)
 
         return params
@@ -110,17 +104,13 @@ class SeaceScraper(BaseScraper):
     def _normalize_contract(self, raw: dict) -> Optional[ContractData]:
         """Normaliza un proceso de SEACE al formato estándar."""
 
-        external_id = (raw.get("numero_proceso") or
-                       raw.get("codigo_convocatoria") or
-                       raw.get("_id", ""))
+        external_id = raw.get("numero_proceso") or raw.get("codigo_convocatoria") or raw.get("_id", "")
         if not external_id:
             return None
 
         # Parsear fechas
-        pub_date = self._parse_date(raw.get("fecha_publicacion") or
-                                     raw.get("fecha_convocatoria"))
-        deadline = self._parse_date(raw.get("fecha_presentacion_propuestas") or
-                                     raw.get("fecha_cierre"))
+        pub_date = self._parse_date(raw.get("fecha_publicacion") or raw.get("fecha_convocatoria"))
+        deadline = self._parse_date(raw.get("fecha_presentacion_propuestas") or raw.get("fecha_cierre"))
 
         # Parsear monto
         amount = None
@@ -177,6 +167,8 @@ class SeaceScraper(BaseScraper):
         """Construye la URL del proceso en SEACE."""
         numero = raw.get("numero_proceso") or raw.get("codigo_convocatoria", "")
         if numero:
-            return f"https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml?nroProc={numero}"
+            return (
+                f"https://prod2.seace.gob.pe/seacebus-uiwd-pub/buscadorPublico/buscadorPublico.xhtml?nroProc={numero}"
+            )
 
         return "https://prod2.seace.gob.pe/seacebus-uiwd-pub/"

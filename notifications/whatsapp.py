@@ -2,13 +2,14 @@
 Cliente de WhatsApp usando Twilio para Jobper Bot
 Incluye integración con análisis de IA para resúmenes ejecutivos
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from twilio.rest import Client
 from twilio.base.exceptions import TwilioRestException
+from twilio.rest import Client
 
 from config import Config
 from conversation.messages import Messages
@@ -17,16 +18,19 @@ from matching.engine import ScoredContract
 # Lazy import para evitar circular imports y si no está disponible
 _contract_analyzer = None
 
+
 def _get_contract_analyzer():
     """Obtiene el analizador de contratos de forma lazy."""
     global _contract_analyzer
     if _contract_analyzer is None:
         try:
             from nlp.contract_analyzer import ContractAnalyzer
+
             _contract_analyzer = ContractAnalyzer()
         except ImportError:
             pass
     return _contract_analyzer
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,11 +73,7 @@ class WhatsAppClient:
             from_whatsapp = f"whatsapp:{self.from_number}"
             to_whatsapp = f"whatsapp:{to}" if not to.startswith("whatsapp:") else to
 
-            message = self.client.messages.create(
-                body=body,
-                from_=from_whatsapp,
-                to=to_whatsapp
-            )
+            message = self.client.messages.create(body=body, from_=from_whatsapp, to=to_whatsapp)
 
             logger.info(f"📱 Mensaje enviado a {to}. SID: {message.sid}")
             return True
@@ -90,7 +90,7 @@ class WhatsAppClient:
         to: str,
         scored_contract: ScoredContract,
         user_profile: Dict[str, Any] = None,
-        use_ai_analysis: bool = True
+        use_ai_analysis: bool = True,
     ) -> bool:
         """
         Envía una alerta de contrato individual con análisis de IA opcional.
@@ -120,7 +120,7 @@ class WhatsAppClient:
             country=self._get_country_flag(contract.country),
             deadline=self._format_date(contract.deadline),
             url=contract.url or "No disponible",
-            score=int(scored_contract.score)
+            score=int(scored_contract.score),
         )
 
         # Agregar análisis de IA si existe
@@ -129,11 +129,7 @@ class WhatsAppClient:
 
         return self.send_message(to, message)
 
-    def _get_ai_analysis(
-        self,
-        contract,
-        user_profile: Dict[str, Any]
-    ) -> str:
+    def _get_ai_analysis(self, contract, user_profile: Dict[str, Any]) -> str:
         """
         Obtiene análisis de IA para un contrato.
 
@@ -150,21 +146,26 @@ class WhatsAppClient:
 
         try:
             # Convertir contrato a dict si es necesario
-            contract_dict = contract.to_dict() if hasattr(contract, 'to_dict') else {
-                "title": contract.title,
-                "description": contract.description,
-                "entity": contract.entity,
-                "amount": contract.amount,
-                "currency": contract.currency,
-                "country": contract.country,
-                "deadline": str(contract.deadline) if contract.deadline else None,
-                "source": contract.source,
-            }
+            contract_dict = (
+                contract.to_dict()
+                if hasattr(contract, "to_dict")
+                else {
+                    "title": contract.title,
+                    "description": contract.description,
+                    "entity": contract.entity,
+                    "amount": contract.amount,
+                    "currency": contract.currency,
+                    "country": contract.country,
+                    "deadline": str(contract.deadline) if contract.deadline else None,
+                    "source": contract.source,
+                }
+            )
 
             analysis = analyzer.analyze(contract_dict, user_profile)
 
             if analysis:
                 from nlp.contract_analyzer import format_analysis_for_whatsapp
+
                 return format_analysis_for_whatsapp(analysis)
 
         except Exception as e:
@@ -178,7 +179,7 @@ class WhatsAppClient:
         scored_contracts: List[ScoredContract],
         next_date: str = "próximo lunes",
         user_profile: Dict[str, Any] = None,
-        include_ai_analysis: bool = True
+        include_ai_analysis: bool = True,
     ) -> bool:
         """
         Envía el reporte semanal con múltiples contratos.
@@ -200,8 +201,7 @@ class WhatsAppClient:
 
         # Header
         message = Messages.WEEKLY_REPORT_HEADER.format(
-            date=datetime.now().strftime("%d/%m/%Y"),
-            count=len(scored_contracts)
+            date=datetime.now().strftime("%d/%m/%Y"), count=len(scored_contracts)
         )
 
         # Agregar cada contrato (máximo 5 en un mensaje)
@@ -214,7 +214,7 @@ class WhatsAppClient:
                 amount=Messages.format_currency(contract.amount or 0, contract.currency),
                 country=self._get_country_flag(contract.country),
                 score=int(sc.score),
-                url=contract.url or "#"
+                url=contract.url or "#",
             )
 
         # Footer
@@ -229,7 +229,7 @@ class WhatsAppClient:
         # Si hay más de 5, enviar el resto en mensajes adicionales
         if success and len(scored_contracts) > 5:
             remaining = scored_contracts[5:]
-            chunks = [remaining[i:i+5] for i in range(0, len(remaining), 5)]
+            chunks = [remaining[i : i + 5] for i in range(0, len(remaining), 5)]
 
             for chunk in chunks:
                 additional = "📄 *Más oportunidades:*\n\n"
@@ -243,12 +243,7 @@ class WhatsAppClient:
 
         return success
 
-    def _send_ai_insights(
-        self,
-        to: str,
-        scored_contracts: List[ScoredContract],
-        user_profile: Dict[str, Any]
-    ) -> None:
+    def _send_ai_insights(self, to: str, scored_contracts: List[ScoredContract], user_profile: Dict[str, Any]) -> None:
         """
         Envía análisis de IA detallado para los mejores contratos.
 
@@ -271,16 +266,20 @@ class WhatsAppClient:
                 contract = sc.contract
 
                 # Convertir contrato a dict
-                contract_dict = contract.to_dict() if hasattr(contract, 'to_dict') else {
-                    "title": contract.title,
-                    "description": contract.description,
-                    "entity": contract.entity,
-                    "amount": contract.amount,
-                    "currency": contract.currency,
-                    "country": contract.country,
-                    "deadline": str(contract.deadline) if contract.deadline else None,
-                    "source": contract.source,
-                }
+                contract_dict = (
+                    contract.to_dict()
+                    if hasattr(contract, "to_dict")
+                    else {
+                        "title": contract.title,
+                        "description": contract.description,
+                        "entity": contract.entity,
+                        "amount": contract.amount,
+                        "currency": contract.currency,
+                        "country": contract.country,
+                        "deadline": str(contract.deadline) if contract.deadline else None,
+                        "source": contract.source,
+                    }
+                )
 
                 analysis = analyzer.analyze(contract_dict, user_profile)
 
@@ -305,7 +304,7 @@ class WhatsAppClient:
             return ""
         if len(text) <= max_length:
             return text
-        return text[:max_length-3] + "..."
+        return text[: max_length - 3] + "..."
 
     def _get_country_flag(self, country: str) -> str:
         """Obtiene bandera emoji del país."""

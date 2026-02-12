@@ -11,14 +11,15 @@ Algoritmo de matching:
 4. Score de relevancia
 5. Notificación a los mejores candidatos
 """
+
 from __future__ import annotations
 
 import logging
-from typing import List, Dict, Any, Optional
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
-from database.manager import DatabaseManager
 from config import Config
+from database.manager import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,7 @@ def _get_whatsapp_client():
     global _whatsapp_client
     if _whatsapp_client is None:
         from notifications.whatsapp import WhatsAppClient
+
         _whatsapp_client = WhatsAppClient()
     return _whatsapp_client
 
@@ -78,12 +80,7 @@ class ContractorMatcher:
     def __init__(self, db_manager: DatabaseManager = None):
         self.db = db_manager or DatabaseManager()
 
-    def find_and_notify(
-        self,
-        contract_id: int,
-        posting: Dict[str, Any],
-        max_notifications: int = 20
-    ) -> Dict[str, Any]:
+    def find_and_notify(self, contract_id: int, posting: Dict[str, Any], max_notifications: int = 20) -> Dict[str, Any]:
         """
         Encuentra contratistas relevantes y los notifica.
 
@@ -97,12 +94,7 @@ class ContractorMatcher:
         """
         logger.info(f"🔍 Buscando contratistas para contrato #{contract_id}")
 
-        stats = {
-            "contract_id": contract_id,
-            "candidates_found": 0,
-            "notifications_sent": 0,
-            "errors": 0
-        }
+        stats = {"contract_id": contract_id, "candidates_found": 0, "notifications_sent": 0, "errors": 0}
 
         try:
             # Obtener candidatos
@@ -121,12 +113,7 @@ class ContractorMatcher:
             whatsapp = _get_whatsapp_client()
             for candidate in top_candidates:
                 try:
-                    success = self._notify_candidate(
-                        whatsapp,
-                        candidate,
-                        contract_id,
-                        posting
-                    )
+                    success = self._notify_candidate(whatsapp, candidate, contract_id, posting)
                     if success:
                         stats["notifications_sent"] += 1
                 except Exception as e:
@@ -141,11 +128,7 @@ class ContractorMatcher:
 
         return stats
 
-    def find_candidates(
-        self,
-        posting: Dict[str, Any],
-        limit: int = 50
-    ) -> List[Dict[str, Any]]:
+    def find_candidates(self, posting: Dict[str, Any], limit: int = 50) -> List[Dict[str, Any]]:
         """
         Encuentra candidatos relevantes para un trabajo.
 
@@ -174,19 +157,12 @@ class ContractorMatcher:
             score = self._calculate_match_score(user, posting)
 
             if score > 0:
-                candidate = {
-                    **user,
-                    "match_score": score
-                }
+                candidate = {**user, "match_score": score}
                 candidates.append(candidate)
 
         return candidates[:limit]
 
-    def _calculate_match_score(
-        self,
-        user: Dict[str, Any],
-        posting: Dict[str, Any]
-    ) -> float:
+    def _calculate_match_score(self, user: Dict[str, Any], posting: Dict[str, Any]) -> float:
         """
         Calcula el score de match entre un usuario y un trabajo.
 
@@ -215,10 +191,7 @@ class ContractorMatcher:
         user_keywords = user.get("include_keywords") or []
         text_to_search = f"{title} {description} {category}"
 
-        keyword_matches = sum(
-            1 for kw in user_keywords
-            if kw.lower() in text_to_search
-        )
+        keyword_matches = sum(1 for kw in user_keywords if kw.lower() in text_to_search)
         if keyword_matches > 0:
             score += min(30, keyword_matches * 10)
 
@@ -239,13 +212,7 @@ class ContractorMatcher:
 
         return min(100, score)
 
-    def _notify_candidate(
-        self,
-        whatsapp,
-        candidate: Dict[str, Any],
-        contract_id: int,
-        posting: Dict[str, Any]
-    ) -> bool:
+    def _notify_candidate(self, whatsapp, candidate: Dict[str, Any], contract_id: int, posting: Dict[str, Any]) -> bool:
         """
         Envía notificación a un candidato sobre una oportunidad.
 
@@ -316,11 +283,7 @@ _Jobper Marketplace_"""
 
         return whatsapp.send_message(phone, message)
 
-    def get_contract_matches(
-        self,
-        user_phone: str,
-        limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    def get_contract_matches(self, user_phone: str, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Obtiene contratos privados que coinciden con el perfil de un usuario.
 
@@ -336,10 +299,7 @@ _Jobper Marketplace_"""
             return []
 
         # Obtener contratos activos
-        contracts = self.db.get_active_private_contracts(
-            country=user.get("countries"),
-            limit=limit * 3
-        )
+        contracts = self.db.get_active_private_contracts(country=user.get("countries"), limit=limit * 3)
 
         matches = []
         for contract in contracts:
@@ -356,10 +316,7 @@ _Jobper Marketplace_"""
             score = self._calculate_match_score(user, posting)
 
             if score > 20:  # Umbral mínimo
-                matches.append({
-                    **contract,
-                    "match_score": score
-                })
+                matches.append({**contract, "match_score": score})
 
         # Ordenar por score
         matches.sort(key=lambda x: x["match_score"], reverse=True)

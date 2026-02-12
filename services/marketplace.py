@@ -1,12 +1,13 @@
 """
 Jobper Services — Marketplace (publish, feature, contact reveal)
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
 
-from core.database import UnitOfWork, PrivateContract, AuditLog
+from core.database import AuditLog, PrivateContract, UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +20,7 @@ def list_marketplace(
 ) -> dict:
     """List active marketplace contracts, featured first."""
     with UnitOfWork() as uow:
-        q = uow.session.query(PrivateContract).filter(
-            PrivateContract.status == "active"
-        )
+        q = uow.session.query(PrivateContract).filter(PrivateContract.status == "active")
 
         if category:
             q = q.filter(PrivateContract.category.ilike(f"%{category}%"))
@@ -85,8 +84,18 @@ def edit(user_id: int, contract_id: int, data: dict) -> dict:
         if not pc or pc.publisher_id != user_id:
             return {"error": "Contrato no encontrado"}
 
-        for field in ("title", "description", "category", "budget_min", "budget_max",
-                       "city", "is_remote", "deadline", "contact_phone", "keywords"):
+        for field in (
+            "title",
+            "description",
+            "category",
+            "budget_min",
+            "budget_max",
+            "city",
+            "is_remote",
+            "deadline",
+            "contact_phone",
+            "keywords",
+        ):
             if field in data:
                 setattr(pc, field, data[field])
 
@@ -154,6 +163,7 @@ def get_contact(contract_id: int, user_id: int) -> dict:
 # =============================================================================
 # HELPERS
 # =============================================================================
+
 
 def _pc_to_dict(pc: PrivateContract) -> dict:
     return {

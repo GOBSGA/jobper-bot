@@ -2,8 +2,10 @@
 Tests de integración para Jobper Bot v3.0
 Verifica que todos los módulos se importan correctamente
 """
-import pytest
+
 from datetime import datetime, timedelta
+
+import pytest
 
 
 class TestImports:
@@ -12,21 +14,24 @@ class TestImports:
     def test_import_config(self):
         """Config debe importarse sin errores."""
         from config import Config
+
         assert Config.SECOP_API_URL is not None
         assert Config.INDUSTRIES is not None
 
     def test_import_database(self):
         """Database models y manager deben importarse."""
-        from database.models import User, Contract, ConversationState
         from database.manager import DatabaseManager
+        from database.models import Contract, ConversationState, User
+
         assert User is not None
         assert DatabaseManager is not None
 
     def test_import_scrapers(self):
         """Scrapers deben importarse sin errores."""
         from scrapers.base import BaseScraper, ContractData
+        from scrapers.sam import CombinedScraper, SamGovScraper
         from scrapers.secop import SecopScraper
-        from scrapers.sam import SamGovScraper, CombinedScraper
+
         assert CombinedScraper is not None
 
     def test_import_private_scrapers(self):
@@ -34,6 +39,7 @@ class TestImports:
         from scrapers.private.base_private import PrivatePortalScraper
         from scrapers.private.ecopetrol import EcopetrolScraper
         from scrapers.private.epm import EPMScraper
+
         assert PrivatePortalScraper is not None
         assert EcopetrolScraper is not None
         assert EPMScraper is not None
@@ -41,15 +47,17 @@ class TestImports:
     def test_import_multilateral_scrapers(self):
         """Scrapers multilaterales deben importarse."""
         from scrapers.private.multilateral.idb import IDBScraper
-        from scrapers.private.multilateral.worldbank import WorldBankScraper
         from scrapers.private.multilateral.ungm import UNGMScraper
+        from scrapers.private.multilateral.worldbank import WorldBankScraper
+
         assert IDBScraper is not None
         assert WorldBankScraper is not None
         assert UNGMScraper is not None
 
     def test_import_matching(self):
         """Matching engine debe importarse."""
-        from matching.engine import MatchingEngine, get_matching_engine, ScoredContract
+        from matching.engine import MatchingEngine, ScoredContract, get_matching_engine
+
         assert MatchingEngine is not None
         assert get_matching_engine is not None
 
@@ -57,12 +65,14 @@ class TestImports:
         """Alerts deben importarse."""
         from alerts.deadline_monitor import DeadlineMonitor, get_deadline_monitor
         from alerts.urgency_calculator import UrgencyCalculator, UrgencyScore
+
         assert DeadlineMonitor is not None
         assert UrgencyCalculator is not None
 
     def test_import_scheduler(self):
         """Scheduler debe importarse."""
         from scheduler.jobs import JobScheduler, get_scheduler
+
         assert JobScheduler is not None
         assert get_scheduler is not None
 
@@ -70,6 +80,7 @@ class TestImports:
         """Conversation handlers deben importarse."""
         from conversation.handlers import ConversationHandler
         from conversation.messages import Messages
+
         assert ConversationHandler is not None
         assert Messages is not None
 
@@ -80,6 +91,7 @@ class TestCombinedScraper:
     def test_scraper_initialization(self):
         """CombinedScraper debe inicializarse correctamente."""
         from scrapers.sam import CombinedScraper
+
         scraper = CombinedScraper(include_multilateral=True, include_private=True)
         assert scraper.secop is not None
         assert scraper.sam is not None
@@ -89,6 +101,7 @@ class TestCombinedScraper:
     def test_get_available_sources(self):
         """get_available_sources debe retornar estructura correcta."""
         from scrapers.sam import CombinedScraper
+
         scraper = CombinedScraper()
         sources = scraper.get_available_sources()
 
@@ -105,6 +118,7 @@ class TestMatchingEngine:
     def test_engine_weights(self):
         """MatchingEngine debe tener los pesos v3.0."""
         from matching.engine import MatchingEngine
+
         engine = MatchingEngine(use_semantic=False)
 
         # Verificar pesos v3.0
@@ -117,12 +131,10 @@ class TestMatchingEngine:
     def test_get_user_keywords(self):
         """_get_user_keywords debe combinar industria y personalizadas."""
         from matching.engine import MatchingEngine
+
         engine = MatchingEngine(use_semantic=False)
 
-        user = {
-            "industry": "tecnologia",
-            "include_keywords": ["custom1", "custom2"]
-        }
+        user = {"industry": "tecnologia", "include_keywords": ["custom1", "custom2"]}
         keywords = engine._get_user_keywords(user)
 
         assert "custom1" in keywords
@@ -187,7 +199,7 @@ class TestUrgencyCalculator:
             match_score=10.0,
             source_score=5.5,
             priority_label="Alta",
-            reasons=["Deadline próximo"]
+            reasons=["Deadline próximo"],
         )
 
         assert score.total_score == 85.5
@@ -205,15 +217,11 @@ class TestConversationHandler:
         handler = ConversationHandler()
 
         # Simular usuario activo
-        user = {
-            "phone": "+573001234567",
-            "state": "active",
-            "industry": "tecnologia"
-        }
+        user = {"phone": "+573001234567", "state": "active", "industry": "tecnologia"}
 
         # El comando fuentes debe ser manejado globalmente
         # (no podemos testearlo completamente sin mock de DB)
-        assert hasattr(handler, '_show_available_sources')
+        assert hasattr(handler, "_show_available_sources")
 
 
 class TestMessages:
@@ -229,9 +237,9 @@ class TestMessages:
         """Los templates de alertas urgentes deben existir."""
         from conversation.messages import Messages
 
-        assert hasattr(Messages, 'URGENT_ALERT_HEADER')
-        assert hasattr(Messages, 'URGENT_ALERT_CONTRACT')
-        assert hasattr(Messages, 'URGENT_ALERT_FOOTER')
+        assert hasattr(Messages, "URGENT_ALERT_HEADER")
+        assert hasattr(Messages, "URGENT_ALERT_CONTRACT")
+        assert hasattr(Messages, "URGENT_ALERT_FOOTER")
 
     def test_welcome_back_includes_fuentes(self):
         """WELCOME_BACK debe incluir opción de fuentes."""

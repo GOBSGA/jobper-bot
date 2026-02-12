@@ -2,11 +2,12 @@
 Scraper para portal de proveedores de Ecopetrol
 Obtiene oportunidades de contratación de la petrolera colombiana
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
 
 from scrapers.base import ContractData
 from scrapers.private.base_private import PrivatePortalScraper
@@ -41,7 +42,7 @@ class EcopetrolScraper(PrivatePortalScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de contratación de Ecopetrol.
@@ -83,10 +84,10 @@ class EcopetrolScraper(PrivatePortalScraper):
             # Buscar elementos de oportunidades/licitaciones
             # La estructura exacta depende del portal
             opportunity_elements = (
-                soup.select(".oportunidad, .licitacion, .contratacion-item") or
-                soup.select("article.opportunity") or
-                soup.select(".listado-procesos li") or
-                soup.select('a[href*="contratacion"], a[href*="licitacion"]')
+                soup.select(".oportunidad, .licitacion, .contratacion-item")
+                or soup.select("article.opportunity")
+                or soup.select(".listado-procesos li")
+                or soup.select('a[href*="contratacion"], a[href*="licitacion"]')
             )
 
             for element in opportunity_elements[:30]:
@@ -114,11 +115,7 @@ class EcopetrolScraper(PrivatePortalScraper):
 
         return contracts
 
-    def _parse_opportunity_element(
-        self,
-        element,
-        keywords: Optional[List[str]] = None
-    ) -> Optional[ContractData]:
+    def _parse_opportunity_element(self, element, keywords: Optional[List[str]] = None) -> Optional[ContractData]:
         """Parsea un elemento HTML de oportunidad."""
         try:
             # Obtener título
@@ -177,18 +174,14 @@ class EcopetrolScraper(PrivatePortalScraper):
                 url=url or self.OPPORTUNITIES_URL,
                 publication_date=datetime.now(),
                 deadline=deadline,
-                raw_data={"source": "web_scrape"}
+                raw_data={"source": "web_scrape"},
             )
 
         except Exception as e:
             logger.debug(f"Error parsing Ecopetrol opportunity: {e}")
             return None
 
-    def _fallback_link_extraction(
-        self,
-        soup,
-        keywords: Optional[List[str]] = None
-    ) -> List[ContractData]:
+    def _fallback_link_extraction(self, soup, keywords: Optional[List[str]] = None) -> List[ContractData]:
         """Extrae links relacionados con contratación como fallback."""
         contracts = []
 
@@ -227,7 +220,7 @@ class EcopetrolScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=None,
-                raw_data={"source": "fallback_extraction"}
+                raw_data={"source": "fallback_extraction"},
             )
             contracts.append(contract)
 

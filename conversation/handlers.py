@@ -3,15 +3,16 @@ Manejadores de conversación para Jobper Bot v3.0
 Implementa la máquina de estados del flujo conversacional
 Incluye soporte para fuentes multilaterales y alertas urgentes
 """
+
 from __future__ import annotations
 
 import logging
 from typing import Optional
 
 from config import Config
-from database.models import ConversationState
-from database.manager import DatabaseManager
 from conversation.messages import Messages
+from database.manager import DatabaseManager
+from database.models import ConversationState
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ def _get_private_contract_handler():
     global _private_contract_handler
     if _private_contract_handler is None:
         from conversation.private_contracts import PrivateContractHandler
+
         _private_contract_handler = PrivateContractHandler()
     return _private_contract_handler
 
@@ -34,6 +36,7 @@ def _get_scheduler():
     global _scheduler
     if _scheduler is None:
         from scheduler.jobs import get_scheduler
+
         _scheduler = get_scheduler()
     return _scheduler
 
@@ -85,7 +88,7 @@ class ConversationHandler:
             return global_response
 
         # Manejar según estado actual
-        state = user['state']
+        state = user["state"]
 
         if state == ConversationState.NEW:
             return self._handle_new_user(user, message)
@@ -121,13 +124,13 @@ class ConversationHandler:
 
     def _handle_global_commands(self, user: dict, message: str) -> Optional[str]:
         """Maneja comandos que funcionan en cualquier estado."""
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["ayuda", "help", "?"]:
             return Messages.HELP
 
         if message in ["menu", "inicio", "start"]:
-            if user['state'] == ConversationState.ACTIVE:
+            if user["state"] == ConversationState.ACTIVE:
                 return self._get_welcome_back_message(user)
             else:
                 return self._start_registration(user)
@@ -137,7 +140,7 @@ class ConversationHandler:
             return Messages.PAUSED
 
         if message in ["reanudar", "resume", "continuar"]:
-            if user['industry']:  # Si tiene configuración
+            if user["industry"]:  # Si tiene configuración
                 self.db.update_user_state(phone, ConversationState.ACTIVE)
                 return Messages.RESUMED.format(next_date="próximo lunes")
             else:
@@ -162,7 +165,7 @@ class ConversationHandler:
 
     def _handle_industry_selection(self, user: dict, message: str) -> str:
         """Maneja la selección de industria."""
-        phone = user['phone']
+        phone = user["phone"]
         industries = list(Config.INDUSTRIES.keys())
 
         try:
@@ -176,9 +179,7 @@ class ConversationHandler:
                 self.db.update_user_state(phone, ConversationState.AWAITING_INCLUDE)
 
                 return (
-                    Messages.INDUSTRY_SELECTED.format(
-                        industry=f"{industry_data['emoji']} {industry_data['name']}"
-                    )
+                    Messages.INDUSTRY_SELECTED.format(industry=f"{industry_data['emoji']} {industry_data['name']}")
                     + "\n\n"
                     + Messages.ASK_INCLUDE
                 )
@@ -192,20 +193,16 @@ class ConversationHandler:
                 self.db.update_user_state(phone, ConversationState.AWAITING_INCLUDE)
 
                 return (
-                    Messages.INDUSTRY_SELECTED.format(
-                        industry=f"{data['emoji']} {data['name']}"
-                    )
+                    Messages.INDUSTRY_SELECTED.format(industry=f"{data['emoji']} {data['name']}")
                     + "\n\n"
                     + Messages.ASK_INCLUDE
                 )
 
-        return Messages.INVALID_OPTION + "\n\n" + Messages.ASK_INDUSTRY.format(
-            industries=Messages.format_industries()
-        )
+        return Messages.INVALID_OPTION + "\n\n" + Messages.ASK_INDUSTRY.format(industries=Messages.format_industries())
 
     def _handle_include_keywords(self, user: dict, message: str) -> str:
         """Maneja la entrada de palabras clave a incluir."""
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["ninguna", "ninguno", "no", "skip", "omitir"]:
             keywords = []
@@ -220,7 +217,7 @@ class ConversationHandler:
 
     def _handle_exclude_keywords(self, user: dict, message: str) -> str:
         """Maneja la entrada de palabras clave a excluir."""
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["ninguna", "ninguno", "no", "skip", "omitir"]:
             keywords = []
@@ -234,16 +231,12 @@ class ConversationHandler:
 
     def _handle_budget_selection(self, user: dict, message: str) -> str:
         """Maneja la selección de rango de presupuesto."""
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in BUDGET_RANGES:
             min_budget, max_budget = BUDGET_RANGES[message]
 
-            self.db.update_user_preferences(
-                phone,
-                min_budget=min_budget,
-                max_budget=max_budget
-            )
+            self.db.update_user_preferences(phone, min_budget=min_budget, max_budget=max_budget)
             self.db.update_user_state(phone, ConversationState.AWAITING_COUNTRY)
 
             return Messages.ASK_COUNTRY
@@ -252,7 +245,7 @@ class ConversationHandler:
 
     def _handle_country_selection(self, user: dict, message: str) -> str:
         """Maneja la selección de país."""
-        phone = user['phone']
+        phone = user["phone"]
 
         # Mapeo de opciones a países
         country_map = {
@@ -299,15 +292,13 @@ class ConversationHandler:
             # Obtener usuario actualizado para el resumen
             updated_user = self.db.get_user_by_phone(phone)
 
-            return Messages.REGISTRATION_COMPLETE.format(
-                profile_summary=self._format_profile_summary(updated_user)
-            )
+            return Messages.REGISTRATION_COMPLETE.format(profile_summary=self._format_profile_summary(updated_user))
 
         return Messages.INVALID_OPTION + "\n\n" + Messages.ASK_COUNTRY
 
     def _handle_active_user(self, user: dict, message: str) -> str:
         """Maneja usuarios activos (ya registrados)."""
-        phone = user['phone']
+        phone = user["phone"]
 
         # Detectar intención de publicar contrato privado
         private_handler = _get_private_contract_handler()
@@ -329,13 +320,22 @@ class ConversationHandler:
             source_key = message.replace("buscar ", "").strip()
             valid_sources = [
                 # Gobierno
-                "secop", "sam",
+                "secop",
+                "sam",
                 # LATAM
-                "brasil", "mexico", "chile", "peru", "argentina",
+                "brasil",
+                "mexico",
+                "chile",
+                "peru",
+                "argentina",
                 # Empresas públicas
-                "petrobras", "ecopetrol", "epm",
+                "petrobras",
+                "ecopetrol",
+                "epm",
                 # Multilaterales
-                "idb", "worldbank", "ungm",
+                "idb",
+                "worldbank",
+                "ungm",
             ]
             if source_key in valid_sources:
                 scheduler = _get_scheduler()
@@ -351,7 +351,7 @@ class ConversationHandler:
             return self._start_registration(user)
 
         if message in ["3"]:
-            current_state = user['state']
+            current_state = user["state"]
             if current_state == ConversationState.ACTIVE:
                 self.db.update_user_state(phone, ConversationState.PAUSED)
                 return Messages.PAUSED
@@ -394,39 +394,35 @@ _Tu perfil sigue guardado_"""
 
     def _start_registration(self, user: dict) -> str:
         """Inicia o reinicia el flujo de registro."""
-        self.db.update_user_state(user['phone'], ConversationState.AWAITING_INDUSTRY)
+        self.db.update_user_state(user["phone"], ConversationState.AWAITING_INDUSTRY)
 
-        return Messages.WELCOME_NEW.format(
-            industries=Messages.format_industries()
-        )
+        return Messages.WELCOME_NEW.format(industries=Messages.format_industries())
 
     def _get_welcome_back_message(self, user: dict) -> str:
         """Genera mensaje de bienvenida para usuario existente."""
-        return Messages.WELCOME_BACK.format(
-            profile_summary=self._format_profile_summary(user)
-        )
+        return Messages.WELCOME_BACK.format(profile_summary=self._format_profile_summary(user))
 
     def _format_profile_summary(self, user: dict) -> str:
         """Formatea el resumen del perfil del usuario."""
         industry_name = "No configurada"
-        industry = user.get('industry')
+        industry = user.get("industry")
         if industry and industry in Config.INDUSTRIES:
             data = Config.INDUSTRIES[industry]
             industry_name = f"{data['emoji']} {data['name']}"
 
         # Manejar countries que puede ser enum o string
-        countries = user.get('countries')
+        countries = user.get("countries")
         if countries:
-            countries_val = countries.value if hasattr(countries, 'value') else str(countries)
+            countries_val = countries.value if hasattr(countries, "value") else str(countries)
         else:
             countries_val = "both"
 
         return Messages.PROFILE_SUMMARY.format(
             industry=industry_name,
-            include=Messages.format_keywords(user.get('include_keywords') or []),
-            exclude=Messages.format_keywords(user.get('exclude_keywords') or []),
-            budget=Messages.format_budget_range(user.get('min_budget'), user.get('max_budget')),
-            countries=Messages.format_countries(countries_val)
+            include=Messages.format_keywords(user.get("include_keywords") or []),
+            exclude=Messages.format_keywords(user.get("exclude_keywords") or []),
+            budget=Messages.format_budget_range(user.get("min_budget"), user.get("max_budget")),
+            countries=Messages.format_countries(countries_val),
         )
 
     def _show_profile_with_edit_options(self, user: dict) -> str:
@@ -473,7 +469,7 @@ _Responde con el número de tu elección_"""
 
     def _show_user_contracts(self, user: dict) -> str:
         """Muestra los contratos privados publicados por el usuario."""
-        contracts = self.db.get_user_private_contracts(user['phone'])
+        contracts = self.db.get_user_private_contracts(user["phone"])
 
         if not contracts:
             return """📋 *Mis Contratos Publicados*
@@ -496,12 +492,12 @@ _¡Es fácil y rápido!_"""
                 "in_progress": "🔵",
                 "completed": "✅",
                 "cancelled": "❌",
-            }.get(c['status'], "⚪")
+            }.get(c["status"], "⚪")
 
             budget_str = ""
-            if c['budget_min'] and c['budget_max']:
+            if c["budget_min"] and c["budget_max"]:
                 budget_str = f"${c['budget_min']:,.0f}-${c['budget_max']:,.0f}"
-            elif c['budget_min']:
+            elif c["budget_min"]:
                 budget_str = f"${c['budget_min']:,.0f}"
             else:
                 budget_str = "Negociable"
@@ -541,14 +537,14 @@ _¡Es fácil y rápido!_"""
         # Fuentes gubernamentales
         for _, info in sources.get("government", {}).items():
             status = "✅" if info.get("available", False) else "❌"
-            flag = country_flags.get(info['country'], "🏛️")
+            flag = country_flags.get(info["country"], "🏛️")
             msg += f"\n  {status} {flag} *{info['name']}*"
 
         # Fuentes LATAM
         if sources.get("latam"):
             msg += "\n\n*LATAM:*"
             for _, info in sources["latam"].items():
-                flag = country_flags.get(info['country'], "🌎")
+                flag = country_flags.get(info["country"], "🌎")
                 msg += f"\n  ✅ {flag} *{info['name']}*"
 
         # Fuentes multilaterales

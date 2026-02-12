@@ -2,19 +2,20 @@
 Jobper API — Pydantic schemas for input validation
 Every user input goes through these schemas before reaching services.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from core.security import sanitize_html, sanitize_search_query
 
-
 # =============================================================================
 # AUTH
 # =============================================================================
+
 
 class LoginSchema(BaseModel):
     email: EmailStr
@@ -44,6 +45,7 @@ class LoginPasswordSchema(BaseModel):
 # PROFILE
 # =============================================================================
 
+
 class ProfileUpdateSchema(BaseModel):
     company_name: Optional[str] = Field(None, max_length=200)
     sector: Optional[str] = Field(None, max_length=500)
@@ -71,6 +73,7 @@ class ProfileUpdateSchema(BaseModel):
 # =============================================================================
 # CONTRACTS
 # =============================================================================
+
 
 class SearchSchema(BaseModel):
     query: str = Field("", max_length=500)
@@ -122,6 +125,7 @@ class PipelineNoteSchema(BaseModel):
 # MARKETPLACE
 # =============================================================================
 
+
 class PublishContractSchema(BaseModel):
     title: str = Field(min_length=5, max_length=500)
     description: Optional[str] = Field(None, max_length=5000)
@@ -158,6 +162,7 @@ class MarketplaceListSchema(BaseModel):
 # ONBOARDING
 # =============================================================================
 
+
 class OnboardingAnalyzeSchema(BaseModel):
     description: str = Field(min_length=10, max_length=3000)
 
@@ -171,6 +176,7 @@ class OnboardingAnalyzeSchema(BaseModel):
 # PAYMENTS
 # =============================================================================
 
+
 class CheckoutSchema(BaseModel):
     # Nuevos nombres + aliases para compatibilidad
     plan: Literal["free", "cazador", "competidor", "dominador", "alertas", "starter", "business", "enterprise"]
@@ -180,6 +186,7 @@ class CheckoutSchema(BaseModel):
 # REFERRALS
 # =============================================================================
 
+
 class ReferralTrackSchema(BaseModel):
     code: str = Field(min_length=4, max_length=20)
 
@@ -187,6 +194,7 @@ class ReferralTrackSchema(BaseModel):
 # =============================================================================
 # PUSH
 # =============================================================================
+
 
 class PushSubscriptionSchema(BaseModel):
     endpoint: str = Field(min_length=10, max_length=2000)
@@ -196,6 +204,7 @@ class PushSubscriptionSchema(BaseModel):
 # =============================================================================
 # ADMIN
 # =============================================================================
+
 
 class AdminListSchema(BaseModel):
     page: int = Field(1, ge=1)
@@ -217,6 +226,7 @@ class AdminLogsSchema(BaseModel):
 # =============================================================================
 # SUPPORT
 # =============================================================================
+
 
 class ChatbotSchema(BaseModel):
     question: str = Field(min_length=2, max_length=1000)

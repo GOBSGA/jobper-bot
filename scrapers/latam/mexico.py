@@ -2,6 +2,7 @@
 Scraper para CompraNet - Sistema de Contratación Pública de México
 API: Datos Abiertos México (datos.gob.mx)
 """
+
 from __future__ import annotations
 
 import logging
@@ -23,11 +24,7 @@ class CompraNetScraper(BaseScraper):
         super().__init__(COMPRANET_API_URL)
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene contratos de CompraNet.
@@ -69,15 +66,11 @@ class CompraNetScraper(BaseScraper):
         return contracts
 
     def _build_query(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> dict:
         """Construye los parámetros de consulta para CompraNet."""
 
-        date_limit = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        date_limit = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
         params = {
             "pageSize": 200,
@@ -105,10 +98,8 @@ class CompraNetScraper(BaseScraper):
             return None
 
         # Parsear fechas
-        pub_date = self._parse_date(raw.get("fecha_inicio_recepcion_propuestas") or
-                                     raw.get("fecha_publicacion"))
-        deadline = self._parse_date(raw.get("fecha_apertura_proposiciones") or
-                                     raw.get("fecha_limite"))
+        pub_date = self._parse_date(raw.get("fecha_inicio_recepcion_propuestas") or raw.get("fecha_publicacion"))
+        deadline = self._parse_date(raw.get("fecha_apertura_proposiciones") or raw.get("fecha_limite"))
 
         # Parsear monto
         amount = None

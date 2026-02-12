@@ -2,6 +2,7 @@
 Scrapers para Brasil - ComprasNet (Gobierno) y Petrobras (Empresa Pública)
 Brasil es el mercado de contratación pública más grande de LATAM (~$200B USD/año)
 """
+
 from __future__ import annotations
 
 import logging
@@ -33,11 +34,7 @@ class ComprasNetScraper(BaseScraper):
         super().__init__(COMPRASNET_API_URL)
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene licitaciones de ComprasNet (Brasil).
@@ -89,15 +86,11 @@ class ComprasNetScraper(BaseScraper):
         return contracts
 
     def _build_query(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> dict:
         """Construye los parámetros de consulta para ComprasNet."""
 
-        date_limit = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        date_limit = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
         params = {
             "data_publicacao_min": date_limit,
@@ -121,10 +114,8 @@ class ComprasNetScraper(BaseScraper):
             return None
 
         # Parsear fechas
-        pub_date = self._parse_date(raw.get("data_publicacao") or
-                                     raw.get("data_abertura_proposta"))
-        deadline = self._parse_date(raw.get("data_entrega_proposta") or
-                                     raw.get("data_encerramento"))
+        pub_date = self._parse_date(raw.get("data_publicacao") or raw.get("data_abertura_proposta"))
+        deadline = self._parse_date(raw.get("data_entrega_proposta") or raw.get("data_encerramento"))
 
         # Parsear monto
         amount = None
@@ -208,11 +199,7 @@ class PetrobrasScraper(BaseScraper):
         super().__init__(PETROBRAS_BASE_URL)
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 30
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 30
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de Petrobras.
@@ -254,10 +241,10 @@ class PetrobrasScraper(BaseScraper):
 
             # Buscar elementos de oportunidades
             opportunity_elements = (
-                soup.select(".oportunidade, .licitacao, .contrato-item") or
-                soup.select("article.opportunity") or
-                soup.select(".card-processo") or
-                soup.select('a[href*="licitacao"], a[href*="oportunidade"]')
+                soup.select(".oportunidade, .licitacao, .contrato-item")
+                or soup.select("article.opportunity")
+                or soup.select(".card-processo")
+                or soup.select('a[href*="licitacao"], a[href*="oportunidade"]')
             )
 
             for element in opportunity_elements[:30]:
@@ -284,11 +271,7 @@ class PetrobrasScraper(BaseScraper):
 
         return contracts
 
-    def _parse_opportunity(
-        self,
-        element,
-        keywords: Optional[List[str]] = None
-    ) -> Optional[ContractData]:
+    def _parse_opportunity(self, element, keywords: Optional[List[str]] = None) -> Optional[ContractData]:
         """Parsea un elemento HTML de oportunidad de Petrobras."""
         try:
             # Obtener título
@@ -335,24 +318,25 @@ class PetrobrasScraper(BaseScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=None,
-                raw_data={"source": "web_scrape"}
+                raw_data={"source": "web_scrape"},
             )
 
         except Exception as e:
             logger.debug(f"Error parsing Petrobras opportunity: {e}")
             return None
 
-    def _fallback_extraction(
-        self,
-        soup,
-        keywords: Optional[List[str]] = None
-    ) -> List[ContractData]:
+    def _fallback_extraction(self, soup, keywords: Optional[List[str]] = None) -> List[ContractData]:
         """Extracción de fallback buscando links relevantes."""
         contracts = []
 
         contract_keywords = [
-            "licitacao", "contratacao", "fornecedor", "suprimento",
-            "oportunidade", "processo", "edital"
+            "licitacao",
+            "contratacao",
+            "fornecedor",
+            "suprimento",
+            "oportunidade",
+            "processo",
+            "edital",
         ]
 
         all_links = soup.select("a[href]")
@@ -385,7 +369,7 @@ class PetrobrasScraper(BaseScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=None,
-                raw_data={"source": "fallback_extraction"}
+                raw_data={"source": "fallback_extraction"},
             )
             contracts.append(contract)
 

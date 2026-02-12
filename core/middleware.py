@@ -1,6 +1,7 @@
 """
 Jobper Core — Middleware stack: auth, plan gate, rate limit, validation, audit
 """
+
 from __future__ import annotations
 
 import functools
@@ -8,7 +9,7 @@ import logging
 from datetime import datetime
 
 import jwt
-from flask import request, g, jsonify
+from flask import g, jsonify, request
 
 from config import Config
 from core.cache import cache
@@ -19,15 +20,15 @@ logger = logging.getLogger(__name__)
 # Plan hierarchy with new names (higher = better)
 PLAN_ORDER = {
     "free": 0,
-    "trial": 0,          # Trial = Free
+    "trial": 0,  # Trial = Free
     "cazador": 1,
     "competidor": 2,
     "dominador": 3,
     # Aliases for backwards compatibility
-    "alertas": 1,        # Old name for Cazador
-    "starter": 1,        # Old name for Cazador
-    "business": 2,       # Old name for Competidor
-    "enterprise": 3,     # Old name for Dominador
+    "alertas": 1,  # Old name for Cazador
+    "starter": 1,  # Old name for Cazador
+    "business": 2,  # Old name for Competidor
+    "enterprise": 3,  # Old name for Dominador
 }
 
 
@@ -46,6 +47,7 @@ def normalize_plan(plan: str) -> str:
 # =============================================================================
 # @require_auth — JWT validation, attach user to g
 # =============================================================================
+
 
 def require_auth(fn):
     @functools.wraps(fn)
@@ -81,6 +83,7 @@ def require_auth(fn):
 # @require_plan — Plan access gate
 # =============================================================================
 
+
 def require_plan(min_plan: str):
     """Block access if user's plan is below min_plan."""
 
@@ -92,11 +95,16 @@ def require_plan(min_plan: str):
             required_level = PLAN_ORDER.get(min_plan, 0)
 
             if user_level < required_level:
-                return jsonify({
-                    "error": "Plan insuficiente",
-                    "required": min_plan,
-                    "current": user_plan,
-                }), 403
+                return (
+                    jsonify(
+                        {
+                            "error": "Plan insuficiente",
+                            "required": min_plan,
+                            "current": user_plan,
+                        }
+                    ),
+                    403,
+                )
 
             return fn(*args, **kwargs)
 
@@ -120,6 +128,7 @@ def require_admin(fn):
 # =============================================================================
 # @rate_limit — Per-IP and per-user rate limiting
 # =============================================================================
+
 
 def _get_client_ip() -> str:
     """
@@ -172,6 +181,7 @@ def rate_limit(max_per_minute: int):
 # @validate — Pydantic input validation
 # =============================================================================
 
+
 def validate(schema_class):
     """Validate request body/args with a Pydantic schema. Result in g.validated."""
 
@@ -189,10 +199,7 @@ def validate(schema_class):
             except Exception as e:
                 errors = []
                 if hasattr(e, "errors"):
-                    errors = [
-                        {"field": ".".join(str(x) for x in err["loc"]), "msg": err["msg"]}
-                        for err in e.errors()
-                    ]
+                    errors = [{"field": ".".join(str(x) for x in err["loc"]), "msg": err["msg"]} for err in e.errors()]
                 else:
                     errors = [{"field": "body", "msg": str(e)}]
                 return jsonify({"error": "Datos inválidos", "details": errors}), 400
@@ -208,6 +215,7 @@ def validate(schema_class):
 # @audit — Automatic audit logging
 # =============================================================================
 
+
 def audit(action: str):
     """Log action to AuditLog after request completes."""
 
@@ -218,7 +226,8 @@ def audit(action: str):
 
             # Log asynchronously (best-effort)
             try:
-                from core.database import UnitOfWork, AuditLog
+                from core.database import AuditLog, UnitOfWork
+
                 with UnitOfWork() as uow:
                     log = AuditLog(
                         user_id=getattr(g, "user_id", None),
@@ -248,6 +257,7 @@ def audit(action: str):
 # =============================================================================
 # ERROR HANDLERS (register on Flask app)
 # =============================================================================
+
 
 def register_error_handlers(app):
     """Register standard JSON error handlers."""

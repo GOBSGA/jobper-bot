@@ -2,21 +2,31 @@
 Modelos de base de datos para Jobper Bot v3.0 (Premium)
 Soporta PostgreSQL (producción) y SQLite (desarrollo)
 """
+
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from enum import Enum
-from typing import Optional, List
+from typing import List, Optional
 
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, Boolean,
-    DateTime, Text, ForeignKey, LargeBinary, Index
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    create_engine,
 )
+from sqlalchemy.dialects.postgresql import JSON as PostgresJSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
-from sqlalchemy.dialects.postgresql import JSON as PostgresJSON
-from sqlalchemy.types import TypeDecorator, TEXT
-import json
+from sqlalchemy.types import TEXT, TypeDecorator
 
 from config import Config
 
@@ -27,11 +37,13 @@ Base = declarative_base()
 # TIPOS PERSONALIZADOS
 # =============================================================================
 
+
 class JSONType(TypeDecorator):
     """
     Tipo JSON compatible con PostgreSQL y SQLite.
     PostgreSQL usa JSON nativo, SQLite usa TEXT con serialización.
     """
+
     impl = TEXT
     cache_ok = True
 
@@ -50,8 +62,10 @@ class JSONType(TypeDecorator):
 # ENUMS
 # =============================================================================
 
+
 class ConversationState(str, Enum):
     """Estados del flujo conversacional."""
+
     NEW = "new"
     AWAITING_INDUSTRY = "awaiting_industry"
     AWAITING_INCLUDE = "awaiting_include"
@@ -70,6 +84,7 @@ class ConversationState(str, Enum):
 
 class PrivateContractStatus(str, Enum):
     """Estados de contratos privados publicados por usuarios."""
+
     DRAFT = "draft"
     ACTIVE = "active"
     IN_PROGRESS = "in_progress"
@@ -79,6 +94,7 @@ class PrivateContractStatus(str, Enum):
 
 class Country(str, Enum):
     """Países/regiones soportados."""
+
     COLOMBIA = "colombia"
     USA = "usa"
     MULTILATERAL = "multilateral"
@@ -87,6 +103,7 @@ class Country(str, Enum):
 
 class SourceType(str, Enum):
     """Tipos de fuentes de datos."""
+
     GOVERNMENT = "government"
     PRIVATE = "private"
     MULTILATERAL = "multilateral"
@@ -96,8 +113,10 @@ class SourceType(str, Enum):
 # MODELOS
 # =============================================================================
 
+
 class User(Base):
     """Modelo de usuario del bot."""
+
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
@@ -159,6 +178,7 @@ class User(Base):
 
 class Contract(Base):
     """Modelo de contrato/licitación."""
+
     __tablename__ = "contracts"
 
     id = Column(Integer, primary_key=True)
@@ -199,9 +219,9 @@ class Contract(Base):
 
     # Índices
     __table_args__ = (
-        Index('idx_contract_deadline', 'deadline'),
-        Index('idx_contract_source', 'source'),
-        Index('idx_contract_country', 'country'),
+        Index("idx_contract_deadline", "deadline"),
+        Index("idx_contract_source", "source"),
+        Index("idx_contract_country", "country"),
     )
 
     def __repr__(self):
@@ -210,6 +230,7 @@ class Contract(Base):
 
 class UserContract(Base):
     """Relación entre usuarios y contratos (contratos enviados)."""
+
     __tablename__ = "user_contracts"
 
     id = Column(Integer, primary_key=True)
@@ -234,6 +255,7 @@ class UserContract(Base):
 
 class IndustryEmbedding(Base):
     """Embeddings pre-computados para cada industria."""
+
     __tablename__ = "industry_embeddings"
 
     id = Column(Integer, primary_key=True)
@@ -249,6 +271,7 @@ class IndustryEmbedding(Base):
 
 class DataSource(Base):
     """Registro de fuentes de datos."""
+
     __tablename__ = "data_sources"
 
     id = Column(Integer, primary_key=True)
@@ -268,6 +291,7 @@ class DataSource(Base):
 
 class DeadlineAlert(Base):
     """Alertas de deadline enviadas (evita duplicados)."""
+
     __tablename__ = "deadline_alerts"
 
     id = Column(Integer, primary_key=True)
@@ -281,9 +305,7 @@ class DeadlineAlert(Base):
     contract = relationship("Contract", back_populates="deadline_alerts")
 
     # Índice único para evitar alertas duplicadas
-    __table_args__ = (
-        Index('idx_deadline_alert_unique', 'user_id', 'contract_id', 'urgency_level', unique=True),
-    )
+    __table_args__ = (Index("idx_deadline_alert_unique", "user_id", "contract_id", "urgency_level", unique=True),)
 
     def __repr__(self):
         return f"<DeadlineAlert(user={self.user_id}, contract={self.contract_id}, level={self.urgency_level})>"
@@ -291,6 +313,7 @@ class DeadlineAlert(Base):
 
 class ContractAddendum(Base):
     """Adendas/modificaciones a contratos."""
+
     __tablename__ = "contract_addendums"
 
     id = Column(Integer, primary_key=True)
@@ -313,6 +336,7 @@ class PrivateContract(Base):
     Contratos privados publicados por usuarios del marketplace.
     Permite a empresas publicar trabajos y encontrar contratistas.
     """
+
     __tablename__ = "private_contracts"
 
     id = Column(Integer, primary_key=True)
@@ -359,9 +383,9 @@ class PrivateContract(Base):
 
     # Índices
     __table_args__ = (
-        Index('idx_private_contract_status', 'status'),
-        Index('idx_private_contract_category', 'category'),
-        Index('idx_private_contract_country', 'country'),
+        Index("idx_private_contract_status", "status"),
+        Index("idx_private_contract_category", "category"),
+        Index("idx_private_contract_country", "country"),
     )
 
     def __repr__(self):
@@ -372,6 +396,7 @@ class ContractApplication(Base):
     """
     Aplicaciones/propuestas de contratistas a contratos privados.
     """
+
     __tablename__ = "contract_applications"
 
     id = Column(Integer, primary_key=True)
@@ -402,9 +427,7 @@ class ContractApplication(Base):
     applicant = relationship("User", backref="contract_applications")
 
     # Índice único para evitar aplicaciones duplicadas
-    __table_args__ = (
-        Index('idx_application_unique', 'contract_id', 'applicant_id', unique=True),
-    )
+    __table_args__ = (Index("idx_application_unique", "contract_id", "applicant_id", unique=True),)
 
     def __repr__(self):
         return f"<ContractApplication(contract={self.contract_id}, applicant={self.applicant_id})>"
@@ -426,7 +449,7 @@ def get_engine():
             Config.DATABASE_URL,
             echo=False,
             pool_pre_ping=True,  # Verifica conexiones antes de usar
-            pool_recycle=300,    # Recicla conexiones cada 5 min
+            pool_recycle=300,  # Recicla conexiones cada 5 min
         )
     return _engine
 

@@ -2,11 +2,12 @@
 Motor de búsqueda semántica para Jobper Bot v3.0
 Encuentra contratos relevantes usando similitud de embeddings
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SemanticMatch:
     """Resultado de una búsqueda semántica."""
+
     contract: Dict[str, Any]
     semantic_score: float
     matched_industries: List[str]
@@ -55,8 +57,7 @@ class SemanticMatcher:
 
             # Crear texto representativo de la industria
             industry_text = self.embedding_service.create_text_for_embedding(
-                title=industry_data["name"],
-                keywords=keywords
+                title=industry_data["name"], keywords=keywords
             )
 
             # Generar embedding
@@ -69,7 +70,7 @@ class SemanticMatcher:
                 industry_key=industry_key,
                 embedding=embedding_bytes,
                 keywords_hash=keywords_hash,
-                model_name=self.embedding_service.model_name
+                model_name=self.embedding_service.model_name,
             )
 
             # Cachear en memoria
@@ -119,11 +120,7 @@ class SemanticMatcher:
 
         return len(self._industry_embeddings_cache)
 
-    def compute_contract_embedding(
-        self,
-        contract: Dict[str, Any],
-        save_to_db: bool = True
-    ) -> np.ndarray:
+    def compute_contract_embedding(self, contract: Dict[str, Any], save_to_db: bool = True) -> np.ndarray:
         """
         Genera y opcionalmente guarda el embedding de un contrato.
 
@@ -136,9 +133,7 @@ class SemanticMatcher:
         """
         # Crear texto para embedding
         text = self.embedding_service.create_text_for_embedding(
-            title=contract.get("title", ""),
-            description=contract.get("description"),
-            entity=contract.get("entity")
+            title=contract.get("title", ""), description=contract.get("description"), entity=contract.get("entity")
         )
 
         embedding = self.embedding_service.encode_single(text)
@@ -146,18 +141,12 @@ class SemanticMatcher:
         if save_to_db and contract.get("id"):
             embedding_bytes = self.embedding_service.serialize(embedding)
             self.db.update_contract_embedding(
-                contract_id=contract["id"],
-                embedding=embedding_bytes,
-                model_name=self.embedding_service.model_name
+                contract_id=contract["id"], embedding=embedding_bytes, model_name=self.embedding_service.model_name
             )
 
         return embedding
 
-    def compute_user_profile_embedding(
-        self,
-        user: Dict[str, Any],
-        save_to_db: bool = True
-    ) -> np.ndarray:
+    def compute_user_profile_embedding(self, user: Dict[str, Any], save_to_db: bool = True) -> np.ndarray:
         """
         Genera y opcionalmente guarda el embedding del perfil de un usuario.
 
@@ -192,10 +181,7 @@ class SemanticMatcher:
 
         if save_to_db and user.get("phone"):
             embedding_bytes = self.embedding_service.serialize(embedding)
-            self.db.update_user_embedding(
-                phone=user["phone"],
-                embedding=embedding_bytes
-            )
+            self.db.update_user_embedding(phone=user["phone"], embedding=embedding_bytes)
 
         return embedding
 
@@ -204,7 +190,7 @@ class SemanticMatcher:
         contract: Dict[str, Any],
         user: Dict[str, Any],
         contract_embedding: Optional[np.ndarray] = None,
-        user_embedding: Optional[np.ndarray] = None
+        user_embedding: Optional[np.ndarray] = None,
     ) -> SemanticMatch:
         """
         Calcula el score semántico de un contrato para un usuario.
@@ -236,9 +222,7 @@ class SemanticMatcher:
         if industry:
             ind_embedding = self.get_industry_embedding(industry)
             if ind_embedding is not None:
-                industry_similarity = self.embedding_service.similarity(
-                    contract_embedding, ind_embedding
-                )
+                industry_similarity = self.embedding_service.similarity(contract_embedding, ind_embedding)
                 if industry_similarity > Config.SEMANTIC_SIMILARITY_THRESHOLD:
                     matched_industries.append(industry)
 
@@ -254,22 +238,18 @@ class SemanticMatcher:
             user_similarity=user_similarity,
             industry_similarity=industry_similarity,
             industry=industry,
-            semantic_score=semantic_score
+            semantic_score=semantic_score,
         )
 
         return SemanticMatch(
             contract=contract,
             semantic_score=semantic_score,
             matched_industries=matched_industries,
-            explanation=explanation
+            explanation=explanation,
         )
 
     def find_similar_contracts(
-        self,
-        contracts: List[Dict[str, Any]],
-        user: Dict[str, Any],
-        min_score: float = 30.0,
-        limit: int = 20
+        self, contracts: List[Dict[str, Any]], user: Dict[str, Any], min_score: float = 30.0, limit: int = 20
     ) -> List[SemanticMatch]:
         """
         Encuentra los contratos más similares para un usuario.
@@ -292,11 +272,7 @@ class SemanticMatcher:
         matches = []
 
         for contract in contracts:
-            match = self.score_contract_semantic(
-                contract=contract,
-                user=user,
-                user_embedding=user_embedding
-            )
+            match = self.score_contract_semantic(contract=contract, user=user, user_embedding=user_embedding)
 
             if match.semantic_score >= min_score:
                 matches.append(match)
@@ -306,11 +282,7 @@ class SemanticMatcher:
 
         return matches[:limit]
 
-    def batch_compute_embeddings(
-        self,
-        contracts: List[Dict[str, Any]],
-        batch_size: int = 32
-    ) -> List[np.ndarray]:
+    def batch_compute_embeddings(self, contracts: List[Dict[str, Any]], batch_size: int = 32) -> List[np.ndarray]:
         """
         Calcula embeddings para múltiples contratos en batch.
 
@@ -324,27 +296,21 @@ class SemanticMatcher:
         texts = []
         for contract in contracts:
             text = self.embedding_service.create_text_for_embedding(
-                title=contract.get("title", ""),
-                description=contract.get("description"),
-                entity=contract.get("entity")
+                title=contract.get("title", ""), description=contract.get("description"), entity=contract.get("entity")
             )
             texts.append(text)
 
         # Procesar en batches
         all_embeddings = []
         for i in range(0, len(texts), batch_size):
-            batch_texts = texts[i:i + batch_size]
+            batch_texts = texts[i : i + batch_size]
             batch_embeddings = self.embedding_service.encode(batch_texts)
             all_embeddings.extend(batch_embeddings)
 
         return all_embeddings
 
     def _generate_explanation(
-        self,
-        user_similarity: float,
-        industry_similarity: float,
-        industry: Optional[str],
-        semantic_score: float
+        self, user_similarity: float, industry_similarity: float, industry: Optional[str], semantic_score: float
     ) -> str:
         """Genera una explicación legible del score."""
         parts = []

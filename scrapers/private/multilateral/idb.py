@@ -2,11 +2,12 @@
 Scraper para el Banco Interamericano de Desarrollo (BID/IDB)
 Obtiene oportunidades de procurement del BID
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
 
 from scrapers.base import ContractData
 from scrapers.private.base_private import PrivatePortalScraper
@@ -41,7 +42,7 @@ class IDBScraper(PrivatePortalScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de procurement del BID.
@@ -156,18 +157,14 @@ class IDBScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=pub_date,
                 deadline=deadline,
-                raw_data=raw
+                raw_data=raw,
             )
 
         except Exception as e:
             logger.debug(f"Error normalizando contrato BID: {e}")
             return None
 
-    def _fetch_from_web_fallback(
-        self,
-        keywords: Optional[List[str]] = None,
-        days_back: int = 30
-    ) -> List[ContractData]:
+    def _fetch_from_web_fallback(self, keywords: Optional[List[str]] = None, days_back: int = 30) -> List[ContractData]:
         """
         Fallback: scrapea la página web si el API no funciona.
 
@@ -219,7 +216,7 @@ class IDBScraper(PrivatePortalScraper):
                         url=link,
                         publication_date=datetime.now(),
                         deadline=None,
-                        raw_data={"source": "web_scrape"}
+                        raw_data={"source": "web_scrape"},
                     )
                     contracts.append(contract)
 

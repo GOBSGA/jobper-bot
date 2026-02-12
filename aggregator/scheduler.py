@@ -5,18 +5,17 @@ Programador de agregaciones automáticas.
 Ejecuta actualizaciones periódicas de fuentes según su prioridad
 y envía notificaciones de nuevos contratos relevantes.
 """
+
 from __future__ import annotations
 
 import logging
 import threading
 import time
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Callable, Dict, List, Optional
 
-from aggregator.source_registry import (
-    SourceRegistry, SourcePriority, get_source_registry
-)
+from aggregator.source_registry import SourcePriority, SourceRegistry, get_source_registry
 from aggregator.universal import UniversalAggregator, get_aggregator
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SchedulerStats:
     """Estadísticas del scheduler."""
+
     started_at: Optional[datetime] = None
     last_run: Optional[datetime] = None
     total_runs: int = 0
@@ -39,7 +39,7 @@ class SchedulerStats:
             "total_runs": self.total_runs,
             "total_contracts_found": self.total_contracts_found,
             "total_notifications_sent": self.total_notifications_sent,
-            "recent_errors": self.errors[-5:] if self.errors else []
+            "recent_errors": self.errors[-5:] if self.errors else [],
         }
 
 
@@ -57,18 +57,18 @@ class AggregationScheduler:
 
     # Intervalos en segundos por prioridad
     INTERVALS = {
-        SourcePriority.CRITICAL: 5 * 60,      # 5 minutos
-        SourcePriority.HIGH: 15 * 60,         # 15 minutos
-        SourcePriority.NORMAL: 60 * 60,       # 1 hora
-        SourcePriority.LOW: 6 * 60 * 60,      # 6 horas
-        SourcePriority.DAILY: 24 * 60 * 60,   # 24 horas
+        SourcePriority.CRITICAL: 5 * 60,  # 5 minutos
+        SourcePriority.HIGH: 15 * 60,  # 15 minutos
+        SourcePriority.NORMAL: 60 * 60,  # 1 hora
+        SourcePriority.LOW: 6 * 60 * 60,  # 6 horas
+        SourcePriority.DAILY: 24 * 60 * 60,  # 24 horas
     }
 
     def __init__(
         self,
         aggregator: Optional[UniversalAggregator] = None,
         registry: Optional[SourceRegistry] = None,
-        on_new_contracts: Optional[Callable] = None
+        on_new_contracts: Optional[Callable] = None,
     ):
         """
         Inicializa el scheduler.
@@ -135,11 +135,8 @@ class AggregationScheduler:
         source_keys = list(sources.keys())
 
         from aggregator.universal import AggregationMode
-        result = self.aggregator.aggregate(
-            mode=AggregationMode.SELECTIVE,
-            sources=source_keys,
-            use_cache=False
-        )
+
+        result = self.aggregator.aggregate(mode=AggregationMode.SELECTIVE, sources=source_keys, use_cache=False)
 
         # Procesar nuevos contratos
         new_contracts = self._identify_new_contracts(result.contracts)
@@ -159,7 +156,7 @@ class AggregationScheduler:
             "total_contracts": result.total_contracts,
             "new_contracts": len(new_contracts),
             "sources_queried": result.sources_queried,
-            "duration_seconds": result.duration_seconds
+            "duration_seconds": result.duration_seconds,
         }
 
     def get_status(self) -> Dict[str, Any]:
@@ -168,7 +165,7 @@ class AggregationScheduler:
             "running": self._running,
             "stats": self.stats.to_dict(),
             "next_runs": self._get_next_runs(),
-            "sources_status": self._get_sources_status()
+            "sources_status": self._get_sources_status(),
         }
 
     def _run_loop(self):
@@ -183,10 +180,7 @@ class AggregationScheduler:
                 self._check_and_run()
             except Exception as e:
                 logger.error(f"Error en scheduler loop: {e}")
-                self.stats.errors.append({
-                    "time": datetime.now().isoformat(),
-                    "error": str(e)
-                })
+                self.stats.errors.append({"time": datetime.now().isoformat(), "error": str(e)})
 
             # Dormir 1 minuto entre checks
             time.sleep(60)
@@ -225,11 +219,8 @@ class AggregationScheduler:
 
         try:
             from aggregator.universal import AggregationMode
-            result = self.aggregator.aggregate(
-                mode=AggregationMode.SELECTIVE,
-                sources=source_keys,
-                use_cache=False
-            )
+
+            result = self.aggregator.aggregate(mode=AggregationMode.SELECTIVE, sources=source_keys, use_cache=False)
 
             # Identificar contratos nuevos
             new_contracts = self._identify_new_contracts(result.contracts)
@@ -247,18 +238,14 @@ class AggregationScheduler:
 
         except Exception as e:
             logger.error(f"Error ejecutando prioridad {priority}: {e}")
-            self.stats.errors.append({
-                "time": datetime.now().isoformat(),
-                "priority": priority.value,
-                "error": str(e)
-            })
+            self.stats.errors.append({"time": datetime.now().isoformat(), "priority": priority.value, "error": str(e)})
 
     def _identify_new_contracts(self, contracts) -> List:
         """Identifica contratos que no hemos visto antes."""
         new_contracts = []
 
         for contract in contracts:
-            contract_id = getattr(contract, 'id', None) or getattr(contract, 'external_id', None)
+            contract_id = getattr(contract, "id", None) or getattr(contract, "external_id", None)
 
             if contract_id and contract_id not in self._known_contract_ids:
                 self._known_contract_ids.add(contract_id)
@@ -298,7 +285,7 @@ class AggregationScheduler:
                 "priority": config.priority.value,
                 "status": config.status.value,
                 "last_fetch": config.last_fetch.isoformat() if config.last_fetch else None,
-                "error_count": config.error_count
+                "error_count": config.error_count,
             }
 
         return status
@@ -308,9 +295,7 @@ class AggregationScheduler:
 _scheduler = None
 
 
-def get_aggregation_scheduler(
-    on_new_contracts: Optional[Callable] = None
-) -> AggregationScheduler:
+def get_aggregation_scheduler(on_new_contracts: Optional[Callable] = None) -> AggregationScheduler:
     """Obtiene la instancia singleton del scheduler."""
     global _scheduler
     if _scheduler is None:

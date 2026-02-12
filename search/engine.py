@@ -2,6 +2,7 @@
 Jobper Search — Elasticsearch with PostgreSQL FTS fallback
 Natural language query parsing, contract indexing, autocomplete.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,6 +21,7 @@ _es_available = None
 # ELASTICSEARCH CLIENT
 # =============================================================================
 
+
 def _get_es():
     global _es_client, _es_available
 
@@ -35,6 +37,7 @@ def _get_es():
 
     try:
         from elasticsearch import Elasticsearch
+
         _es_client = Elasticsearch(Config.ELASTICSEARCH_URL)
         _es_client.info()
         _es_available = True
@@ -103,6 +106,7 @@ def is_healthy() -> bool:
 # INDEX
 # =============================================================================
 
+
 def index_contract(contract_dict: dict):
     """Index a single contract in Elasticsearch."""
     es = _get_es()
@@ -134,28 +138,32 @@ def index_contract(contract_dict: dict):
 def index_contract_by_id(contract_id: int):
     """Fetch contract from DB and index it."""
     from core.database import UnitOfWork
+
     with UnitOfWork() as uow:
         contract = uow.contracts.get(contract_id)
         if not contract:
             return
 
-        index_contract({
-            "id": contract.id,
-            "title": contract.title,
-            "description": contract.description,
-            "entity": contract.entity,
-            "source": contract.source,
-            "country": contract.country,
-            "source_type": contract.source_type,
-            "amount": contract.amount,
-            "deadline": contract.deadline.isoformat() if contract.deadline else None,
-            "created_at": contract.created_at.isoformat() if contract.created_at else None,
-        })
+        index_contract(
+            {
+                "id": contract.id,
+                "title": contract.title,
+                "description": contract.description,
+                "entity": contract.entity,
+                "source": contract.source,
+                "country": contract.country,
+                "source_type": contract.source_type,
+                "amount": contract.amount,
+                "deadline": contract.deadline.isoformat() if contract.deadline else None,
+                "created_at": contract.created_at.isoformat() if contract.created_at else None,
+            }
+        )
 
 
 # =============================================================================
 # SEARCH
 # =============================================================================
+
 
 def search(query: str, user_id: int, page: int = 1, per_page: int = 20) -> dict:
     """Search contracts via Elasticsearch."""
@@ -170,14 +178,16 @@ def search(query: str, user_id: int, page: int = 1, per_page: int = 20) -> dict:
     filter_clauses = []
 
     if parsed.get("text"):
-        must.append({
-            "multi_match": {
-                "query": parsed["text"],
-                "fields": ["title^3", "description", "entity^2"],
-                "type": "best_fields",
-                "fuzziness": "AUTO",
+        must.append(
+            {
+                "multi_match": {
+                    "query": parsed["text"],
+                    "fields": ["title^3", "description", "entity^2"],
+                    "type": "best_fields",
+                    "fuzziness": "AUTO",
+                }
             }
-        })
+        )
 
     if parsed.get("source"):
         filter_clauses.append({"term": {"source": parsed["source"]}})
@@ -227,6 +237,7 @@ def search(query: str, user_id: int, page: int = 1, per_page: int = 20) -> dict:
 # AUTOCOMPLETE
 # =============================================================================
 
+
 def suggest(partial_text: str, limit: int = 5) -> list[str]:
     """Return autocomplete suggestions."""
     es = _get_es()
@@ -261,24 +272,48 @@ def suggest(partial_text: str, limit: int = 5) -> list[str]:
 _BUDGET_PATTERNS = [
     (r"más de (\d+)\s*(?:millones?|M)", lambda m: {"min_budget": int(m.group(1)) * 1_000_000}),
     (r"menos de (\d+)\s*(?:millones?|M)", lambda m: {"max_budget": int(m.group(1)) * 1_000_000}),
-    (r"entre (\d+)\s*y\s*(\d+)\s*(?:millones?|M)", lambda m: {
-        "min_budget": int(m.group(1)) * 1_000_000,
-        "max_budget": int(m.group(2)) * 1_000_000,
-    }),
+    (
+        r"entre (\d+)\s*y\s*(\d+)\s*(?:millones?|M)",
+        lambda m: {
+            "min_budget": int(m.group(1)) * 1_000_000,
+            "max_budget": int(m.group(2)) * 1_000_000,
+        },
+    ),
 ]
 
 # Source patterns
 _SOURCE_MAP = {
-    "secop": "secop", "gobierno": "secop", "público": "secop", "publico": "secop",
-    "ecopetrol": "ecopetrol", "epm": "epm",
-    "bid": "idb", "banco mundial": "worldbank", "onu": "ungm",
+    "secop": "secop",
+    "gobierno": "secop",
+    "público": "secop",
+    "publico": "secop",
+    "ecopetrol": "ecopetrol",
+    "epm": "epm",
+    "bid": "idb",
+    "banco mundial": "worldbank",
+    "onu": "ungm",
 }
 
 # City patterns
 _CITIES = [
-    "bogotá", "bogota", "medellín", "medellin", "cali", "barranquilla",
-    "cartagena", "bucaramanga", "pereira", "manizales", "cúcuta", "cucuta",
-    "ibagué", "ibague", "santa marta", "villavicencio", "pasto", "montería",
+    "bogotá",
+    "bogota",
+    "medellín",
+    "medellin",
+    "cali",
+    "barranquilla",
+    "cartagena",
+    "bucaramanga",
+    "pereira",
+    "manizales",
+    "cúcuta",
+    "cucuta",
+    "ibagué",
+    "ibague",
+    "santa marta",
+    "villavicencio",
+    "pasto",
+    "montería",
 ]
 
 
@@ -299,7 +334,7 @@ def parse_natural_query(text: str) -> dict:
         match = re.search(pattern, remaining, re.IGNORECASE)
         if match:
             result.update(extractor(match))
-            remaining = remaining[:match.start()] + remaining[match.end():]
+            remaining = remaining[: match.start()] + remaining[match.end() :]
 
     # Extract source
     for keyword, source_key in _SOURCE_MAP.items():

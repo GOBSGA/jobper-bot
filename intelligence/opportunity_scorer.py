@@ -6,34 +6,37 @@ Este módulo implementa un algoritmo de scoring sofisticado que considera
 múltiples factores para determinar qué tan buena es una oportunidad
 para un usuario específico.
 """
+
 from __future__ import annotations
 
 import logging
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class ScoreDimension(str, Enum):
     """Dimensiones del scoring."""
-    RELEVANCE = "relevance"           # Qué tan relevante es para el usuario
-    OPPORTUNITY = "opportunity"        # Qué tan buena es la oportunidad
-    FEASIBILITY = "feasibility"        # Qué tan factible es ganar
-    TIMING = "timing"                  # Timing (deadline, preparación)
-    VALUE = "value"                    # Valor económico
-    STRATEGIC = "strategic"            # Valor estratégico
+
+    RELEVANCE = "relevance"  # Qué tan relevante es para el usuario
+    OPPORTUNITY = "opportunity"  # Qué tan buena es la oportunidad
+    FEASIBILITY = "feasibility"  # Qué tan factible es ganar
+    TIMING = "timing"  # Timing (deadline, preparación)
+    VALUE = "value"  # Valor económico
+    STRATEGIC = "strategic"  # Valor estratégico
 
 
 @dataclass
 class DimensionScore:
     """Score de una dimensión específica."""
+
     dimension: ScoreDimension
-    score: float                       # 0-100
-    weight: float                      # Peso relativo
+    score: float  # 0-100
+    weight: float  # Peso relativo
     factors: Dict[str, float] = field(default_factory=dict)
     explanation: str = ""
 
@@ -41,17 +44,18 @@ class DimensionScore:
 @dataclass
 class OpportunityScore:
     """Score completo de una oportunidad."""
+
     # Scores por dimensión
     dimensions: Dict[ScoreDimension, DimensionScore] = field(default_factory=dict)
 
     # Score final ponderado
-    total_score: float = 0.0           # 0-100
+    total_score: float = 0.0  # 0-100
 
     # Ranking relativo
     percentile: Optional[float] = None  # En qué percentil está vs otras oportunidades
 
     # Clasificación
-    tier: str = "C"                    # S, A, B, C, D
+    tier: str = "C"  # S, A, B, C, D
     recommendation: str = ""
 
     # Detalles
@@ -67,16 +71,12 @@ class OpportunityScore:
             "percentile": self.percentile,
             "recommendation": self.recommendation,
             "dimensions": {
-                dim.value: {
-                    "score": round(ds.score, 1),
-                    "weight": ds.weight,
-                    "explanation": ds.explanation
-                }
+                dim.value: {"score": round(ds.score, 1), "weight": ds.weight, "explanation": ds.explanation}
                 for dim, ds in self.dimensions.items()
             },
             "strengths": self.strengths,
             "weaknesses": self.weaknesses,
-            "key_factors": self.key_factors
+            "key_factors": self.key_factors,
         }
 
 
@@ -101,11 +101,11 @@ class OpportunityScorer:
 
     # Umbrales para tiers
     TIER_THRESHOLDS = {
-        "S": 85,   # Oportunidad excepcional
-        "A": 70,   # Muy buena oportunidad
-        "B": 55,   # Buena oportunidad
-        "C": 40,   # Oportunidad promedio
-        "D": 0,    # Oportunidad débil
+        "S": 85,  # Oportunidad excepcional
+        "A": 70,  # Muy buena oportunidad
+        "B": 55,  # Buena oportunidad
+        "C": 40,  # Oportunidad promedio
+        "D": 0,  # Oportunidad débil
     }
 
     def __init__(self, weights: Optional[Dict[ScoreDimension, float]] = None):
@@ -124,10 +124,7 @@ class OpportunityScorer:
         logger.info("OpportunityScorer inicializado")
 
     def score(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any],
-        market_context: Optional[Dict[str, Any]] = None
+        self, contract: Dict[str, Any], user_profile: Dict[str, Any], market_context: Optional[Dict[str, Any]] = None
     ) -> OpportunityScore:
         """
         Calcula el score completo de una oportunidad.
@@ -143,36 +140,21 @@ class OpportunityScorer:
         result = OpportunityScore()
 
         # Calcular cada dimensión
-        result.dimensions[ScoreDimension.RELEVANCE] = self._score_relevance(
-            contract, user_profile
-        )
-        result.dimensions[ScoreDimension.OPPORTUNITY] = self._score_opportunity(
-            contract, market_context
-        )
-        result.dimensions[ScoreDimension.FEASIBILITY] = self._score_feasibility(
-            contract, user_profile
-        )
+        result.dimensions[ScoreDimension.RELEVANCE] = self._score_relevance(contract, user_profile)
+        result.dimensions[ScoreDimension.OPPORTUNITY] = self._score_opportunity(contract, market_context)
+        result.dimensions[ScoreDimension.FEASIBILITY] = self._score_feasibility(contract, user_profile)
         result.dimensions[ScoreDimension.TIMING] = self._score_timing(contract)
-        result.dimensions[ScoreDimension.VALUE] = self._score_value(
-            contract, user_profile
-        )
-        result.dimensions[ScoreDimension.STRATEGIC] = self._score_strategic(
-            contract, user_profile
-        )
+        result.dimensions[ScoreDimension.VALUE] = self._score_value(contract, user_profile)
+        result.dimensions[ScoreDimension.STRATEGIC] = self._score_strategic(contract, user_profile)
 
         # Calcular score total ponderado
-        result.total_score = sum(
-            ds.score * self.weights[dim]
-            for dim, ds in result.dimensions.items()
-        )
+        result.total_score = sum(ds.score * self.weights[dim] for dim, ds in result.dimensions.items())
 
         # Determinar tier
         result.tier = self._determine_tier(result.total_score)
 
         # Extraer fortalezas y debilidades
-        result.strengths, result.weaknesses = self._extract_strengths_weaknesses(
-            result.dimensions
-        )
+        result.strengths, result.weaknesses = self._extract_strengths_weaknesses(result.dimensions)
 
         # Extraer factores clave
         result.key_factors = self._extract_key_factors(result.dimensions)
@@ -186,7 +168,7 @@ class OpportunityScorer:
         self,
         contracts: List[Dict[str, Any]],
         user_profile: Dict[str, Any],
-        market_context: Optional[Dict[str, Any]] = None
+        market_context: Optional[Dict[str, Any]] = None,
     ) -> List[Tuple[Dict[str, Any], OpportunityScore]]:
         """
         Calcula scores para múltiples contratos y los rankea.
@@ -210,11 +192,7 @@ class OpportunityScorer:
 
         return scored
 
-    def _score_relevance(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> DimensionScore:
+    def _score_relevance(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> DimensionScore:
         """
         Evalúa qué tan relevante es el contrato para el usuario.
 
@@ -271,14 +249,10 @@ class OpportunityScorer:
             score=min(100, score),
             weight=self.weights[ScoreDimension.RELEVANCE],
             factors=factors,
-            explanation=self._explain_relevance(factors)
+            explanation=self._explain_relevance(factors),
         )
 
-    def _score_opportunity(
-        self,
-        contract: Dict[str, Any],
-        market_context: Optional[Dict[str, Any]]
-    ) -> DimensionScore:
+    def _score_opportunity(self, contract: Dict[str, Any], market_context: Optional[Dict[str, Any]]) -> DimensionScore:
         """
         Evalúa qué tan buena es la oportunidad en sí misma.
 
@@ -316,14 +290,10 @@ class OpportunityScorer:
             score=max(0, min(100, score)),
             weight=self.weights[ScoreDimension.OPPORTUNITY],
             factors=factors,
-            explanation=self._explain_opportunity(factors)
+            explanation=self._explain_opportunity(factors),
         )
 
-    def _score_feasibility(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> DimensionScore:
+    def _score_feasibility(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> DimensionScore:
         """
         Evalúa qué tan factible es para el usuario ganar/ejecutar el contrato.
 
@@ -341,7 +311,7 @@ class OpportunityScorer:
 
         # 1. Capacidad financiera (30 puntos)
         min_budget = user_profile.get("min_budget", 0) or 0
-        max_budget = user_profile.get("max_budget") or float('inf')
+        max_budget = user_profile.get("max_budget") or float("inf")
 
         if amount > 0:
             if min_budget <= amount <= max_budget:
@@ -358,6 +328,7 @@ class OpportunityScorer:
         # 2. Experiencia requerida (25 puntos)
         exp_patterns = r"(\d+)\s*a[ñn]os?\s*(?:de\s+)?experiencia"
         import re
+
         exp_matches = re.findall(exp_patterns, text)
 
         if exp_matches:
@@ -387,9 +358,7 @@ class OpportunityScorer:
             factors["certifications"] = 5
 
         # 4. Ubicación/Presencia (20 puntos)
-        local_required = any(p in text for p in [
-            "presencia local", "oficina en", "sede en la ciudad"
-        ])
+        local_required = any(p in text for p in ["presencia local", "oficina en", "sede en la ciudad"])
 
         if not local_required:
             factors["location"] = 20
@@ -411,7 +380,7 @@ class OpportunityScorer:
             score=min(100, score),
             weight=self.weights[ScoreDimension.FEASIBILITY],
             factors=factors,
-            explanation=self._explain_feasibility(factors)
+            explanation=self._explain_feasibility(factors),
         )
 
     def _score_timing(self, contract: Dict[str, Any]) -> DimensionScore:
@@ -433,7 +402,7 @@ class OpportunityScorer:
         if deadline:
             try:
                 if isinstance(deadline, str):
-                    deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                    deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
 
                 days_left = (deadline - now).days
 
@@ -459,7 +428,7 @@ class OpportunityScorer:
         if pub_date:
             try:
                 if isinstance(pub_date, str):
-                    pub_date = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
+                    pub_date = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
 
                 days_old = (now - pub_date).days
 
@@ -504,14 +473,10 @@ class OpportunityScorer:
             score=min(100, score),
             weight=self.weights[ScoreDimension.TIMING],
             factors=factors,
-            explanation=self._explain_timing(factors, contract)
+            explanation=self._explain_timing(factors, contract),
         )
 
-    def _score_value(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> DimensionScore:
+    def _score_value(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> DimensionScore:
         """
         Evalúa el valor económico de la oportunidad.
 
@@ -585,14 +550,10 @@ class OpportunityScorer:
             score=min(100, score),
             weight=self.weights[ScoreDimension.VALUE],
             factors=factors,
-            explanation=self._explain_value(factors, contract)
+            explanation=self._explain_value(factors, contract),
         )
 
-    def _score_strategic(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> DimensionScore:
+    def _score_strategic(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> DimensionScore:
         """
         Evalúa el valor estratégico de la oportunidad.
 
@@ -608,9 +569,18 @@ class OpportunityScorer:
 
         # 1. Entidad prestigiosa (35 puntos)
         prestigious_entities = [
-            "ministerio", "presidencia", "banco", "ecopetrol", "epm",
-            "banco mundial", "bid", "onu", "naciones unidas", "usaid",
-            "fondo monetario", "fmi"
+            "ministerio",
+            "presidencia",
+            "banco",
+            "ecopetrol",
+            "epm",
+            "banco mundial",
+            "bid",
+            "onu",
+            "naciones unidas",
+            "usaid",
+            "fondo monetario",
+            "fmi",
         ]
 
         if any(pe in entity for pe in prestigious_entities):
@@ -622,9 +592,15 @@ class OpportunityScorer:
 
         # 2. Sector estratégico (25 puntos)
         strategic_sectors = [
-            "transformación digital", "inteligencia artificial", "blockchain",
-            "energías renovables", "ciberseguridad", "smart city",
-            "salud digital", "fintech", "e-government"
+            "transformación digital",
+            "inteligencia artificial",
+            "blockchain",
+            "energías renovables",
+            "ciberseguridad",
+            "smart city",
+            "salud digital",
+            "fintech",
+            "e-government",
         ]
 
         if any(ss in text for ss in strategic_sectors):
@@ -634,8 +610,14 @@ class OpportunityScorer:
 
         # 3. Potencial de continuidad (20 puntos)
         continuity_signals = [
-            "marco", "acuerdo marco", "indefinido", "varios años",
-            "renovable", "extensible", "fase 1", "etapa inicial"
+            "marco",
+            "acuerdo marco",
+            "indefinido",
+            "varios años",
+            "renovable",
+            "extensible",
+            "fase 1",
+            "etapa inicial",
         ]
 
         if any(cs in text for cs in continuity_signals):
@@ -661,7 +643,7 @@ class OpportunityScorer:
             score=min(100, score),
             weight=self.weights[ScoreDimension.STRATEGIC],
             factors=factors,
-            explanation=self._explain_strategic(factors, contract)
+            explanation=self._explain_strategic(factors, contract),
         )
 
     # =========================================================================
@@ -680,14 +662,11 @@ class OpportunityScorer:
     def _get_industry_keywords(self, industry: str) -> List[str]:
         """Obtiene keywords de una industria."""
         from config import Config
+
         industry_config = Config.INDUSTRIES.get(industry, {})
         return industry_config.get("keywords", [])
 
-    def _estimate_competition_score(
-        self,
-        contract: Dict[str, Any],
-        market_context: Optional[Dict[str, Any]]
-    ) -> float:
+    def _estimate_competition_score(self, contract: Dict[str, Any], market_context: Optional[Dict[str, Any]]) -> float:
         """Estima score basado en competencia esperada (más alto = menos competencia)."""
         score = 12.5  # Base
         amount = contract.get("amount", 0) or 0
@@ -732,7 +711,7 @@ class OpportunityScorer:
 
         try:
             if isinstance(deadline, str):
-                deadline = datetime.fromisoformat(deadline.replace('Z', '+00:00'))
+                deadline = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
 
             days_left = (deadline - datetime.now()).days
 
@@ -766,8 +745,7 @@ class OpportunityScorer:
         return "D"
 
     def _extract_strengths_weaknesses(
-        self,
-        dimensions: Dict[ScoreDimension, DimensionScore]
+        self, dimensions: Dict[ScoreDimension, DimensionScore]
     ) -> Tuple[List[str], List[str]]:
         """Extrae fortalezas y debilidades del análisis."""
         strengths = []
@@ -799,10 +777,7 @@ class OpportunityScorer:
         default = (factor.replace("_", " ").title(), f"Bajo en {factor.replace('_', ' ')}")
         return texts.get(factor, default)[0 if is_strength else 1]
 
-    def _extract_key_factors(
-        self,
-        dimensions: Dict[ScoreDimension, DimensionScore]
-    ) -> List[Tuple[str, float]]:
+    def _extract_key_factors(self, dimensions: Dict[ScoreDimension, DimensionScore]) -> List[Tuple[str, float]]:
         """Extrae los factores más importantes."""
         all_factors = []
 
@@ -823,7 +798,9 @@ class OpportunityScorer:
         if tier == "S":
             return "PRIORIDAD MÁXIMA: Oportunidad excepcional. Dedica recursos significativos a esta propuesta."
         if tier == "A":
-            return "ALTA PRIORIDAD: Muy buena oportunidad. Vale la pena invertir tiempo en preparar una propuesta sólida."
+            return (
+                "ALTA PRIORIDAD: Muy buena oportunidad. Vale la pena invertir tiempo en preparar una propuesta sólida."
+            )
         if tier == "B":
             return "PRIORIDAD MEDIA: Buena oportunidad. Evalúa si tienes capacidad disponible para participar."
         if tier == "C":

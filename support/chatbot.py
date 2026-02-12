@@ -1,4 +1,5 @@
 """Jobper Support — FAQ Chatbot con keyword matching."""
+
 from __future__ import annotations
 
 import re
@@ -8,11 +9,13 @@ from dataclasses import dataclass
 # Knowledge Base
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class FAQ:
     keywords: tuple[str, ...]
     question: str
     answer: str
+
 
 KNOWLEDGE_BASE: list[FAQ] = [
     FAQ(
@@ -81,6 +84,7 @@ KNOWLEDGE_BASE: list[FAQ] = [
 # ---------------------------------------------------------------------------
 # Matching
 # ---------------------------------------------------------------------------
+
 
 def _normalize(text: str) -> set[str]:
     text = text.lower()

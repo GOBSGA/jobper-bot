@@ -1,11 +1,13 @@
 """
 Configuración centralizada de Jobper v4.0 — CRM de Contratos para Colombia
 """
+
 from __future__ import annotations
 
 import os
 import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,10 +32,7 @@ class Config:
     # ======================================================================
     # BASE DE DATOS
     # ======================================================================
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL",
-        f"sqlite:///{DATABASE_PATH}"
-    )
+    DATABASE_URL: str = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_PATH}")
     # Fix Railway/Heroku postgres:// → postgresql://
     if DATABASE_URL.startswith("postgres://"):
         DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
@@ -49,7 +48,7 @@ class Config:
     if not _jwt_secret:
         if IS_PRODUCTION:
             print("FATAL ERROR: JWT_SECRET environment variable must be set in production!", file=sys.stderr)
-            print("Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"", file=sys.stderr)
+            print('Generate one with: python -c "import secrets; print(secrets.token_hex(32))"', file=sys.stderr)
             sys.exit(1)
         else:
             # Development fallback
@@ -145,9 +144,9 @@ class Config:
     # ======================================================================
     # RATE LIMITING
     # ======================================================================
-    RATE_LIMIT_GENERAL: int = 60       # req/min
-    RATE_LIMIT_AUTH: int = 5           # req/min
-    RATE_LIMIT_SEARCH: int = 30        # req/min
+    RATE_LIMIT_GENERAL: int = 60  # req/min
+    RATE_LIMIT_AUTH: int = 5  # req/min
+    RATE_LIMIT_SEARCH: int = 30  # req/min
 
     # ======================================================================
     # ADMIN
@@ -185,10 +184,7 @@ class Config:
     # ======================================================================
     # NLP / EMBEDDINGS
     # ======================================================================
-    EMBEDDING_MODEL: str = os.getenv(
-        "EMBEDDING_MODEL",
-        "paraphrase-multilingual-MiniLM-L12-v2"
-    )
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "paraphrase-multilingual-MiniLM-L12-v2")
     EMBEDDING_DIMENSION: int = 384
     SEMANTIC_SIMILARITY_THRESHOLD: float = 0.3
 
@@ -207,74 +203,165 @@ class Config:
         "tecnologia": {
             "name": "Tecnología e Informática",
             "keywords": [
-                "software", "desarrollo", "aplicación", "app", "sistema",
-                "plataforma", "web", "móvil", "cloud", "nube", "datos",
-                "inteligencia artificial", "machine learning", "ciberseguridad",
-                "infraestructura", "redes", "telecomunicaciones", "iot",
-                "base de datos", "api", "microservicios", "devops"
+                "software",
+                "desarrollo",
+                "aplicación",
+                "app",
+                "sistema",
+                "plataforma",
+                "web",
+                "móvil",
+                "cloud",
+                "nube",
+                "datos",
+                "inteligencia artificial",
+                "machine learning",
+                "ciberseguridad",
+                "infraestructura",
+                "redes",
+                "telecomunicaciones",
+                "iot",
+                "base de datos",
+                "api",
+                "microservicios",
+                "devops",
             ],
         },
         "construccion": {
             "name": "Construcción e Infraestructura",
             "keywords": [
-                "construcción", "obra", "edificio", "carretera", "puente",
-                "infraestructura", "arquitectura", "ingeniería civil",
-                "urbanismo", "vivienda", "acueducto", "alcantarillado",
-                "mantenimiento", "remodelación", "interventoría"
+                "construcción",
+                "obra",
+                "edificio",
+                "carretera",
+                "puente",
+                "infraestructura",
+                "arquitectura",
+                "ingeniería civil",
+                "urbanismo",
+                "vivienda",
+                "acueducto",
+                "alcantarillado",
+                "mantenimiento",
+                "remodelación",
+                "interventoría",
             ],
         },
         "salud": {
             "name": "Salud y Farmacéutica",
             "keywords": [
-                "salud", "médico", "hospital", "farmacéutico", "medicamento",
-                "equipo médico", "laboratorio", "clínico", "diagnóstico",
-                "insumos médicos", "dispositivos médicos", "vacunas",
-                "ambulancia", "eps", "ips"
+                "salud",
+                "médico",
+                "hospital",
+                "farmacéutico",
+                "medicamento",
+                "equipo médico",
+                "laboratorio",
+                "clínico",
+                "diagnóstico",
+                "insumos médicos",
+                "dispositivos médicos",
+                "vacunas",
+                "ambulancia",
+                "eps",
+                "ips",
             ],
         },
         "educacion": {
             "name": "Educación y Capacitación",
             "keywords": [
-                "educación", "capacitación", "formación", "curso", "taller",
-                "universidad", "escuela", "e-learning", "docente",
-                "material educativo", "biblioteca", "investigación",
-                "diplomado", "certificación"
+                "educación",
+                "capacitación",
+                "formación",
+                "curso",
+                "taller",
+                "universidad",
+                "escuela",
+                "e-learning",
+                "docente",
+                "material educativo",
+                "biblioteca",
+                "investigación",
+                "diplomado",
+                "certificación",
             ],
         },
         "consultoria": {
             "name": "Consultoría y Servicios Profesionales",
             "keywords": [
-                "consultoría", "asesoría", "auditoría", "gestión", "estrategia",
-                "análisis", "estudio", "diagnóstico", "evaluación",
-                "interventoría", "supervisión", "acompañamiento",
-                "due diligence", "legal", "financiero"
+                "consultoría",
+                "asesoría",
+                "auditoría",
+                "gestión",
+                "estrategia",
+                "análisis",
+                "estudio",
+                "diagnóstico",
+                "evaluación",
+                "interventoría",
+                "supervisión",
+                "acompañamiento",
+                "due diligence",
+                "legal",
+                "financiero",
             ],
         },
         "logistica": {
             "name": "Logística y Transporte",
             "keywords": [
-                "transporte", "logística", "distribución", "almacenamiento",
-                "cadena de suministro", "flota", "envío", "carga",
-                "bodega", "inventario", "courier", "mensajería",
-                "exportación", "importación"
+                "transporte",
+                "logística",
+                "distribución",
+                "almacenamiento",
+                "cadena de suministro",
+                "flota",
+                "envío",
+                "carga",
+                "bodega",
+                "inventario",
+                "courier",
+                "mensajería",
+                "exportación",
+                "importación",
             ],
         },
         "marketing": {
             "name": "Marketing y Comunicaciones",
             "keywords": [
-                "marketing", "publicidad", "comunicación", "diseño", "branding",
-                "redes sociales", "contenido", "evento", "btl", "atl",
-                "producción audiovisual", "fotografía", "imprenta",
-                "relaciones públicas", "prensa"
+                "marketing",
+                "publicidad",
+                "comunicación",
+                "diseño",
+                "branding",
+                "redes sociales",
+                "contenido",
+                "evento",
+                "btl",
+                "atl",
+                "producción audiovisual",
+                "fotografía",
+                "imprenta",
+                "relaciones públicas",
+                "prensa",
             ],
         },
         "energia": {
             "name": "Energía y Medio Ambiente",
             "keywords": [
-                "energía", "renovable", "solar", "eólica", "ambiental",
-                "sostenibilidad", "residuos", "reciclaje", "agua",
-                "saneamiento", "gestión ambiental", "impacto ambiental",
-                "carbono", "eficiencia energética"
+                "energía",
+                "renovable",
+                "solar",
+                "eólica",
+                "ambiental",
+                "sostenibilidad",
+                "residuos",
+                "reciclaje",
+                "agua",
+                "saneamiento",
+                "gestión ambiental",
+                "impacto ambiental",
+                "carbono",
+                "eficiencia energética",
             ],
         },
     }
@@ -336,15 +423,15 @@ class Config:
             "tagline": "Descubre oportunidades",
             "features": ["search", "basic_filters"],
             "limits": {
-                "alerts_per_week": 3,           # FIX: 3 alertas básicas/semana (solo título)
-                "favorites_max": 10,            # Pocos favoritos
-                "searches_per_day": 10,         # Limitado
-                "show_full_description": False, # Solo primeras 100 chars
-                "show_match_score": False,      # Ve "??%"
-                "show_amount": False,           # Ve "$🔒🔒🔒"
-                "show_deadline_days": True,     # Sí ve días restantes
-                "export_per_month": 0,          # Sin exportar
-                "history_days": 7,              # Solo 7 días de historial
+                "alerts_per_week": 3,  # FIX: 3 alertas básicas/semana (solo título)
+                "favorites_max": 10,  # Pocos favoritos
+                "searches_per_day": 10,  # Limitado
+                "show_full_description": False,  # Solo primeras 100 chars
+                "show_match_score": False,  # Ve "??%"
+                "show_amount": False,  # Ve "$🔒🔒🔒"
+                "show_deadline_days": True,  # Sí ve días restantes
+                "export_per_month": 0,  # Sin exportar
+                "history_days": 7,  # Solo 7 días de historial
             },
             "blocked_message": "Activa Cazador para ver todos los detalles",
         },
@@ -358,19 +445,27 @@ class Config:
             "price": 29_900,
             "tagline": "Encuentra antes que otros",
             "features": [
-                "search", "contracts_unlimited", "alerts_email", "favorites",
-                "match", "email_digest", "full_description", "match_scores",
-                "advanced_filters", "export", "show_amount",
+                "search",
+                "contracts_unlimited",
+                "alerts_email",
+                "favorites",
+                "match",
+                "email_digest",
+                "full_description",
+                "match_scores",
+                "advanced_filters",
+                "export",
+                "show_amount",
             ],
             "limits": {
-                "alerts_per_week": 50,          # 50 alertas/semana
-                "favorites_max": 100,           # Muchos favoritos
-                "searches_per_day": None,       # Ilimitadas
+                "alerts_per_week": 50,  # 50 alertas/semana
+                "favorites_max": 100,  # Muchos favoritos
+                "searches_per_day": None,  # Ilimitadas
                 "show_full_description": True,
                 "show_match_score": True,
                 "show_amount": True,
-                "export_per_month": 50,         # 50 exports/mes
-                "history_days": 30,             # 30 días
+                "export_per_month": 50,  # 50 exports/mes
+                "history_days": 30,  # 30 días
             },
             "blocked_message": "Activa Competidor para acceso a contratos privados",
         },
@@ -384,21 +479,34 @@ class Config:
             "price": 149_900,
             "tagline": "Gana más contratos",
             "features": [
-                "search", "contracts_unlimited", "alerts_email", "alerts_push",
-                "favorites_unlimited", "match", "email_digest", "full_description",
-                "match_scores", "advanced_filters", "export_unlimited", "show_amount",
-                "private_contracts", "ai_analysis", "pipeline", "documents",
-                "instant_alerts", "webinars",
+                "search",
+                "contracts_unlimited",
+                "alerts_email",
+                "alerts_push",
+                "favorites_unlimited",
+                "match",
+                "email_digest",
+                "full_description",
+                "match_scores",
+                "advanced_filters",
+                "export_unlimited",
+                "show_amount",
+                "private_contracts",
+                "ai_analysis",
+                "pipeline",
+                "documents",
+                "instant_alerts",
+                "webinars",
             ],
             "limits": {
-                "alerts_per_week": None,        # Ilimitadas
-                "favorites_max": None,          # Ilimitados
+                "alerts_per_week": None,  # Ilimitadas
+                "favorites_max": None,  # Ilimitados
                 "searches_per_day": None,
                 "show_full_description": True,
                 "show_match_score": True,
                 "show_amount": True,
-                "export_per_month": 500,        # 500/mes
-                "history_days": 365,            # 1 año
+                "export_per_month": 500,  # 500/mes
+                "history_days": 365,  # 1 año
             },
             "blocked_message": "Activa Dominador para inteligencia competitiva",
         },
@@ -412,14 +520,33 @@ class Config:
             "price": 599_900,
             "tagline": "Domina tu sector",
             "features": [
-                "search", "contracts_unlimited", "alerts_email", "alerts_push",
-                "favorites_unlimited", "match", "email_digest", "full_description",
-                "match_scores", "advanced_filters", "export_unlimited", "show_amount",
-                "private_contracts", "ai_analysis", "pipeline", "documents",
-                "instant_alerts", "webinars",
-                "competitive_intelligence", "team", "api_access", "auto_proposals",
-                "consortium_network", "priority_support", "monthly_consultation",
-                "custom_reports", "whitelabel",
+                "search",
+                "contracts_unlimited",
+                "alerts_email",
+                "alerts_push",
+                "favorites_unlimited",
+                "match",
+                "email_digest",
+                "full_description",
+                "match_scores",
+                "advanced_filters",
+                "export_unlimited",
+                "show_amount",
+                "private_contracts",
+                "ai_analysis",
+                "pipeline",
+                "documents",
+                "instant_alerts",
+                "webinars",
+                "competitive_intelligence",
+                "team",
+                "api_access",
+                "auto_proposals",
+                "consortium_network",
+                "priority_support",
+                "monthly_consultation",
+                "custom_reports",
+                "whitelabel",
             ],
             "limits": {
                 "alerts_per_week": None,
@@ -428,9 +555,9 @@ class Config:
                 "show_full_description": True,
                 "show_match_score": True,
                 "show_amount": True,
-                "export_per_month": None,       # Ilimitado
-                "history_days": None,           # Todo el historial
-                "team_members": 5,              # 5 usuarios
+                "export_per_month": None,  # Ilimitado
+                "history_days": None,  # Todo el historial
+                "team_members": 5,  # 5 usuarios
             },
             "blocked_message": "Ya tienes el plan máximo",
         },
@@ -438,11 +565,11 @@ class Config:
 
     # Alias para compatibilidad con código existente
     PLAN_ALIASES: dict = {
-        "alertas": "cazador",      # Alias antiguo
+        "alertas": "cazador",  # Alias antiguo
         "business": "competidor",  # Alias antiguo
-        "enterprise": "dominador", # Alias antiguo
-        "starter": "cazador",      # Alias antiguo
-        "trial": "free",           # Trial = Free con limits
+        "enterprise": "dominador",  # Alias antiguo
+        "starter": "cazador",  # Alias antiguo
+        "trial": "free",  # Trial = Free con limits
     }
 
     # Plan hierarchy for comparison (higher index = higher plan)
@@ -459,7 +586,6 @@ class Config:
         "email_digest": "cazador",
         "advanced_filters": "cazador",
         "export": "cazador",
-
         # === COMPETIDOR ($150K) ===
         "private_contracts": "competidor",
         "ai_analysis": "competidor",
@@ -468,7 +594,6 @@ class Config:
         "instant_alerts": "competidor",
         "documents": "competidor",
         "webinars": "competidor",
-
         # === DOMINADOR ($600K) ===
         "competitive_intelligence": "dominador",
         "team": "dominador",
@@ -505,8 +630,8 @@ class Config:
     # ======================================================================
     REFERRAL_MAX_PER_MONTH: int = 10
     REFERRAL_DISCOUNTS: dict = {
-        1: 0.10,    # 10%
-        10: 0.50,   # 50%
+        1: 0.10,  # 10%
+        10: 0.50,  # 50%
     }
 
     # ======================================================================

@@ -1,6 +1,7 @@
 """
 Jobper Core — Redis cache with in-memory LRU fallback
 """
+
 from __future__ import annotations
 
 import functools
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # IN-MEMORY LRU CACHE (fallback)
 # =============================================================================
+
 
 class _LRUCache:
     """Thread-safe LRU cache with TTL support."""
@@ -64,6 +66,7 @@ class _LRUCache:
 # CACHE CLIENT
 # =============================================================================
 
+
 class Cache:
     """Redis cache with automatic LRU in-memory fallback."""
 
@@ -77,6 +80,7 @@ class Cache:
             return
         try:
             import redis
+
             self._redis = redis.from_url(Config.REDIS_URL, decode_responses=True)
             self._redis.ping()
             logger.info("Cache: Redis connected")
@@ -147,6 +151,7 @@ cache = Cache()
 # DECORATOR
 # =============================================================================
 
+
 def cached(ttl: int = 300, key_pattern: str = ""):
     """Cache decorator. key_pattern can include {arg_name} placeholders."""
 
@@ -158,6 +163,7 @@ def cached(ttl: int = 300, key_pattern: str = ""):
                 all_kwargs = {**kwargs}
                 # Add positional args by parameter name
                 import inspect
+
                 sig = inspect.signature(fn)
                 params = list(sig.parameters.keys())
                 for i, arg in enumerate(args):

@@ -2,6 +2,7 @@
 Jobper Services — Authentication (Magic Link + JWT)
 No passwords. No age restrictions.
 """
+
 from __future__ import annotations
 
 import logging
@@ -12,7 +13,7 @@ import jwt
 
 from config import Config
 from core.cache import cache
-from core.database import UnitOfWork, User, MagicLink
+from core.database import MagicLink, UnitOfWork, User
 from core.security import generate_secure_token, hash_token
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # MAGIC LINK
 # =============================================================================
+
 
 def send_magic_link(email: str, ip: str = None) -> dict:
     """
@@ -46,6 +48,7 @@ def send_magic_link(email: str, ip: str = None) -> dict:
     # Send email async
     verify_url = f"{Config.FRONTEND_URL}/verify?token={token}"
     from core.tasks import task_send_email
+
     task_send_email.delay(email, "magic_link", {"url": verify_url, "email": email})
 
     logger.info(f"Magic link sent to {email}")
@@ -105,12 +108,14 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
     # Send welcome email for new users
     if is_new:
         from core.tasks import task_send_email
+
         task_send_email.delay(user_data["email"], "welcome", {"name": user_data.get("company_name", "")})
 
         # Track referral signup if code was provided
         if referral_code:
             try:
                 from services.referrals import track_signup
+
                 track_signup(referral_code, user_data["id"])
             except Exception as e:
                 logger.error(f"Referral tracking failed: {e}")
@@ -127,15 +132,18 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
 # PASSWORD AUTH
 # =============================================================================
 
+
 def _hash_password(password: str) -> str:
     """Hash password using bcrypt."""
     import bcrypt
+
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
 def _verify_password(password: str, password_hash: str) -> bool:
     """Verify password against hash."""
     import bcrypt
+
     try:
         return bcrypt.checkpw(password.encode(), password_hash.encode())
     except Exception:
@@ -180,6 +188,7 @@ def register_with_password(email: str, password: str, referral_code: str = None)
     if referral_code:
         try:
             from services.referrals import track_signup
+
             track_signup(referral_code, user_data["id"])
         except Exception as e:
             logger.error(f"Referral tracking failed: {e}")
@@ -228,6 +237,7 @@ def login_with_password(email: str, password: str) -> dict:
 # =============================================================================
 # JWT
 # =============================================================================
+
 
 def _create_access_token(user: User) -> str:
     payload = {
@@ -296,6 +306,7 @@ def logout(token: str):
 # =============================================================================
 # HELPERS
 # =============================================================================
+
 
 def _user_to_public(user: User) -> dict:
     return {

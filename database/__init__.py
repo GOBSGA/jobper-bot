@@ -1,5 +1,6 @@
 """Database package."""
-from database.models import User, Contract, UserContract
+
 from database.manager import DatabaseManager
+from database.models import Contract, User, UserContract
 
 __all__ = ["User", "Contract", "UserContract", "DatabaseManager"]

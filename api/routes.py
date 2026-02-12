@@ -2,26 +2,37 @@
 Jobper API — All endpoints (41 total)
 Blueprint per domain: auth, contracts, pipeline, marketplace, payments, referrals, admin, public, support
 """
+
 from __future__ import annotations
 
 import logging
-from flask import Blueprint, jsonify, g, request
 
-from core.middleware import require_auth, require_plan, require_admin, rate_limit, validate, audit, PLAN_ORDER
+from flask import Blueprint, g, jsonify, request
 
 from api.schemas import (
-    LoginSchema, VerifySchema, RefreshSchema, RegisterSchema, LoginPasswordSchema,
-    ProfileUpdateSchema,
-    SearchSchema, FavoriteSchema,
-    PipelineAddSchema, PipelineMoveSchema, PipelineNoteSchema,
-    PublishContractSchema, MarketplaceListSchema,
-    CheckoutSchema,
-    ReferralTrackSchema,
-    PushSubscriptionSchema,
-    AdminListSchema, AdminModerateSchema, AdminLogsSchema,
+    AdminListSchema,
+    AdminLogsSchema,
+    AdminModerateSchema,
     ChatbotSchema,
+    CheckoutSchema,
+    FavoriteSchema,
+    LoginPasswordSchema,
+    LoginSchema,
+    MarketplaceListSchema,
     OnboardingAnalyzeSchema,
+    PipelineAddSchema,
+    PipelineMoveSchema,
+    PipelineNoteSchema,
+    ProfileUpdateSchema,
+    PublishContractSchema,
+    PushSubscriptionSchema,
+    ReferralTrackSchema,
+    RefreshSchema,
+    RegisterSchema,
+    SearchSchema,
+    VerifySchema,
 )
+from core.middleware import PLAN_ORDER, audit, rate_limit, require_admin, require_auth, require_plan, validate
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +48,7 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 @validate(LoginSchema)
 def login():
     from services.auth import send_magic_link
+
     result = send_magic_link(g.validated.email, ip=request.remote_addr)
     return jsonify(result)
 
@@ -46,6 +58,7 @@ def login():
 @validate(VerifySchema)
 def verify():
     from services.auth import verify_magic_link
+
     result = verify_magic_link(g.validated.token, referral_code=g.validated.referral_code)
     if "error" in result:
         return jsonify(result), 401
@@ -57,6 +70,7 @@ def verify():
 @validate(RefreshSchema)
 def refresh():
     from services.auth import refresh_access_token
+
     result = refresh_access_token(g.validated.refresh_token)
     if "error" in result:
         return jsonify(result), 401
@@ -67,6 +81,7 @@ def refresh():
 @require_auth
 def logout_endpoint():
     from services.auth import logout
+
     token = request.headers.get("Authorization", "")[7:]
     logout(token)
     return jsonify({"ok": True})
@@ -78,14 +93,14 @@ def logout_endpoint():
 def register():
     """Register with email + password."""
     import logging
+
     logger = logging.getLogger(__name__)
     logger.info(f"Register attempt for: {g.validated.email}")
     try:
         from services.auth import register_with_password
+
         result = register_with_password(
-            g.validated.email,
-            g.validated.password,
-            referral_code=g.validated.referral_code
+            g.validated.email, g.validated.password, referral_code=g.validated.referral_code
         )
         if "error" in result:
             logger.warning(f"Register failed: {result.get('error')}")
@@ -103,10 +118,12 @@ def register():
 def login_password():
     """Login with email + password."""
     import logging
+
     logger = logging.getLogger(__name__)
     logger.info(f"Login attempt for: {g.validated.email}")
     try:
         from services.auth import login_with_password
+
         result = login_with_password(g.validated.email, g.validated.password)
         if "error" in result:
             logger.warning(f"Login failed: {result.get('error')}")
@@ -130,6 +147,7 @@ contracts_bp = Blueprint("contracts", __name__, url_prefix="/api/contracts")
 @validate(SearchSchema)
 def search_contracts():
     from services.contracts import search_contracts as svc
+
     result = svc(g.validated.query, g.user_id, g.validated.page, g.validated.per_page)
     return jsonify(result)
 
@@ -140,6 +158,7 @@ def search_contracts():
 @validate(SearchSchema)
 def contract_feed():
     from services.contracts import get_matched_feed
+
     result = get_matched_feed(g.user_id, g.validated.page, g.validated.per_page)
     return jsonify(result)
 
@@ -148,6 +167,7 @@ def contract_feed():
 @require_auth
 def contract_detail(contract_id: int):
     from services.contracts import get_contract_detail
+
     result = get_contract_detail(contract_id, g.user_id)
     if not result:
         return jsonify({"error": "Contrato no encontrado"}), 404
@@ -160,6 +180,7 @@ def contract_detail(contract_id: int):
 @audit("contract_analysis")
 def contract_analysis(contract_id: int):
     from services.contracts import get_contract_analysis
+
     result = get_contract_analysis(contract_id, g.user_id)
     if not result:
         return jsonify({"error": "Analisis no disponible"}), 404
@@ -170,7 +191,8 @@ def contract_analysis(contract_id: int):
 @require_auth
 @validate(FavoriteSchema)
 def toggle_fav():
-    from services.contracts import toggle_favorite, get_favorite_count
+    from services.contracts import get_favorite_count, toggle_favorite
+
     # Enforce free-tier limit (5 max) — only block adding, not removing
     user_plan = getattr(g, "user_plan", "free")
     if PLAN_ORDER.get(user_plan, 0) < PLAN_ORDER.get("alertas", 2):
@@ -178,6 +200,7 @@ def toggle_fav():
         if count >= 5:
             # Check if this is a remove (already favorited) — allow removes
             from services.contracts import is_favorited
+
             if not is_favorited(g.user_id, g.validated.contract_id):
                 return jsonify({"error": "Límite de 5 favoritos en plan Free", "upgrade": "alertas"}), 403
     result = toggle_favorite(g.user_id, g.validated.contract_id)
@@ -189,6 +212,7 @@ def toggle_fav():
 @validate(SearchSchema)
 def list_favorites():
     from services.contracts import get_favorites
+
     result = get_favorites(g.user_id, g.validated.page, g.validated.per_page)
     return jsonify(result)
 
@@ -197,6 +221,7 @@ def list_favorites():
 @require_auth
 def contract_alerts():
     from services.matching import get_alerts
+
     hours = request.args.get("hours", 24, type=int)
     result = get_alerts(g.user_id, hours=hours)
     return jsonify(result)
@@ -206,6 +231,7 @@ def contract_alerts():
 @require_auth
 def matched_contracts():
     from services.matching import get_matched_contracts
+
     limit = request.args.get("limit", 50, type=int)
     min_score = request.args.get("min_score", 0, type=int)
     result = get_matched_contracts(g.user_id, min_score=min_score, limit=limit)
@@ -216,6 +242,7 @@ def matched_contracts():
 @require_auth
 def market_stats():
     from services.matching import get_market_stats
+
     result = get_market_stats(g.user_id)
     return jsonify(result)
 
@@ -231,6 +258,7 @@ pipeline_bp = Blueprint("pipeline", __name__, url_prefix="/api/pipeline")
 @require_plan("business")
 def get_pipeline():
     from services.pipeline import get_pipeline as svc
+
     return jsonify(svc(g.user_id))
 
 
@@ -240,6 +268,7 @@ def get_pipeline():
 @validate(PipelineAddSchema)
 def add_pipeline():
     from services.pipeline import add_to_pipeline
+
     result = add_to_pipeline(
         g.user_id,
         contract_id=g.validated.contract_id,
@@ -258,6 +287,7 @@ def add_pipeline():
 @validate(PipelineMoveSchema)
 def move_pipeline(entry_id: int):
     from services.pipeline import move_stage
+
     result = move_stage(g.user_id, entry_id, g.validated.stage)
     if "error" in result:
         return jsonify(result), 400
@@ -270,6 +300,7 @@ def move_pipeline(entry_id: int):
 @validate(PipelineNoteSchema)
 def add_pipeline_note(entry_id: int):
     from services.pipeline import add_note
+
     result = add_note(g.user_id, entry_id, g.validated.text)
     if "error" in result:
         return jsonify(result), 400
@@ -281,6 +312,7 @@ def add_pipeline_note(entry_id: int):
 @require_plan("business")
 def pipeline_stats():
     from services.pipeline import get_stats
+
     return jsonify(get_stats(g.user_id))
 
 
@@ -296,6 +328,7 @@ marketplace_bp = Blueprint("marketplace", __name__, url_prefix="/api/marketplace
 @validate(MarketplaceListSchema)
 def list_mkt():
     from services.marketplace import list_marketplace
+
     result = list_marketplace(
         page=g.validated.page,
         per_page=g.validated.per_page,
@@ -311,6 +344,7 @@ def list_mkt():
 @validate(PublishContractSchema)
 def publish_mkt():
     from services.marketplace import publish
+
     data = g.validated.model_dump(exclude_none=True)
     result = publish(g.user_id, data)
     if "error" in result:
@@ -323,6 +357,7 @@ def publish_mkt():
 @validate(PublishContractSchema)
 def edit_mkt(contract_id: int):
     from services.marketplace import edit
+
     data = g.validated.model_dump(exclude_none=True)
     result = edit(g.user_id, contract_id, data)
     if "error" in result:
@@ -335,6 +370,7 @@ def edit_mkt(contract_id: int):
 @audit("feature_contract")
 def feature_mkt(contract_id: int):
     from services.marketplace import feature
+
     result = feature(contract_id, g.user_id)
     if "error" in result:
         return jsonify(result), 400
@@ -346,6 +382,7 @@ def feature_mkt(contract_id: int):
 @audit("contact_reveal")
 def get_contact_mkt(contract_id: int):
     from services.marketplace import get_contact
+
     result = get_contact(contract_id, g.user_id)
     if "error" in result:
         return jsonify(result), 404
@@ -362,6 +399,7 @@ user_bp = Blueprint("user", __name__, url_prefix="/api/user")
 @require_auth
 def get_profile():
     from services.auth import get_user_profile
+
     result = get_user_profile(g.user_id)
     if not result:
         return jsonify({"error": "Usuario no encontrado"}), 404
@@ -373,6 +411,7 @@ def get_profile():
 @validate(ProfileUpdateSchema)
 def update_profile():
     from services.auth import update_user_profile
+
     data = g.validated.model_dump(exclude_none=True)
     result = update_user_profile(g.user_id, data)
     if not result:
@@ -385,10 +424,13 @@ def update_profile():
 def user_stats():
     from services.pipeline import get_stats
     from services.referrals import get_referral_stats
-    return jsonify({
-        "pipeline": get_stats(g.user_id),
-        "referrals": get_referral_stats(g.user_id),
-    })
+
+    return jsonify(
+        {
+            "pipeline": get_stats(g.user_id),
+            "referrals": get_referral_stats(g.user_id),
+        }
+    )
 
 
 @user_bp.post("/push-subscription")
@@ -396,6 +438,7 @@ def user_stats():
 @validate(PushSubscriptionSchema)
 def register_push():
     from services.notifications import register_push_subscription
+
     result = register_push_subscription(g.user_id, g.validated.model_dump())
     return jsonify(result)
 
@@ -415,9 +458,10 @@ def analyze_profile():
     AI-powered profile extraction from free-text business description.
     Returns structured profile data for confirmation.
     """
+    from types import SimpleNamespace
+
     from services.intelligence import analyze_profile_description
     from services.matching import calculate_match_score
-    from types import SimpleNamespace
 
     result = analyze_profile_description(g.validated.description)
 
@@ -431,6 +475,7 @@ def analyze_profile():
         # FIX: Create a mock user object with proposed profile instead of
         # modifying real user (which was wrong - other sessions couldn't see changes)
         from core.database import UnitOfWork
+
         with UnitOfWork() as uow:
             user = uow.users.get(g.user_id)
             if user:
@@ -447,10 +492,17 @@ def analyze_profile():
 
                 # Get recent contracts and score them with proposed profile
                 from datetime import datetime, timedelta
+
                 now = datetime.utcnow()
-                contracts = uow.session.query(uow.contracts.model).filter(
-                    uow.contracts.model.publication_date >= now - timedelta(days=30),
-                ).order_by(uow.contracts.model.publication_date.desc()).limit(200).all()
+                contracts = (
+                    uow.session.query(uow.contracts.model)
+                    .filter(
+                        uow.contracts.model.publication_date >= now - timedelta(days=30),
+                    )
+                    .order_by(uow.contracts.model.publication_date.desc())
+                    .limit(200)
+                    .all()
+                )
 
                 matched = 0
                 for c in contracts:
@@ -460,11 +512,13 @@ def analyze_profile():
 
                 matched_preview = matched
 
-    return jsonify({
-        "profile": profile,
-        "method": result.get("method", "rules"),
-        "matched_preview": matched_preview,
-    })
+    return jsonify(
+        {
+            "profile": profile,
+            "method": result.get("method", "rules"),
+            "matched_preview": matched_preview,
+        }
+    )
 
 
 @onboarding_bp.post("/complete")
@@ -498,17 +552,20 @@ def complete_onboarding():
 
     # Mark onboarding as complete
     from core.database import UnitOfWork
+
     with UnitOfWork() as uow:
         user = uow.users.get(g.user_id)
         if user:
             user.onboarding_completed = True
             uow.commit()
 
-    return jsonify({
-        "ok": True,
-        "profile": result,
-        "message": "¡Perfil configurado! Ya puedes ver contratos personalizados.",
-    })
+    return jsonify(
+        {
+            "ok": True,
+            "profile": result,
+            "message": "¡Perfil configurado! Ya puedes ver contratos personalizados.",
+        }
+    )
 
 
 # =============================================================================
@@ -524,6 +581,7 @@ payments_bp = Blueprint("payments", __name__, url_prefix="/api/payments")
 @audit("checkout")
 def checkout():
     from services.payments import create_checkout
+
     result = create_checkout(g.user_id, g.validated.plan)
     if "error" in result:
         return jsonify(result), 400
@@ -534,6 +592,7 @@ def checkout():
 @require_auth
 def get_subscription():
     from services.payments import get_subscription
+
     result = get_subscription(g.user_id)
     if not result:
         return jsonify({"subscription": None})
@@ -547,6 +606,7 @@ def get_subscription():
 def payment_request():
     """User reports they've made a manual payment (Nequi/transfer)."""
     from services.payments import create_payment_request
+
     data = request.get_json(silent=True) or {}
     plan = data.get("plan", "")
     result = create_payment_request(g.user_id, plan)
@@ -562,6 +622,7 @@ def payment_request():
 def confirm_payment():
     """User uploads comprobante → auto-activate subscription."""
     import os
+
     from werkzeug.utils import secure_filename
 
     payment_id = request.form.get("payment_id")
@@ -594,9 +655,9 @@ def confirm_payment():
 
     # Magic bytes for image formats
     MAGIC_SIGNATURES = {
-        b'\xff\xd8\xff': 'jpg',           # JPEG
-        b'\x89PNG\r\n\x1a\n': 'png',      # PNG
-        b'RIFF': 'webp',                   # WebP (starts with RIFF)
+        b"\xff\xd8\xff": "jpg",  # JPEG
+        b"\x89PNG\r\n\x1a\n": "png",  # PNG
+        b"RIFF": "webp",  # WebP (starts with RIFF)
     }
 
     detected_ext = None
@@ -606,9 +667,9 @@ def confirm_payment():
             break
 
     # WebP has RIFF header, need to check for WEBP at byte 8
-    if magic_bytes[:4] == b'RIFF' and len(magic_bytes) >= 12 and magic_bytes[8:12] == b'WEBP':
-        detected_ext = 'webp'
-    elif magic_bytes[:4] == b'RIFF' and (len(magic_bytes) < 12 or magic_bytes[8:12] != b'WEBP'):
+    if magic_bytes[:4] == b"RIFF" and len(magic_bytes) >= 12 and magic_bytes[8:12] == b"WEBP":
+        detected_ext = "webp"
+    elif magic_bytes[:4] == b"RIFF" and (len(magic_bytes) < 12 or magic_bytes[8:12] != b"WEBP"):
         detected_ext = None  # RIFF but not WebP
 
     if not detected_ext:
@@ -622,6 +683,7 @@ def confirm_payment():
     comprobante.save(filepath)
 
     from services.payments import confirm_payment as do_confirm
+
     result = do_confirm(g.user_id, payment_id_int, filepath)
 
     # Handle different verification results
@@ -647,6 +709,7 @@ def confirm_payment():
 @audit("cancel_subscription")
 def cancel_sub():
     from services.payments import cancel_subscription
+
     result = cancel_subscription(g.user_id)
     if "error" in result:
         return jsonify(result), 400
@@ -658,6 +721,7 @@ def cancel_sub():
 def get_trust_info():
     """Get user's trusted payer status and rewards."""
     from services.payments import get_user_trust_info
+
     result = get_user_trust_info(g.user_id)
     if "error" in result:
         return jsonify(result), 400
@@ -674,6 +738,7 @@ def one_click_renewal():
     Creates a pending payment with the same plan.
     """
     from services.payments import one_click_renewal as do_renewal
+
     data = request.get_json(silent=True) or {}
     plan = data.get("plan")  # Optional - defaults to current plan
     result = do_renewal(g.user_id, plan)
@@ -692,6 +757,7 @@ referrals_bp = Blueprint("referrals", __name__, url_prefix="/api/referrals")
 @require_auth
 def referral_info():
     from services.referrals import generate_code, get_referral_stats
+
     code = generate_code(g.user_id)
     stats = get_referral_stats(g.user_id)
     return jsonify({**code, **stats})
@@ -701,6 +767,7 @@ def referral_info():
 @require_auth
 def referral_stats():
     from services.referrals import get_referral_stats
+
     return jsonify(get_referral_stats(g.user_id))
 
 
@@ -709,6 +776,7 @@ def referral_stats():
 @validate(ReferralTrackSchema)
 def track_referral():
     from services.referrals import track_click
+
     result = track_click(g.validated.code)
     if "error" in result:
         return jsonify(result), 404
@@ -726,6 +794,7 @@ admin_bp = Blueprint("admin", __name__, url_prefix="/api/admin")
 @require_admin
 def admin_dashboard():
     from services.admin import get_kpis
+
     return jsonify(get_kpis())
 
 
@@ -735,6 +804,7 @@ def admin_dashboard():
 @validate(AdminListSchema)
 def admin_users():
     from services.admin import list_users
+
     return jsonify(list_users(g.validated.page, g.validated.per_page, g.validated.search or ""))
 
 
@@ -744,6 +814,7 @@ def admin_users():
 @validate(AdminListSchema)
 def admin_payments():
     from services.admin import list_payments
+
     return jsonify(list_payments(g.validated.page, g.validated.per_page))
 
 
@@ -754,6 +825,7 @@ def admin_payments():
 @audit("admin_moderate")
 def admin_moderate(contract_id: int):
     from services.admin import moderate_contract
+
     result = moderate_contract(contract_id, g.validated.action)
     if "error" in result:
         return jsonify(result), 400
@@ -765,6 +837,7 @@ def admin_moderate(contract_id: int):
 @require_admin
 def admin_scrapers():
     from services.admin import get_scraper_status
+
     return jsonify({"sources": get_scraper_status()})
 
 
@@ -774,6 +847,7 @@ def admin_scrapers():
 @validate(AdminLogsSchema)
 def admin_logs():
     from services.admin import get_logs
+
     return jsonify(get_logs(g.validated.page, g.validated.per_page, g.validated.action or "", g.validated.user_id))
 
 
@@ -782,6 +856,7 @@ def admin_logs():
 @require_admin
 def admin_health():
     from services.admin import get_system_health
+
     return jsonify(get_system_health())
 
 
@@ -793,6 +868,7 @@ def admin_ingest():
     """Trigger manual contract ingestion."""
     days_back = request.json.get("days_back", 7) if request.is_json else 7
     from services.ingestion import ingest_all
+
     result = ingest_all(days_back=min(days_back, 90))
     return jsonify(result)
 
@@ -809,6 +885,7 @@ def admin_activate_subscription():
     if not user_id or not plan:
         return jsonify({"error": "user_id y plan son requeridos"}), 400
     from services.payments import admin_activate
+
     result = admin_activate(user_id, plan)
     if "error" in result:
         return jsonify(result), 400
@@ -821,6 +898,7 @@ def admin_activate_subscription():
 def admin_payments_review():
     """List payments that need manual review."""
     from services.payments import get_payments_for_review
+
     return jsonify({"payments": get_payments_for_review()})
 
 
@@ -831,6 +909,7 @@ def admin_payments_review():
 def admin_approve_payment_route(payment_id: int):
     """Approve a payment that was flagged for manual review."""
     from services.payments import admin_approve_payment
+
     result = admin_approve_payment(payment_id)
     if "error" in result:
         return jsonify(result), 400
@@ -846,6 +925,7 @@ def admin_reject_payment_route(payment_id: int):
     data = request.get_json(silent=True) or {}
     reason = data.get("reason", "")
     from services.payments import admin_reject_payment
+
     result = admin_reject_payment(payment_id, reason)
     if "error" in result:
         return jsonify(result), 400
@@ -862,6 +942,7 @@ public_bp = Blueprint("public", __name__, url_prefix="/api/public")
 @rate_limit(30)
 def public_plans():
     from services.payments import get_plans
+
     return jsonify({"plans": get_plans()})
 
 
@@ -869,11 +950,14 @@ def public_plans():
 @rate_limit(30)
 def public_stats():
     from core.database import UnitOfWork
+
     with UnitOfWork() as uow:
-        return jsonify({
-            "total_contracts": uow.contracts.count(),
-            "total_users": uow.users.count(),
-        })
+        return jsonify(
+            {
+                "total_contracts": uow.contracts.count(),
+                "total_users": uow.users.count(),
+            }
+        )
 
 
 @public_bp.get("/contracts")
@@ -881,7 +965,10 @@ def public_stats():
 @validate(SearchSchema)
 def public_contracts():
     from services.contracts import search_contracts
-    result = search_contracts(g.validated.query, user_id=0, page=g.validated.page, per_page=min(g.validated.per_page, 10))
+
+    result = search_contracts(
+        g.validated.query, user_id=0, page=g.validated.page, per_page=min(g.validated.per_page, 10)
+    )
     return jsonify(result)
 
 
@@ -890,12 +977,15 @@ def public_contracts():
 def demo_contracts():
     """Get sample contracts for landing page demo — no auth required."""
     from services.contracts import get_demo_contracts, get_public_stats
+
     contracts = get_demo_contracts(limit=6)
     stats = get_public_stats()
-    return jsonify({
-        "contracts": contracts,
-        "stats": stats,
-    })
+    return jsonify(
+        {
+            "contracts": contracts,
+            "stats": stats,
+        }
+    )
 
 
 # =============================================================================
@@ -910,6 +1000,7 @@ support_bp = Blueprint("support", __name__, url_prefix="/api/support")
 @validate(ChatbotSchema)
 def chatbot_endpoint():
     from support.chatbot import find_answer
+
     result = find_answer(g.validated.question)
     return jsonify(result)
 
@@ -925,15 +1016,18 @@ def health_check():
     """Health endpoint for Railway / load balancer."""
     try:
         from services.ingestion import get_contract_count
+
         contract_count = get_contract_count()
     except Exception:
         contract_count = -1  # DB not ready yet
-    return jsonify({
-        "status": "ok",
-        "service": "Jobper",
-        "version": "5.0.0",
-        "contracts": contract_count,
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "service": "Jobper",
+            "version": "5.0.0",
+            "contracts": contract_count,
+        }
+    )
 
 
 # =============================================================================

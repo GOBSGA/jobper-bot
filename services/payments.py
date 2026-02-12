@@ -3,6 +3,7 @@ Jobper Services — Payments (Manual: Nequi / Bancolombia transfer)
 User uploads comprobante → AI verifies → system activates if valid.
 Includes duplicate detection and fraud prevention.
 """
+
 from __future__ import annotations
 
 import logging
@@ -11,12 +12,8 @@ from pathlib import Path
 
 from config import Config
 from core.cache import cache
-from core.database import UnitOfWork, Subscription, Payment, User
-from services.receipt_verification import (
-    generate_payment_reference,
-    verify_payment_receipt,
-    compute_image_hash,
-)
+from core.database import Payment, Subscription, UnitOfWork, User
+from services.receipt_verification import compute_image_hash, generate_payment_reference, verify_payment_receipt
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +27,10 @@ PLAN_ORDER = ["free", "cazador", "competidor", "dominador"]
 
 # Trust levels based on verified payments count
 TRUST_LEVELS = {
-    0: "new",       # No verified payments yet
-    1: "bronze",    # 1 verified payment
-    2: "silver",    # 2 verified payments → one-click renewal enabled
-    4: "gold",      # 4+ verified payments
+    0: "new",  # No verified payments yet
+    1: "bronze",  # 1 verified payment
+    2: "silver",  # 2 verified payments → one-click renewal enabled
+    4: "gold",  # 4+ verified payments
     8: "platinum",  # 8+ verified payments (loyal customer)
 }
 
@@ -54,10 +51,7 @@ def normalize_plan(plan: str) -> str:
 
 def get_plans() -> list[dict]:
     """Return available plans with pricing."""
-    return [
-        {"key": k, **v}
-        for k, v in Config.PLANS.items()
-    ]
+    return [{"key": k, **v} for k, v in Config.PLANS.items()]
 
 
 def check_feature_access(user_plan: str, feature: str) -> bool:
@@ -77,6 +71,7 @@ def check_feature_access(user_plan: str, feature: str) -> bool:
 # =============================================================================
 # TRUSTED PAYER SYSTEM
 # =============================================================================
+
 
 def calculate_trust_level(verified_count: int) -> str:
     """Calculate trust level based on verified payments count."""
@@ -130,21 +125,25 @@ def update_user_trust(user_id: int, confidence: float) -> dict:
 
         # Check for unlocked rewards
         if new_level != old_level:
-            rewards.append({
-                "type": "level_up",
-                "old_level": old_level,
-                "new_level": new_level,
-                "message": f"¡Subiste a nivel {new_level.title()}!",
-            })
+            rewards.append(
+                {
+                    "type": "level_up",
+                    "old_level": old_level,
+                    "new_level": new_level,
+                    "message": f"¡Subiste a nivel {new_level.title()}!",
+                }
+            )
 
         # Enable one-click renewal at silver level (2+ verified payments)
         if user.verified_payments_count >= 2 and not user.one_click_renewal_enabled:
             user.one_click_renewal_enabled = True
-            rewards.append({
-                "type": "feature_unlock",
-                "feature": "one_click_renewal",
-                "message": "¡Desbloqueaste la renovación con un clic!",
-            })
+            rewards.append(
+                {
+                    "type": "feature_unlock",
+                    "feature": "one_click_renewal",
+                    "message": "¡Desbloqueaste la renovación con un clic!",
+                }
+            )
 
         uow.commit()
 
@@ -178,6 +177,7 @@ def get_user_trust_info(user_id: int) -> dict:
 # =============================================================================
 # CHECKOUT (manual payment — Nequi / Bancolombia)
 # =============================================================================
+
 
 def create_checkout(user_id: int, plan: str) -> dict:
     """
@@ -258,6 +258,7 @@ def create_checkout(user_id: int, plan: str) -> dict:
 # CONFIRM PAYMENT (user uploads comprobante → AI verifies → activate if valid)
 # =============================================================================
 
+
 def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dict:
     """
     User uploads comprobante. AI verifies before activating.
@@ -319,6 +320,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
 
             # Notify admin for manual review
             from core.tasks import task_send_email
+
             task_send_email.delay(
                 Config.ADMIN_EMAIL,
                 "payment_review_needed",
@@ -333,7 +335,9 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                 },
             )
 
-            logger.warning(f"Payment requires review: user={user_id}, payment={payment_id}, issues={verification.get('issues')}")
+            logger.warning(
+                f"Payment requires review: user={user_id}, payment={payment_id}, issues={verification.get('issues')}"
+            )
             return {
                 "ok": False,
                 "status": "review",
@@ -350,7 +354,9 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                     # Don't change status to allow retry
                     uow.commit()
 
-            logger.warning(f"Payment rejected: user={user_id}, payment={payment_id}, issues={verification.get('issues')}")
+            logger.warning(
+                f"Payment rejected: user={user_id}, payment={payment_id}, issues={verification.get('issues')}"
+            )
             return {
                 "ok": False,
                 "status": "rejected",
@@ -401,6 +407,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
         # Track referral
         try:
             from services.referrals import track_subscription
+
             track_subscription(user_id)
         except Exception:
             pass
@@ -415,10 +422,13 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
     if confidence >= 0.85:  # Only update trust for verified payments
         trust_update = update_user_trust(user_id, confidence)
         if trust_update and not trust_update.get("error"):
-            logger.info(f"Trust updated: user={user_id}, points={trust_update.get('points_earned')}, level={trust_update.get('trust_level')}")
+            logger.info(
+                f"Trust updated: user={user_id}, points={trust_update.get('points_earned')}, level={trust_update.get('trust_level')}"
+            )
 
     # Send confirmation email
     from core.tasks import task_send_email
+
     task_send_email.delay(
         user_email,
         "payment_confirmed",
@@ -467,6 +477,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
 # PAYMENT REQUEST (user reports payment — legacy)
 # =============================================================================
 
+
 def create_payment_request(user_id: int, plan: str) -> dict:
     """User reports they've made a manual payment (Nequi/transfer)."""
     plan = normalize_plan(plan)
@@ -497,6 +508,7 @@ def create_payment_request(user_id: int, plan: str) -> dict:
 
     # Notify admin via email
     from core.tasks import task_send_email
+
     task_send_email.delay(
         Config.ADMIN_EMAIL,
         "payment_request",
@@ -510,6 +522,7 @@ def create_payment_request(user_id: int, plan: str) -> dict:
 # =============================================================================
 # ONE-CLICK RENEWAL (for trusted payers)
 # =============================================================================
+
 
 def one_click_renewal(user_id: int, plan: str = None) -> dict:
     """
@@ -617,6 +630,7 @@ def _get_payment_methods() -> dict:
 # ADMIN ACTIVATION
 # =============================================================================
 
+
 def admin_activate(user_id: int, plan: str) -> dict:
     """Admin manually activates a subscription after verifying payment."""
     plan = normalize_plan(plan)
@@ -674,6 +688,7 @@ def admin_activate(user_id: int, plan: str) -> dict:
         # Track referral subscription
         try:
             from services.referrals import track_subscription
+
             track_subscription(user_id)
         except Exception:
             pass
@@ -684,6 +699,7 @@ def admin_activate(user_id: int, plan: str) -> dict:
 
     # Send confirmation email
     from core.tasks import task_send_email
+
     task_send_email.delay(
         user_email,
         "payment_confirmed",
@@ -748,6 +764,7 @@ def admin_approve_payment(payment_id: int) -> dict:
         # Track referral
         try:
             from services.referrals import track_subscription
+
             track_subscription(user_id)
         except Exception:
             pass
@@ -758,6 +775,7 @@ def admin_approve_payment(payment_id: int) -> dict:
 
     # Send confirmation email
     from core.tasks import task_send_email
+
     task_send_email.delay(
         user_email,
         "payment_confirmed",
@@ -800,6 +818,7 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
     # Notify user of rejection
     if user_email:
         from core.tasks import task_send_email
+
         task_send_email.delay(
             user_email,
             "payment_rejected",
@@ -814,26 +833,25 @@ def get_payments_for_review() -> list[dict]:
     """Get all payments that need manual review."""
     with UnitOfWork() as uow:
         payments = (
-            uow.session.query(Payment)
-            .filter(Payment.status == "review")
-            .order_by(Payment.created_at.desc())
-            .all()
+            uow.session.query(Payment).filter(Payment.status == "review").order_by(Payment.created_at.desc()).all()
         )
 
         result = []
         for p in payments:
             user = uow.users.get(p.user_id)
-            result.append({
-                "id": p.id,
-                "user_id": p.user_id,
-                "user_email": user.email if user else None,
-                "amount": p.amount,
-                "plan": p.metadata_json.get("plan"),
-                "reference": p.wompi_ref,
-                "comprobante_url": p.comprobante_url,
-                "verification_result": p.verification_result,
-                "created_at": p.created_at.isoformat() if p.created_at else None,
-            })
+            result.append(
+                {
+                    "id": p.id,
+                    "user_id": p.user_id,
+                    "user_email": user.email if user else None,
+                    "amount": p.amount,
+                    "plan": p.metadata_json.get("plan"),
+                    "reference": p.wompi_ref,
+                    "comprobante_url": p.comprobante_url,
+                    "verification_result": p.verification_result,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                }
+            )
 
         return result
 
@@ -841,6 +859,7 @@ def get_payments_for_review() -> list[dict]:
 # =============================================================================
 # SUBSCRIPTION MANAGEMENT
 # =============================================================================
+
 
 def get_subscription(user_id: int) -> dict | None:
     """Get current subscription info."""
@@ -890,10 +909,12 @@ def cancel_subscription(user_id: int) -> dict:
 # HELPERS
 # =============================================================================
 
+
 def _get_referral_discount(user_id: int) -> float:
     """Get referral discount for user."""
     try:
         from services.referrals import calculate_discount
+
         return calculate_discount(user_id)
     except Exception:
         return 0.0
@@ -903,17 +924,14 @@ def _get_referral_discount(user_id: int) -> float:
 # RENEWAL CHECKS (called by scheduler every 30 min)
 # =============================================================================
 
+
 def check_renewals():
     """Check subscriptions approaching expiry and send reminders / expire."""
     now = datetime.utcnow()
     from core.tasks import task_send_email
 
     with UnitOfWork() as uow:
-        active_subs = (
-            uow.session.query(Subscription)
-            .filter(Subscription.status == "active")
-            .all()
-        )
+        active_subs = uow.session.query(Subscription).filter(Subscription.status == "active").all()
 
         for sub in active_subs:
             days_left = (sub.ends_at - now).days
@@ -929,35 +947,52 @@ def check_renewals():
                 sub.status = "expired"
                 user.plan = "free"
                 logger.info(f"Subscription expired: user={user.id}, plan={sub.plan}")
-                task_send_email.delay(user.email, "subscription_expired", {
-                    "plan": sub.plan,
-                })
+                task_send_email.delay(
+                    user.email,
+                    "subscription_expired",
+                    {
+                        "plan": sub.plan,
+                    },
+                )
                 continue
 
             # 7 days reminder
             if days_left <= 7 and days_left > 3:
                 if not already_reminded or already_reminded.date() < today - timedelta(days=3):
                     sub.renewal_reminded_at = now
-                    task_send_email.delay(user.email, "renewal_reminder", {
-                        "days_left": days_left,
-                        "plan": sub.plan,
-                        "amount": sub.amount,
-                    })
+                    task_send_email.delay(
+                        user.email,
+                        "renewal_reminder",
+                        {
+                            "days_left": days_left,
+                            "plan": sub.plan,
+                            "amount": sub.amount,
+                        },
+                    )
 
             # 3 days reminder (urgent)
             elif days_left <= 3 and days_left > 0:
                 if not already_reminded or already_reminded.date() < today - timedelta(days=1):
                     sub.renewal_reminded_at = now
-                    task_send_email.delay(user.email, "renewal_urgent", {
-                        "days_left": days_left,
-                        "plan": sub.plan,
-                        "amount": sub.amount,
-                    })
+                    task_send_email.delay(
+                        user.email,
+                        "renewal_urgent",
+                        {
+                            "days_left": days_left,
+                            "plan": sub.plan,
+                            "amount": sub.amount,
+                        },
+                    )
                     # Also send push + WhatsApp
                     try:
                         from services.notifications import send_push, send_whatsapp_renewal_reminder
-                        send_push(user.id, f"Tu plan vence en {days_left} día{'s' if days_left > 1 else ''}",
-                                  "Renueva para no perder acceso.", "/payments")
+
+                        send_push(
+                            user.id,
+                            f"Tu plan vence en {days_left} día{'s' if days_left > 1 else ''}",
+                            "Renueva para no perder acceso.",
+                            "/payments",
+                        )
                         send_whatsapp_renewal_reminder(user.id, days_left, sub.plan)
                     except Exception:
                         pass

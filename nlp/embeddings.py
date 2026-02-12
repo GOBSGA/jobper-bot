@@ -2,6 +2,7 @@
 Servicio de embeddings para Jobper Bot v3.0
 Genera y gestiona embeddings semánticos usando sentence-transformers
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -39,6 +40,7 @@ class EmbeddingService:
         if self._model is None:
             try:
                 from sentence_transformers import SentenceTransformer
+
                 logger.info(f"Cargando modelo de embeddings: {Config.EMBEDDING_MODEL}")
                 self._model = SentenceTransformer(Config.EMBEDDING_MODEL)
                 logger.info("Modelo cargado exitosamente")
@@ -79,10 +81,7 @@ class EmbeddingService:
 
         try:
             embeddings = self.model.encode(
-                texts,
-                convert_to_numpy=True,
-                normalize_embeddings=normalize,
-                show_progress_bar=False
+                texts, convert_to_numpy=True, normalize_embeddings=normalize, show_progress_bar=False
             )
             return embeddings
         except Exception as e:
@@ -120,11 +119,7 @@ class EmbeddingService:
         # Para matrices
         return float(np.dot(emb1, emb2.T))
 
-    def batch_similarity(
-        self,
-        query_embedding: np.ndarray,
-        corpus_embeddings: np.ndarray
-    ) -> np.ndarray:
+    def batch_similarity(self, query_embedding: np.ndarray, corpus_embeddings: np.ndarray) -> np.ndarray:
         """
         Calcula similitud entre un query y múltiples documentos.
 
@@ -169,7 +164,7 @@ class EmbeddingService:
         title: str,
         description: Optional[str] = None,
         entity: Optional[str] = None,
-        keywords: Optional[List[str]] = None
+        keywords: Optional[List[str]] = None,
     ) -> str:
         """
         Crea un texto optimizado para generar embedding.

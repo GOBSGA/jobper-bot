@@ -3,6 +3,7 @@ Jobper v4.0 — Flask Application Factory
 ========================================
 SaaS CRM para contratos en Colombia.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,11 +21,13 @@ from config import Config
 _log_handlers = [logging.StreamHandler()]
 
 # Only add file handler in local dev (Railway sets various env vars)
-_is_production = any([
-    os.environ.get("RAILWAY_ENVIRONMENT"),
-    os.environ.get("RAILWAY_SERVICE_NAME"),
-    os.environ.get("PORT") and os.environ.get("PORT") != "5001",  # Railway sets dynamic PORT
-])
+_is_production = any(
+    [
+        os.environ.get("RAILWAY_ENVIRONMENT"),
+        os.environ.get("RAILWAY_SERVICE_NAME"),
+        os.environ.get("PORT") and os.environ.get("PORT") != "5001",  # Railway sets dynamic PORT
+    ]
+)
 if not _is_production:
     try:
         _log_handlers.append(logging.FileHandler("jobper.log", encoding="utf-8"))
@@ -42,6 +45,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Monitoring
 # ---------------------------------------------------------------------------
+
 
 def _init_sentry():
     """Initialize Sentry for error tracking (if configured)."""
@@ -76,15 +80,15 @@ def _init_sentry():
 def _sentry_before_send(event, hint):
     """Filter events before sending to Sentry."""
     # Don't send certain errors that are expected/handled
-    if 'exc_info' in hint:
-        exc_type, exc_value, tb = hint['exc_info']
+    if "exc_info" in hint:
+        exc_type, exc_value, tb = hint["exc_info"]
 
         # Ignore rate limit errors (expected behavior)
-        if isinstance(exc_value, Exception) and '429' in str(exc_value):
+        if isinstance(exc_value, Exception) and "429" in str(exc_value):
             return None
 
         # Ignore validation errors (user input errors)
-        if 'ValidationError' in str(exc_type):
+        if "ValidationError" in str(exc_type):
             return None
 
     return event
@@ -93,6 +97,7 @@ def _sentry_before_send(event, hint):
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def create_app() -> Flask:
     logger.info("create_app: Starting...")
@@ -122,6 +127,7 @@ def create_app() -> Flask:
     # Register all API blueprints
     logger.info("create_app: Importing blueprints...")
     from api.routes import ALL_BLUEPRINTS
+
     logger.info(f"create_app: Registering {len(ALL_BLUEPRINTS)} blueprints...")
     for bp in ALL_BLUEPRINTS:
         app.register_blueprint(bp)
@@ -130,6 +136,7 @@ def create_app() -> Flask:
     # Error handlers (JSON responses for 400-500)
     logger.info("create_app: Registering error handlers...")
     from core.middleware import register_error_handlers
+
     register_error_handlers(app)
     logger.info("create_app: Error handlers registered")
 
@@ -154,6 +161,7 @@ def create_app() -> Flask:
     logger.info(f"Frontend dir exists: {os.path.isdir(frontend_dir)}")
     if os.path.isdir(frontend_dir):
         logger.info(f"Frontend files: {os.listdir(frontend_dir)}")
+
         @app.route("/", defaults={"path": ""})
         @app.route("/<path:path>")
         def serve_frontend(path):
@@ -161,6 +169,7 @@ def create_app() -> Flask:
             if path and os.path.isfile(file_path):
                 return send_from_directory(frontend_dir, path)
             return send_from_directory(frontend_dir, "index.html")
+
     else:
         # Dev mode: health endpoint only
         logger.warning(f"Frontend NOT found at {frontend_dir} - serving API only")
@@ -184,22 +193,24 @@ def create_app() -> Flask:
         Health check endpoint that verifies all critical services.
         Returns 200 if healthy, 503 if any service is down.
         """
-        from datetime import datetime
         import time
+        from datetime import datetime
 
         health_status = {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
             "version": "5.0.0",
-            "checks": {}
+            "checks": {},
         }
         all_healthy = True
 
         # Check Database
         try:
             start = time.time()
-            from core.database import get_engine
             from sqlalchemy import text
+
+            from core.database import get_engine
+
             engine = get_engine()
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
@@ -207,20 +218,18 @@ def create_app() -> Flask:
             health_status["checks"]["database"] = {
                 "status": "healthy",
                 "response_time_ms": round((time.time() - start) * 1000, 2),
-                "type": "postgresql" if Config.is_postgresql() else "sqlite"
+                "type": "postgresql" if Config.is_postgresql() else "sqlite",
             }
         except Exception as e:
             all_healthy = False
-            health_status["checks"]["database"] = {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            health_status["checks"]["database"] = {"status": "unhealthy", "error": str(e)}
 
         # Check Redis (if configured)
         if Config.REDIS_URL:
             try:
                 start = time.time()
                 from core.cache import cache
+
                 test_key = "health_check_test"
                 cache.set(test_key, "ok", ttl=10)
                 result = cache.get(test_key)
@@ -228,32 +237,27 @@ def create_app() -> Flask:
                 if result == "ok":
                     health_status["checks"]["redis"] = {
                         "status": "healthy",
-                        "response_time_ms": round((time.time() - start) * 1000, 2)
+                        "response_time_ms": round((time.time() - start) * 1000, 2),
                     }
                 else:
                     raise Exception("Redis test failed: value mismatch")
             except Exception as e:
                 all_healthy = False
-                health_status["checks"]["redis"] = {
-                    "status": "unhealthy",
-                    "error": str(e)
-                }
+                health_status["checks"]["redis"] = {"status": "unhealthy", "error": str(e)}
         else:
-            health_status["checks"]["redis"] = {
-                "status": "not_configured",
-                "message": "Redis is optional"
-            }
+            health_status["checks"]["redis"] = {"status": "not_configured", "message": "Redis is optional"}
 
         # Check Elasticsearch (if configured)
         if Config.ELASTICSEARCH_URL:
             try:
                 start = time.time()
                 import requests
+
                 resp = requests.get(f"{Config.ELASTICSEARCH_URL}/_cluster/health", timeout=5)
                 if resp.status_code == 200:
                     health_status["checks"]["elasticsearch"] = {
                         "status": "healthy",
-                        "response_time_ms": round((time.time() - start) * 1000, 2)
+                        "response_time_ms": round((time.time() - start) * 1000, 2),
                     }
                 else:
                     raise Exception(f"HTTP {resp.status_code}")
@@ -262,12 +266,12 @@ def create_app() -> Flask:
                 health_status["checks"]["elasticsearch"] = {
                     "status": "degraded",
                     "error": str(e),
-                    "message": "Elasticsearch is optional"
+                    "message": "Elasticsearch is optional",
                 }
         else:
             health_status["checks"]["elasticsearch"] = {
                 "status": "not_configured",
-                "message": "Elasticsearch is optional"
+                "message": "Elasticsearch is optional",
             }
 
         # Overall status
@@ -288,11 +292,12 @@ def create_app() -> Flask:
 # DB bootstrap
 # ---------------------------------------------------------------------------
 
+
 def _run_alembic_migrations():
     """Run Alembic migrations automatically on startup."""
     try:
-        from alembic.config import Config as AlembicConfig
         from alembic import command
+        from alembic.config import Config as AlembicConfig
 
         alembic_cfg = AlembicConfig("alembic.ini")
         # Set the database URL from our Config
@@ -310,7 +315,8 @@ def _run_alembic_migrations():
 
 def _init_db():
     try:
-        from core.database import get_engine, Base
+        from core.database import Base, get_engine
+
         engine = get_engine()
         Base.metadata.create_all(engine)
         logger.info("Database tables verified")
@@ -319,6 +325,7 @@ def _init_db():
         if Config.is_postgresql():
             try:
                 from sqlalchemy import text
+
                 with engine.connect() as conn:
                     conn.execute(
                         text(
@@ -343,6 +350,7 @@ def _init_db():
 # Background services
 # ---------------------------------------------------------------------------
 
+
 def _start_background_services():
     """Start background scheduler for periodic tasks."""
     import threading
@@ -358,6 +366,7 @@ def _start_background_services():
                 # Run ingestion every 6 hours (moderate: 7 days back)
                 logger.info("Scheduler: Starting periodic ingestion...")
                 from services.ingestion import ingest_all
+
                 result = ingest_all(days_back=7)
                 total_new = sum(r.get("new", 0) for r in result.values())
                 logger.info(f"Scheduler: Ingestion complete - {total_new} new contracts")
@@ -365,6 +374,7 @@ def _start_background_services():
                 # Check subscription renewals every 6 hours
                 logger.info("Scheduler: Checking subscription renewals...")
                 from services.payments import check_renewals
+
                 check_renewals()
                 logger.info("Scheduler: Renewal check complete")
 

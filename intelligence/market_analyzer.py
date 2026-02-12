@@ -5,20 +5,22 @@ Análisis de mercado y tendencias para contratación pública y privada.
 Proporciona inteligencia de mercado que permite a los usuarios
 tomar decisiones informadas sobre dónde enfocar sus esfuerzos.
 """
+
 from __future__ import annotations
 
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import List, Dict, Any, Optional, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class TrendDirection(str, Enum):
     """Dirección de tendencia."""
+
     RISING = "rising"
     STABLE = "stable"
     FALLING = "falling"
@@ -26,6 +28,7 @@ class TrendDirection(str, Enum):
 
 class MarketSegment(str, Enum):
     """Segmentos de mercado."""
+
     GOVERNMENT_NATIONAL = "gov_national"
     GOVERNMENT_LOCAL = "gov_local"
     PRIVATE_LARGE = "private_large"
@@ -37,9 +40,10 @@ class MarketSegment(str, Enum):
 @dataclass
 class MarketTrend:
     """Tendencia de mercado identificada."""
+
     name: str
     direction: TrendDirection
-    strength: float             # 0-100
+    strength: float  # 0-100
     description: str
     evidence: List[str] = field(default_factory=list)
     recommended_actions: List[str] = field(default_factory=list)
@@ -48,23 +52,25 @@ class MarketTrend:
 @dataclass
 class SectorAnalysis:
     """Análisis de un sector específico."""
+
     sector: str
     total_contracts: int
     total_value: float
     average_value: float
-    growth_rate: float          # vs período anterior
+    growth_rate: float  # vs período anterior
     top_entities: List[Tuple[str, int]]
     top_keywords: List[Tuple[str, int]]
     competition_level: str
-    opportunity_rating: float   # 0-100
+    opportunity_rating: float  # 0-100
 
 
 @dataclass
 class CompetitorInsight:
     """Insight sobre competencia en el mercado."""
+
     segment: str
     estimated_competitors: int
-    barrier_to_entry: str       # "low", "medium", "high"
+    barrier_to_entry: str  # "low", "medium", "high"
     typical_requirements: List[str]
     success_factors: List[str]
 
@@ -72,6 +78,7 @@ class CompetitorInsight:
 @dataclass
 class MarketReport:
     """Reporte completo de análisis de mercado."""
+
     generated_at: datetime
     period_start: datetime
     period_end: datetime
@@ -102,37 +109,29 @@ class MarketReport:
         """Serializa a diccionario."""
         return {
             "generated_at": self.generated_at.isoformat(),
-            "period": {
-                "start": self.period_start.isoformat(),
-                "end": self.period_end.isoformat()
-            },
+            "period": {"start": self.period_start.isoformat(), "end": self.period_end.isoformat()},
             "overview": {
                 "total_contracts": self.total_contracts,
                 "total_value": self.total_value,
                 "by_source": self.contracts_by_source,
-                "by_country": self.contracts_by_country
+                "by_country": self.contracts_by_country,
             },
             "sectors": {
                 k: {
                     "total_contracts": v.total_contracts,
                     "total_value": v.total_value,
                     "growth_rate": v.growth_rate,
-                    "opportunity_rating": v.opportunity_rating
+                    "opportunity_rating": v.opportunity_rating,
                 }
                 for k, v in self.sector_analyses.items()
             },
             "trends": [
-                {
-                    "name": t.name,
-                    "direction": t.direction.value,
-                    "strength": t.strength,
-                    "description": t.description
-                }
+                {"name": t.name, "direction": t.direction.value, "strength": t.strength, "description": t.description}
                 for t in self.trends
             ],
             "hot_opportunities": len(self.hot_opportunities),
             "emerging_sectors": self.emerging_sectors,
-            "alerts": self.market_alerts
+            "alerts": self.market_alerts,
         }
 
 
@@ -147,37 +146,52 @@ class MarketAnalyzer:
     # Mapeo de keywords a sectores
     SECTOR_KEYWORDS = {
         "tecnologia": [
-            "software", "desarrollo", "sistema", "aplicación", "plataforma",
-            "digital", "tecnología", "informática", "ti", "tic", "datos"
+            "software",
+            "desarrollo",
+            "sistema",
+            "aplicación",
+            "plataforma",
+            "digital",
+            "tecnología",
+            "informática",
+            "ti",
+            "tic",
+            "datos",
         ],
         "construccion": [
-            "construcción", "obra", "edificio", "infraestructura", "vía",
-            "carretera", "puente", "vivienda", "urbanismo"
+            "construcción",
+            "obra",
+            "edificio",
+            "infraestructura",
+            "vía",
+            "carretera",
+            "puente",
+            "vivienda",
+            "urbanismo",
         ],
-        "salud": [
-            "salud", "médico", "hospital", "medicamento", "farmacéutico",
-            "clínico", "eps", "ips", "vacuna"
-        ],
+        "salud": ["salud", "médico", "hospital", "medicamento", "farmacéutico", "clínico", "eps", "ips", "vacuna"],
         "educacion": [
-            "educación", "capacitación", "formación", "universidad", "escuela",
-            "docente", "académico", "curso"
+            "educación",
+            "capacitación",
+            "formación",
+            "universidad",
+            "escuela",
+            "docente",
+            "académico",
+            "curso",
         ],
         "consultoria": [
-            "consultoría", "asesoría", "estudio", "diagnóstico", "evaluación",
-            "interventoría", "auditoría"
+            "consultoría",
+            "asesoría",
+            "estudio",
+            "diagnóstico",
+            "evaluación",
+            "interventoría",
+            "auditoría",
         ],
-        "logistica": [
-            "transporte", "logística", "distribución", "almacenamiento",
-            "cadena de suministro", "envío"
-        ],
-        "energia": [
-            "energía", "eléctrico", "renovable", "solar", "petróleo",
-            "gas", "ambiental"
-        ],
-        "alimentos": [
-            "alimentos", "alimentación", "catering", "restaurante",
-            "suministro de alimentos", "refrigerio"
-        ]
+        "logistica": ["transporte", "logística", "distribución", "almacenamiento", "cadena de suministro", "envío"],
+        "energia": ["energía", "eléctrico", "renovable", "solar", "petróleo", "gas", "ambiental"],
+        "alimentos": ["alimentos", "alimentación", "catering", "restaurante", "suministro de alimentos", "refrigerio"],
     }
 
     def __init__(self):
@@ -186,10 +200,7 @@ class MarketAnalyzer:
         logger.info("MarketAnalyzer inicializado")
 
     def analyze_market(
-        self,
-        contracts: List[Dict[str, Any]],
-        period_days: int = 30,
-        user_profile: Optional[Dict[str, Any]] = None
+        self, contracts: List[Dict[str, Any]], period_days: int = 30, user_profile: Optional[Dict[str, Any]] = None
     ) -> MarketReport:
         """
         Genera un reporte completo de análisis de mercado.
@@ -216,7 +227,7 @@ class MarketAnalyzer:
             total_contracts=len(period_contracts),
             total_value=sum(c.get("amount", 0) or 0 for c in period_contracts),
             contracts_by_source=self._count_by_field(period_contracts, "source"),
-            contracts_by_country=self._count_by_field(period_contracts, "country")
+            contracts_by_country=self._count_by_field(period_contracts, "country"),
         )
 
         # Análisis por sector
@@ -230,25 +241,17 @@ class MarketAnalyzer:
 
         # Oportunidades calientes
         if user_profile:
-            report.hot_opportunities = self._find_hot_opportunities(
-                period_contracts, user_profile
-            )
+            report.hot_opportunities = self._find_hot_opportunities(period_contracts, user_profile)
 
         # Sectores emergentes
-        report.emerging_sectors = self._identify_emerging_sectors(
-            period_contracts, contracts
-        )
+        report.emerging_sectors = self._identify_emerging_sectors(period_contracts, contracts)
 
         # Alertas de mercado
         report.market_alerts = self._generate_alerts(report)
 
         return report
 
-    def get_sector_insights(
-        self,
-        contracts: List[Dict[str, Any]],
-        sector: str
-    ) -> SectorAnalysis:
+    def get_sector_insights(self, contracts: List[Dict[str, Any]], sector: str) -> SectorAnalysis:
         """
         Obtiene análisis detallado de un sector específico.
 
@@ -272,7 +275,7 @@ class MarketAnalyzer:
                 top_entities=[],
                 top_keywords=[],
                 competition_level="unknown",
-                opportunity_rating=0
+                opportunity_rating=0,
             )
 
         total_value = sum(c.get("amount", 0) or 0 for c in sector_contracts)
@@ -287,14 +290,11 @@ class MarketAnalyzer:
             top_entities=self._get_top_entities(sector_contracts),
             top_keywords=self._get_top_keywords(sector_contracts),
             competition_level=self._estimate_competition(sector_contracts),
-            opportunity_rating=self._rate_sector_opportunity(sector_contracts)
+            opportunity_rating=self._rate_sector_opportunity(sector_contracts),
         )
 
     def compare_periods(
-        self,
-        contracts: List[Dict[str, Any]],
-        current_days: int = 30,
-        previous_days: int = 30
+        self, contracts: List[Dict[str, Any]], current_days: int = 30, previous_days: int = 30
     ) -> Dict[str, Any]:
         """
         Compara métricas entre dos períodos.
@@ -324,24 +324,20 @@ class MarketAnalyzer:
             "current_period": {
                 "contracts": current_count,
                 "total_value": current_value,
-                "avg_value": current_value / current_count if current_count else 0
+                "avg_value": current_value / current_count if current_count else 0,
             },
             "previous_period": {
                 "contracts": previous_count,
                 "total_value": previous_value,
-                "avg_value": previous_value / previous_count if previous_count else 0
+                "avg_value": previous_value / previous_count if previous_count else 0,
             },
             "changes": {
                 "contracts_change": self._calculate_change(previous_count, current_count),
-                "value_change": self._calculate_change(previous_value, current_value)
-            }
+                "value_change": self._calculate_change(previous_value, current_value),
+            },
         }
 
-    def get_entity_profile(
-        self,
-        contracts: List[Dict[str, Any]],
-        entity_name: str
-    ) -> Dict[str, Any]:
+    def get_entity_profile(self, contracts: List[Dict[str, Any]], entity_name: str) -> Dict[str, Any]:
         """
         Genera perfil de una entidad contratante.
 
@@ -353,10 +349,7 @@ class MarketAnalyzer:
             Perfil con historial y patrones
         """
         # Filtrar contratos de la entidad
-        entity_contracts = [
-            c for c in contracts
-            if entity_name.lower() in (c.get("entity", "") or "").lower()
-        ]
+        entity_contracts = [c for c in contracts if entity_name.lower() in (c.get("entity", "") or "").lower()]
 
         if not entity_contracts:
             return {"error": "Entidad no encontrada", "entity": entity_name}
@@ -372,10 +365,7 @@ class MarketAnalyzer:
             sectors[sector] += 1
 
         # Frecuencia de contratación
-        dates = [
-            c.get("publication_date") for c in entity_contracts
-            if c.get("publication_date")
-        ]
+        dates = [c.get("publication_date") for c in entity_contracts if c.get("publication_date")]
 
         return {
             "entity": entity_name,
@@ -385,7 +375,7 @@ class MarketAnalyzer:
             "sectors": dict(sectors),
             "top_sector": max(sectors, key=sectors.get) if sectors else None,
             "contracting_frequency": self._estimate_frequency(dates),
-            "recent_contracts": entity_contracts[:5]
+            "recent_contracts": entity_contracts[:5],
         }
 
     # =========================================================================
@@ -393,10 +383,7 @@ class MarketAnalyzer:
     # =========================================================================
 
     def _filter_by_period(
-        self,
-        contracts: List[Dict[str, Any]],
-        start: datetime,
-        end: datetime
+        self, contracts: List[Dict[str, Any]], start: datetime, end: datetime
     ) -> List[Dict[str, Any]]:
         """Filtra contratos por período."""
         result = []
@@ -406,7 +393,7 @@ class MarketAnalyzer:
             if pub_date:
                 try:
                     if isinstance(pub_date, str):
-                        pub_date = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
+                        pub_date = datetime.fromisoformat(pub_date.replace("Z", "+00:00"))
 
                     if start <= pub_date <= end:
                         result.append(contract)
@@ -415,11 +402,7 @@ class MarketAnalyzer:
 
         return result
 
-    def _filter_by_sector(
-        self,
-        contracts: List[Dict[str, Any]],
-        sector: str
-    ) -> List[Dict[str, Any]]:
+    def _filter_by_sector(self, contracts: List[Dict[str, Any]], sector: str) -> List[Dict[str, Any]]:
         """Filtra contratos por sector."""
         keywords = self.SECTOR_KEYWORDS.get(sector, [])
         if not keywords:
@@ -447,11 +430,7 @@ class MarketAnalyzer:
             return max(scores, key=scores.get)
         return "otros"
 
-    def _count_by_field(
-        self,
-        contracts: List[Dict[str, Any]],
-        field: str
-    ) -> Dict[str, int]:
+    def _count_by_field(self, contracts: List[Dict[str, Any]], field: str) -> Dict[str, int]:
         """Cuenta contratos por campo."""
         counts = defaultdict(int)
         for contract in contracts:
@@ -461,17 +440,10 @@ class MarketAnalyzer:
 
     def _get_contract_text(self, contract: Dict[str, Any]) -> str:
         """Obtiene texto completo del contrato."""
-        parts = [
-            contract.get("title", ""),
-            contract.get("description", ""),
-            contract.get("entity", "")
-        ]
+        parts = [contract.get("title", ""), contract.get("description", ""), contract.get("entity", "")]
         return " ".join(filter(None, parts))
 
-    def _analyze_sectors(
-        self,
-        contracts: List[Dict[str, Any]]
-    ) -> Dict[str, SectorAnalysis]:
+    def _analyze_sectors(self, contracts: List[Dict[str, Any]]) -> Dict[str, SectorAnalysis]:
         """Analiza todos los sectores presentes."""
         sectors = {}
 
@@ -483,9 +455,7 @@ class MarketAnalyzer:
         return sectors
 
     def _identify_trends(
-        self,
-        current_contracts: List[Dict[str, Any]],
-        all_contracts: List[Dict[str, Any]]
+        self, current_contracts: List[Dict[str, Any]], all_contracts: List[Dict[str, Any]]
     ) -> List[MarketTrend]:
         """Identifica tendencias del mercado."""
         trends = []
@@ -495,79 +465,81 @@ class MarketAnalyzer:
         tech_ratio = tech_current / len(current_contracts) if current_contracts else 0
 
         if tech_ratio > 0.2:
-            trends.append(MarketTrend(
-                name="Transformación Digital",
-                direction=TrendDirection.RISING,
-                strength=min(100, tech_ratio * 300),
-                description="Alto volumen de contratación en tecnología e innovación digital",
-                evidence=[
-                    f"{tech_current} contratos de tecnología en el período",
-                    f"{tech_ratio*100:.1f}% del total de contratos"
-                ],
-                recommended_actions=[
-                    "Fortalecer capacidades digitales",
-                    "Considerar alianzas con empresas tech",
-                    "Obtener certificaciones cloud (AWS, Azure)"
-                ]
-            ))
+            trends.append(
+                MarketTrend(
+                    name="Transformación Digital",
+                    direction=TrendDirection.RISING,
+                    strength=min(100, tech_ratio * 300),
+                    description="Alto volumen de contratación en tecnología e innovación digital",
+                    evidence=[
+                        f"{tech_current} contratos de tecnología en el período",
+                        f"{tech_ratio*100:.1f}% del total de contratos",
+                    ],
+                    recommended_actions=[
+                        "Fortalecer capacidades digitales",
+                        "Considerar alianzas con empresas tech",
+                        "Obtener certificaciones cloud (AWS, Azure)",
+                    ],
+                )
+            )
 
         # Tendencia 2: Sostenibilidad
         sustainability_keywords = ["sostenible", "ambiental", "renovable", "verde", "carbono"]
         sustainability_contracts = [
-            c for c in current_contracts
+            c
+            for c in current_contracts
             if any(kw in self._get_contract_text(c).lower() for kw in sustainability_keywords)
         ]
 
         if len(sustainability_contracts) > 5:
-            trends.append(MarketTrend(
-                name="Contratación Sostenible",
-                direction=TrendDirection.RISING,
-                strength=min(100, len(sustainability_contracts) * 10),
-                description="Creciente énfasis en criterios ambientales y sostenibilidad",
-                evidence=[
-                    f"{len(sustainability_contracts)} contratos con criterios de sostenibilidad"
-                ],
-                recommended_actions=[
-                    "Implementar políticas de sostenibilidad",
-                    "Obtener certificación ISO 14001",
-                    "Documentar huella de carbono"
-                ]
-            ))
+            trends.append(
+                MarketTrend(
+                    name="Contratación Sostenible",
+                    direction=TrendDirection.RISING,
+                    strength=min(100, len(sustainability_contracts) * 10),
+                    description="Creciente énfasis en criterios ambientales y sostenibilidad",
+                    evidence=[f"{len(sustainability_contracts)} contratos con criterios de sostenibilidad"],
+                    recommended_actions=[
+                        "Implementar políticas de sostenibilidad",
+                        "Obtener certificación ISO 14001",
+                        "Documentar huella de carbono",
+                    ],
+                )
+            )
 
         # Tendencia 3: Contratación de servicios vs bienes
         services_count = sum(
-            1 for c in current_contracts
-            if any(kw in self._get_contract_text(c).lower()
-                   for kw in ["servicio", "consultoría", "asesoría"])
+            1
+            for c in current_contracts
+            if any(kw in self._get_contract_text(c).lower() for kw in ["servicio", "consultoría", "asesoría"])
         )
         goods_count = sum(
-            1 for c in current_contracts
-            if any(kw in self._get_contract_text(c).lower()
-                   for kw in ["suministro", "compra de", "adquisición de bienes"])
+            1
+            for c in current_contracts
+            if any(
+                kw in self._get_contract_text(c).lower() for kw in ["suministro", "compra de", "adquisición de bienes"]
+            )
         )
 
         if services_count > goods_count * 1.5:
-            trends.append(MarketTrend(
-                name="Servicios sobre Bienes",
-                direction=TrendDirection.STABLE,
-                strength=70,
-                description="Las entidades prefieren contratar servicios integrales sobre adquisición de bienes",
-                evidence=[
-                    f"{services_count} contratos de servicios vs {goods_count} de bienes"
-                ],
-                recommended_actions=[
-                    "Desarrollar portafolio de servicios",
-                    "Ofrecer soluciones integrales",
-                    "Incluir componentes de servicio en ofertas de bienes"
-                ]
-            ))
+            trends.append(
+                MarketTrend(
+                    name="Servicios sobre Bienes",
+                    direction=TrendDirection.STABLE,
+                    strength=70,
+                    description="Las entidades prefieren contratar servicios integrales sobre adquisición de bienes",
+                    evidence=[f"{services_count} contratos de servicios vs {goods_count} de bienes"],
+                    recommended_actions=[
+                        "Desarrollar portafolio de servicios",
+                        "Ofrecer soluciones integrales",
+                        "Incluir componentes de servicio en ofertas de bienes",
+                    ],
+                )
+            )
 
         return trends
 
-    def _analyze_competition(
-        self,
-        contracts: List[Dict[str, Any]]
-    ) -> Dict[str, CompetitorInsight]:
+    def _analyze_competition(self, contracts: List[Dict[str, Any]]) -> Dict[str, CompetitorInsight]:
         """Analiza la competencia por segmento."""
         insights = {}
 
@@ -575,26 +547,34 @@ class MarketAnalyzer:
         segments = {
             "secop_small": {
                 "filter": lambda c: "secop" in (c.get("source", "") or "").lower()
-                         and (c.get("amount", 0) or 0) < 100_000_000,
+                and (c.get("amount", 0) or 0) < 100_000_000,
                 "barrier": "low",
                 "requirements": ["RUT", "Cámara de Comercio", "Antecedentes"],
-                "factors": ["Precio competitivo", "Experiencia básica", "Disponibilidad"]
+                "factors": ["Precio competitivo", "Experiencia básica", "Disponibilidad"],
             },
             "secop_large": {
                 "filter": lambda c: "secop" in (c.get("source", "") or "").lower()
-                         and (c.get("amount", 0) or 0) >= 500_000_000,
+                and (c.get("amount", 0) or 0) >= 500_000_000,
                 "barrier": "high",
-                "requirements": ["Experiencia específica 5+ años", "Capacidad financiera",
-                               "Certificaciones", "Equipo especializado"],
-                "factors": ["Track record", "Capacidad técnica", "Solidez financiera"]
+                "requirements": [
+                    "Experiencia específica 5+ años",
+                    "Capacidad financiera",
+                    "Certificaciones",
+                    "Equipo especializado",
+                ],
+                "factors": ["Track record", "Capacidad técnica", "Solidez financiera"],
             },
             "multilateral": {
                 "filter": lambda c: c.get("country") == "multilateral",
                 "barrier": "high",
-                "requirements": ["Registro en portales", "Experiencia internacional",
-                               "Inglés", "Certificaciones internacionales"],
-                "factors": ["Reputación", "Experiencia similar", "Propuesta técnica sólida"]
-            }
+                "requirements": [
+                    "Registro en portales",
+                    "Experiencia internacional",
+                    "Inglés",
+                    "Certificaciones internacionales",
+                ],
+                "factors": ["Reputación", "Experiencia similar", "Propuesta técnica sólida"],
+            },
         }
 
         for segment_name, config in segments.items():
@@ -618,15 +598,13 @@ class MarketAnalyzer:
                     estimated_competitors=estimated_competitors,
                     barrier_to_entry=config["barrier"],
                     typical_requirements=config["requirements"],
-                    success_factors=config["factors"]
+                    success_factors=config["factors"],
                 )
 
         return insights
 
     def _find_hot_opportunities(
-        self,
-        contracts: List[Dict[str, Any]],
-        user_profile: Dict[str, Any]
+        self, contracts: List[Dict[str, Any]], user_profile: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Identifica oportunidades calientes para el usuario."""
         from intelligence.opportunity_scorer import get_opportunity_scorer
@@ -638,19 +616,19 @@ class MarketAnalyzer:
         hot = []
         for contract, score in scored[:10]:
             if score.total_score >= 60:
-                hot.append({
-                    "contract": contract,
-                    "score": score.total_score,
-                    "tier": score.tier,
-                    "recommendation": score.recommendation
-                })
+                hot.append(
+                    {
+                        "contract": contract,
+                        "score": score.total_score,
+                        "tier": score.tier,
+                        "recommendation": score.recommendation,
+                    }
+                )
 
         return hot
 
     def _identify_emerging_sectors(
-        self,
-        current_contracts: List[Dict[str, Any]],
-        all_contracts: List[Dict[str, Any]]
+        self, current_contracts: List[Dict[str, Any]], all_contracts: List[Dict[str, Any]]
     ) -> List[str]:
         """Identifica sectores emergentes (crecimiento acelerado)."""
         emerging = []
@@ -662,28 +640,18 @@ class MarketAnalyzer:
 
         return emerging
 
-    def _calculate_growth_rate(
-        self,
-        contracts: List[Dict[str, Any]],
-        sector: str
-    ) -> float:
+    def _calculate_growth_rate(self, contracts: List[Dict[str, Any]], sector: str) -> float:
         """Calcula tasa de crecimiento de un sector."""
         now = datetime.now()
 
         # Período actual (30 días)
         current_start = now - timedelta(days=30)
-        current = self._filter_by_period(
-            self._filter_by_sector(contracts, sector),
-            current_start, now
-        )
+        current = self._filter_by_period(self._filter_by_sector(contracts, sector), current_start, now)
 
         # Período anterior (30-60 días)
         previous_end = current_start
         previous_start = previous_end - timedelta(days=30)
-        previous = self._filter_by_period(
-            self._filter_by_sector(contracts, sector),
-            previous_start, previous_end
-        )
+        previous = self._filter_by_period(self._filter_by_sector(contracts, sector), previous_start, previous_end)
 
         if len(previous) == 0:
             return 100 if len(current) > 0 else 0
@@ -696,11 +664,7 @@ class MarketAnalyzer:
             return 100 if current > 0 else 0
         return ((current - previous) / previous) * 100
 
-    def _get_top_entities(
-        self,
-        contracts: List[Dict[str, Any]],
-        limit: int = 5
-    ) -> List[Tuple[str, int]]:
+    def _get_top_entities(self, contracts: List[Dict[str, Any]], limit: int = 5) -> List[Tuple[str, int]]:
         """Obtiene las entidades con más contratos."""
         entities = defaultdict(int)
 
@@ -711,16 +675,29 @@ class MarketAnalyzer:
         sorted_entities = sorted(entities.items(), key=lambda x: x[1], reverse=True)
         return sorted_entities[:limit]
 
-    def _get_top_keywords(
-        self,
-        contracts: List[Dict[str, Any]],
-        limit: int = 10
-    ) -> List[Tuple[str, int]]:
+    def _get_top_keywords(self, contracts: List[Dict[str, Any]], limit: int = 10) -> List[Tuple[str, int]]:
         """Extrae las palabras clave más frecuentes."""
         # Palabras a ignorar
         stopwords = {
-            "de", "la", "el", "en", "y", "a", "los", "las", "del", "para",
-            "con", "por", "se", "al", "que", "un", "una", "su", "como"
+            "de",
+            "la",
+            "el",
+            "en",
+            "y",
+            "a",
+            "los",
+            "las",
+            "del",
+            "para",
+            "con",
+            "por",
+            "se",
+            "al",
+            "que",
+            "un",
+            "una",
+            "su",
+            "como",
         }
 
         word_counts = defaultdict(int)
@@ -731,7 +708,7 @@ class MarketAnalyzer:
 
             for word in words:
                 # Limpiar palabra
-                word = ''.join(c for c in word if c.isalnum())
+                word = "".join(c for c in word if c.isalnum())
                 if len(word) > 3 and word not in stopwords:
                     word_counts[word] += 1
 
@@ -791,19 +768,13 @@ class MarketAnalyzer:
             return "insufficient_data"
 
         # Ordenar fechas
-        sorted_dates = sorted([
-            d if isinstance(d, datetime) else datetime.fromisoformat(str(d))
-            for d in dates if d
-        ])
+        sorted_dates = sorted([d if isinstance(d, datetime) else datetime.fromisoformat(str(d)) for d in dates if d])
 
         if len(sorted_dates) < 2:
             return "insufficient_data"
 
         # Calcular intervalo promedio
-        intervals = [
-            (sorted_dates[i+1] - sorted_dates[i]).days
-            for i in range(len(sorted_dates) - 1)
-        ]
+        intervals = [(sorted_dates[i + 1] - sorted_dates[i]).days for i in range(len(sorted_dates) - 1)]
 
         avg_interval = sum(intervals) / len(intervals)
 
@@ -824,8 +795,7 @@ class MarketAnalyzer:
         for sector, analysis in report.sector_analyses.items():
             if analysis.growth_rate > 30:
                 alerts.append(
-                    f"🔥 Sector {sector} creciendo {analysis.growth_rate:.0f}% - "
-                    f"Oportunidad de expansión"
+                    f"🔥 Sector {sector} creciendo {analysis.growth_rate:.0f}% - " f"Oportunidad de expansión"
                 )
 
         # Alerta de tendencias
@@ -837,8 +807,7 @@ class MarketAnalyzer:
         for segment, insight in report.competitor_insights.items():
             if insight.estimated_competitors < 5:
                 alerts.append(
-                    f"🎯 Baja competencia en {segment} - "
-                    f"Estimados {insight.estimated_competitors} competidores"
+                    f"🎯 Baja competencia en {segment} - " f"Estimados {insight.estimated_competitors} competidores"
                 )
 
         return alerts

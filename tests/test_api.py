@@ -1,17 +1,20 @@
 """
 Tests for API endpoints.
 """
+
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
+
 from app import create_app
 
 
 @pytest.fixture
 def app():
     """Create test app."""
-    with patch('app._start_background_services'):
+    with patch("app._start_background_services"):
         app = create_app()
-        app.config['TESTING'] = True
+        app.config["TESTING"] = True
         yield app
 
 
@@ -33,8 +36,8 @@ class TestHealthEndpoint:
         assert data["service"] == "Jobper"
         assert "version" in data
 
-    @patch('app.get_engine')
-    @patch('app.cache')
+    @patch("app.get_engine")
+    @patch("app.cache")
     def test_health_endpoint_all_healthy(self, mock_cache, mock_engine, client):
         """Test health endpoint when all services are healthy."""
         # Mock database connection
@@ -54,7 +57,7 @@ class TestHealthEndpoint:
         assert "checks" in data
         assert data["checks"]["database"]["status"] == "healthy"
 
-    @patch('app.get_engine')
+    @patch("app.get_engine")
     def test_health_endpoint_database_down(self, mock_engine, client):
         """Test health endpoint when database is down."""
         # Mock database connection failure
@@ -73,29 +76,22 @@ class TestAuthEndpoints:
 
     def test_register_missing_fields(self, client):
         """Test registration with missing fields."""
-        response = client.post(
-            "/api/auth/register",
-            json={}
-        )
+        response = client.post("/api/auth/register", json={})
         # Should return 400 for validation error
         assert response.status_code == 400
 
-    @patch('services.auth.register_with_password')
+    @patch("services.auth.register_with_password")
     def test_register_success(self, mock_register, client):
         """Test successful registration."""
         mock_register.return_value = {
             "access_token": "fake_token",
             "refresh_token": "fake_refresh",
             "user": {"id": 1, "email": "test@example.com"},
-            "is_new": True
+            "is_new": True,
         }
 
         response = client.post(
-            "/api/auth/register",
-            json={
-                "email": "test@example.com",
-                "password": "secure_password_123"
-            }
+            "/api/auth/register", json={"email": "test@example.com", "password": "secure_password_123"}
         )
 
         assert response.status_code == 200
@@ -103,40 +99,30 @@ class TestAuthEndpoints:
         assert "access_token" in data
         assert "user" in data
 
-    @patch('services.auth.login_with_password')
+    @patch("services.auth.login_with_password")
     def test_login_success(self, mock_login, client):
         """Test successful login."""
         mock_login.return_value = {
             "access_token": "fake_token",
             "refresh_token": "fake_refresh",
-            "user": {"id": 1, "email": "test@example.com"}
+            "user": {"id": 1, "email": "test@example.com"},
         }
 
         response = client.post(
-            "/api/auth/login-password",
-            json={
-                "email": "test@example.com",
-                "password": "secure_password_123"
-            }
+            "/api/auth/login-password", json={"email": "test@example.com", "password": "secure_password_123"}
         )
 
         assert response.status_code == 200
         data = response.get_json()
         assert "access_token" in data
 
-    @patch('services.auth.login_with_password')
+    @patch("services.auth.login_with_password")
     def test_login_wrong_credentials(self, mock_login, client):
         """Test login with wrong credentials."""
-        mock_login.return_value = {
-            "error": "Correo o contraseña incorrectos"
-        }
+        mock_login.return_value = {"error": "Correo o contraseña incorrectos"}
 
         response = client.post(
-            "/api/auth/login-password",
-            json={
-                "email": "test@example.com",
-                "password": "wrong_password"
-            }
+            "/api/auth/login-password", json={"email": "test@example.com", "password": "wrong_password"}
         )
 
         assert response.status_code == 400
@@ -154,10 +140,7 @@ class TestRateLimiting:
         # For now, just verify the header is used
 
         # Make a request with X-Forwarded-For header
-        response = client.get(
-            "/",
-            headers={"X-Forwarded-For": "1.2.3.4, 5.6.7.8"}
-        )
+        response = client.get("/", headers={"X-Forwarded-For": "1.2.3.4, 5.6.7.8"})
 
         # Should succeed
         assert response.status_code == 200
@@ -177,10 +160,7 @@ class TestCORS:
         """Test CORS preflight request."""
         response = client.options(
             "/api/auth/login-password",
-            headers={
-                "Origin": "http://localhost:3000",
-                "Access-Control-Request-Method": "POST"
-            }
+            headers={"Origin": "http://localhost:3000", "Access-Control-Request-Method": "POST"},
         )
 
         # Preflight should be allowed

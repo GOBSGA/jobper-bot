@@ -2,15 +2,16 @@
 Motor de Matching Inteligente para Jobper v3.0
 Calcula relevancia de contratos usando keywords + embeddings semánticos
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
-from typing import List, Tuple, Optional, Dict, Any
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
 
-from scrapers.base import ContractData
 from config import Config
+from scrapers.base import ContractData
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScoredContract:
     """Contrato con su score de relevancia calculado."""
+
     contract: ContractData
     score: float  # 0-100 (score combinado)
     keyword_score: float = 0.0
@@ -40,11 +42,11 @@ class MatchingEngine:
 
     # Pesos para cada factor del score
     WEIGHTS = {
-        "semantic_match": 35,     # NUEVO: Hasta 35 puntos por similitud semántica
-        "keyword_match": 25,      # Reducido de 40 a 25 puntos
-        "industry_match": 15,     # Reducido de 25 a 15 puntos
-        "budget_match": 15,       # Reducido de 20 a 15 puntos
-        "recency": 10,            # Reducido de 15 a 10 puntos
+        "semantic_match": 35,  # NUEVO: Hasta 35 puntos por similitud semántica
+        "keyword_match": 25,  # Reducido de 40 a 25 puntos
+        "industry_match": 15,  # Reducido de 25 a 15 puntos
+        "budget_match": 15,  # Reducido de 20 a 15 puntos
+        "recency": 10,  # Reducido de 15 a 10 puntos
     }
 
     def __init__(self, use_semantic: bool = True):
@@ -63,6 +65,7 @@ class MatchingEngine:
         if self._semantic_matcher is None and self.use_semantic:
             try:
                 from nlp.semantic_search import get_semantic_matcher
+
                 self._semantic_matcher = get_semantic_matcher()
                 logger.info("Matcher semántico cargado")
             except ImportError as e:
@@ -73,11 +76,7 @@ class MatchingEngine:
                 self.use_semantic = False
         return self._semantic_matcher
 
-    def score_contracts_for_user(
-        self,
-        user: Dict[str, Any],
-        contracts: List[ContractData]
-    ) -> List[ScoredContract]:
+    def score_contracts_for_user(self, user: Dict[str, Any], contracts: List[ContractData]) -> List[ScoredContract]:
         """
         Calcula el score de relevancia de cada contrato para un usuario.
 
@@ -98,9 +97,7 @@ class MatchingEngine:
         user_embedding = None
         if self.use_semantic and self.semantic_matcher:
             try:
-                user_embedding = self.semantic_matcher.compute_user_profile_embedding(
-                    user, save_to_db=False
-                )
+                user_embedding = self.semantic_matcher.compute_user_profile_embedding(user, save_to_db=False)
             except Exception as e:
                 logger.warning(f"Error calculando embedding de usuario: {e}")
 
@@ -115,21 +112,20 @@ class MatchingEngine:
 
             # Calcular score
             score_result = self._calculate_score(
-                user=user,
-                contract=contract,
-                user_keywords=user_keywords,
-                user_embedding=user_embedding
+                user=user, contract=contract, user_keywords=user_keywords, user_embedding=user_embedding
             )
 
             if score_result["score"] > 0:
-                scored.append(ScoredContract(
-                    contract=contract,
-                    score=score_result["score"],
-                    keyword_score=score_result["keyword_score"],
-                    semantic_score=score_result["semantic_score"],
-                    matched_keywords=score_result["matched_keywords"],
-                    reasons=score_result["reasons"]
-                ))
+                scored.append(
+                    ScoredContract(
+                        contract=contract,
+                        score=score_result["score"],
+                        keyword_score=score_result["keyword_score"],
+                        semantic_score=score_result["semantic_score"],
+                        matched_keywords=score_result["matched_keywords"],
+                        reasons=score_result["reasons"],
+                    )
+                )
 
         # Ordenar por score descendente
         scored.sort(key=lambda x: x.score, reverse=True)
@@ -140,11 +136,7 @@ class MatchingEngine:
         return scored
 
     def get_top_contracts(
-        self,
-        user: Dict[str, Any],
-        contracts: List[ContractData],
-        limit: int = 10,
-        min_score: float = 25
+        self, user: Dict[str, Any], contracts: List[ContractData], limit: int = 10, min_score: float = 25
     ) -> List[ScoredContract]:
         """
         Obtiene los mejores contratos para un usuario.
@@ -224,11 +216,7 @@ class MatchingEngine:
         return " ".join(parts).lower()
 
     def _calculate_score(
-        self,
-        user: Dict[str, Any],
-        contract: ContractData,
-        user_keywords: set,
-        user_embedding=None
+        self, user: Dict[str, Any], contract: ContractData, user_keywords: set, user_embedding=None
     ) -> Dict[str, Any]:
         """
         Calcula el score total de un contrato para un usuario.
@@ -251,13 +239,11 @@ class MatchingEngine:
                 contract_dict = {
                     "title": contract.title,
                     "description": contract.description,
-                    "entity": contract.entity
+                    "entity": contract.entity,
                 }
 
                 semantic_match = self.semantic_matcher.score_contract_semantic(
-                    contract=contract_dict,
-                    user=user,
-                    user_embedding=user_embedding
+                    contract=contract_dict, user=user, user_embedding=user_embedding
                 )
 
                 # El semantic_score viene en escala 0-100, normalizar a nuestros puntos
@@ -282,8 +268,7 @@ class MatchingEngine:
 
             if matches > 0:
                 keyword_score = min(
-                    self.WEIGHTS["keyword_match"],
-                    self.WEIGHTS["keyword_match"] * (matches / len(user_keywords)) * 1.5
+                    self.WEIGHTS["keyword_match"], self.WEIGHTS["keyword_match"] * (matches / len(user_keywords)) * 1.5
                 )
                 score += keyword_score
                 reasons.append(f"✓ {matches} palabras clave coinciden")
@@ -297,7 +282,7 @@ class MatchingEngine:
             if industry_matches > 0:
                 industry_score = min(
                     self.WEIGHTS["industry_match"],
-                    self.WEIGHTS["industry_match"] * (industry_matches / max(len(industry_kws), 1))
+                    self.WEIGHTS["industry_match"] * (industry_matches / max(len(industry_kws), 1)),
                 )
                 score += industry_score
                 reasons.append(f"✓ Coincide con industria ({industry_matches} términos)")
@@ -358,14 +343,11 @@ class MatchingEngine:
             "keyword_score": keyword_score,
             "semantic_score": semantic_score,
             "matched_keywords": matched_keywords,
-            "reasons": reasons
+            "reasons": reasons,
         }
 
     def filter_by_budget(
-        self,
-        contracts: List[ContractData],
-        min_amount: float = None,
-        max_amount: float = None
+        self, contracts: List[ContractData], min_amount: float = None, max_amount: float = None
     ) -> List[ContractData]:
         """Filtra contratos por rango de presupuesto."""
         filtered = []
@@ -385,10 +367,7 @@ class MatchingEngine:
 
         return filtered
 
-    def deduplicate(
-        self,
-        contracts: List[ContractData]
-    ) -> List[ContractData]:
+    def deduplicate(self, contracts: List[ContractData]) -> List[ContractData]:
         """Elimina contratos duplicados por external_id."""
         seen = set()
         unique = []

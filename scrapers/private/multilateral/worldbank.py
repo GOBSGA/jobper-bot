@@ -2,11 +2,12 @@
 Scraper para el Banco Mundial (World Bank)
 Obtiene oportunidades de procurement del Banco Mundial
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
 
 from scrapers.base import ContractData
 from scrapers.private.base_private import PrivatePortalScraper
@@ -41,7 +42,7 @@ class WorldBankScraper(PrivatePortalScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de procurement del Banco Mundial.
@@ -105,22 +106,12 @@ class WorldBankScraper(PrivatePortalScraper):
         """Normaliza un notice del Banco Mundial al formato estándar."""
         try:
             # IDs del Banco Mundial
-            external_id = (
-                raw.get("id") or
-                raw.get("noticeNo") or
-                raw.get("notice_id") or
-                raw.get("project_id")
-            )
+            external_id = raw.get("id") or raw.get("noticeNo") or raw.get("notice_id") or raw.get("project_id")
             if not external_id:
                 return None
 
             # Título
-            title = (
-                raw.get("title") or
-                raw.get("notice_title") or
-                raw.get("project_name") or
-                ""
-            )
+            title = raw.get("title") or raw.get("notice_title") or raw.get("project_name") or ""
             if not title:
                 return None
 
@@ -143,15 +134,11 @@ class WorldBankScraper(PrivatePortalScraper):
 
             # Fechas
             pub_date = self._parse_date(
-                raw.get("notice_posted_date") or
-                raw.get("submission_date") or
-                raw.get("created_date")
+                raw.get("notice_posted_date") or raw.get("submission_date") or raw.get("created_date")
             )
 
             deadline = self._parse_date(
-                raw.get("deadline_date") or
-                raw.get("submission_deadline") or
-                raw.get("closing_date")
+                raw.get("deadline_date") or raw.get("submission_deadline") or raw.get("closing_date")
             )
 
             # URL
@@ -174,7 +161,7 @@ class WorldBankScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=pub_date,
                 deadline=deadline,
-                raw_data=raw
+                raw_data=raw,
             )
 
         except Exception as e:
@@ -202,11 +189,7 @@ class WorldBankScraper(PrivatePortalScraper):
 
         return None
 
-    def _fetch_alternative(
-        self,
-        keywords: Optional[List[str]] = None,
-        days_back: int = 30
-    ) -> List[ContractData]:
+    def _fetch_alternative(self, keywords: Optional[List[str]] = None, days_back: int = 30) -> List[ContractData]:
         """
         Método alternativo usando la API de proyectos.
         """
@@ -220,7 +203,7 @@ class WorldBankScraper(PrivatePortalScraper):
                 "format": "json",
                 "rows": 50,
                 "status_exact": "Active",
-                "fl": "id,project_name,countryname,totalamt,boardapprovaldate,closingdate,project_abstract"
+                "fl": "id,project_name,countryname,totalamt,boardapprovaldate,closingdate,project_abstract",
             }
 
             if keywords:
@@ -250,7 +233,7 @@ class WorldBankScraper(PrivatePortalScraper):
                             url=f"https://projects.worldbank.org/en/projects-operations/project-detail/{proj.get('id', '')}",
                             publication_date=self._parse_date(proj.get("boardapprovaldate")),
                             deadline=self._parse_date(proj.get("closingdate")),
-                            raw_data=proj
+                            raw_data=proj,
                         )
                         contracts.append(contract)
                 except Exception as e:

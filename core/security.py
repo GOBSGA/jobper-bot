@@ -1,6 +1,7 @@
 """
 Jobper Core — Rate Limiter, HMAC Verification, Input Sanitization
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # RATE LIMITER (Redis-backed, in-memory fallback)
 # =============================================================================
+
 
 class _InMemoryStore:
     """Thread-safe sliding-window counter with LRU eviction."""
@@ -66,6 +68,7 @@ class RateLimiter:
             return
         try:
             import redis
+
             self._redis = redis.from_url(Config.REDIS_URL, decode_responses=True)
             self._redis.ping()
             logger.info("RateLimiter: Redis connected")
@@ -103,6 +106,7 @@ rate_limiter = RateLimiter()
 # =============================================================================
 # HMAC VERIFICATION (Wompi webhooks)
 # =============================================================================
+
 
 def verify_wompi_signature(payload: bytes, signature: str) -> bool:
     """Verify Wompi webhook HMAC-SHA256 signature."""
@@ -148,6 +152,7 @@ def sanitize_search_query(text: str) -> str:
 # =============================================================================
 # TOKEN GENERATION
 # =============================================================================
+
 
 def generate_secure_token(length: int = 32) -> str:
     """Generate a cryptographically secure URL-safe token."""

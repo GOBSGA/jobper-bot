@@ -2,6 +2,7 @@
 Scraper para COMPR.AR - Sistema de Contrataciones de Argentina
 API: COMPR.AR API (comprar.gob.ar)
 """
+
 from __future__ import annotations
 
 import logging
@@ -24,11 +25,7 @@ class ComprarScraper(BaseScraper):
         super().__init__(COMPRAR_DATA_URL)
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene contrataciones de COMPR.AR.
@@ -75,11 +72,7 @@ class ComprarScraper(BaseScraper):
         return contracts
 
     def _build_query(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> dict:
         """Construye los parámetros de consulta para COMPR.AR."""
 
@@ -95,13 +88,14 @@ class ComprarScraper(BaseScraper):
 
         # Filtros adicionales
         filters = {}
-        date_limit = (datetime.now() - timedelta(days=days_back)).strftime('%Y-%m-%d')
+        date_limit = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
 
         # Intentar filtrar por fecha
         filters["fecha_publicacion"] = {"gte": date_limit}
 
         if filters:
             import json
+
             params["filters"] = json.dumps(filters)
 
         return params
@@ -109,17 +103,13 @@ class ComprarScraper(BaseScraper):
     def _normalize_contract(self, raw: dict) -> Optional[ContractData]:
         """Normaliza una contratación de COMPR.AR al formato estándar."""
 
-        external_id = (raw.get("numero_proceso") or
-                       raw.get("numero_expediente") or
-                       raw.get("id", ""))
+        external_id = raw.get("numero_proceso") or raw.get("numero_expediente") or raw.get("id", "")
         if not external_id:
             return None
 
         # Parsear fechas
-        pub_date = self._parse_date(raw.get("fecha_publicacion") or
-                                     raw.get("fecha_apertura"))
-        deadline = self._parse_date(raw.get("fecha_limite_oferta") or
-                                     raw.get("fecha_cierre"))
+        pub_date = self._parse_date(raw.get("fecha_publicacion") or raw.get("fecha_apertura"))
+        deadline = self._parse_date(raw.get("fecha_limite_oferta") or raw.get("fecha_cierre"))
 
         # Parsear monto
         amount = None

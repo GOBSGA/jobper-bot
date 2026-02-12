@@ -2,6 +2,7 @@
 Caché de embeddings para Jobper Bot v3.0
 Gestiona el caché en memoria y persistencia de embeddings
 """
+
 from __future__ import annotations
 
 import logging
@@ -110,10 +111,7 @@ class EmbeddingCache:
             return
 
         # Ordenar por timestamp y eliminar el 25% más antiguo
-        sorted_keys = sorted(
-            self._cache.keys(),
-            key=lambda k: self._cache[k][1]
-        )
+        sorted_keys = sorted(self._cache.keys(), key=lambda k: self._cache[k][1])
 
         to_remove = max(1, len(sorted_keys) // 4)
         for key in sorted_keys[:to_remove]:
@@ -130,10 +128,7 @@ class EmbeddingCache:
         """
         with self._lock:
             now = datetime.utcnow()
-            expired_keys = [
-                key for key, (_, timestamp) in self._cache.items()
-                if now - timestamp > self.ttl
-            ]
+            expired_keys = [key for key, (_, timestamp) in self._cache.items() if now - timestamp > self.ttl]
 
             for key in expired_keys:
                 del self._cache[key]
@@ -147,8 +142,7 @@ class EmbeddingCache:
         """Obtiene estadísticas del caché."""
         with self._lock:
             now = datetime.utcnow()
-            ages = [(now - timestamp).total_seconds() / 3600
-                   for _, timestamp in self._cache.values()]
+            ages = [(now - timestamp).total_seconds() / 3600 for _, timestamp in self._cache.values()]
 
             return {
                 "size": len(self._cache),

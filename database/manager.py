@@ -2,19 +2,31 @@
 Gestor de base de datos para Jobper Bot v3.0 (Premium)
 Provee operaciones CRUD para usuarios, contratos, embeddings y alertas
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional, List, Tuple
+from typing import List, Optional, Tuple
 
-from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
 
 from database.models import (
-    User, Contract, UserContract, IndustryEmbedding,
-    DataSource, DeadlineAlert, ContractAddendum,
-    PrivateContract, ContractApplication, PrivateContractStatus,
-    ConversationState, Country, SourceType, init_database, get_session
+    Contract,
+    ContractAddendum,
+    ContractApplication,
+    ConversationState,
+    Country,
+    DataSource,
+    DeadlineAlert,
+    IndustryEmbedding,
+    PrivateContract,
+    PrivateContractStatus,
+    SourceType,
+    User,
+    UserContract,
+    get_session,
+    init_database,
 )
 
 
@@ -114,7 +126,7 @@ class DatabaseManager:
         exclude_keywords: List[str] = None,
         countries: str = None,
         min_budget: float = None,
-        max_budget: float = None
+        max_budget: float = None,
     ) -> Optional[dict]:
         """Actualiza las preferencias de un usuario."""
         session = self.get_session()
@@ -212,10 +224,11 @@ class DatabaseManager:
         """Obtiene todos los usuarios activos con notificaciones habilitadas."""
         session = self.get_session()
         try:
-            users = session.query(User).filter(
-                User.state == ConversationState.ACTIVE.value,
-                User.notifications_enabled == True
-            ).all()
+            users = (
+                session.query(User)
+                .filter(User.state == ConversationState.ACTIVE.value, User.notifications_enabled == True)
+                .all()
+            )
             return [self._user_to_dict(u) for u in users]
         finally:
             session.close()
@@ -225,14 +238,15 @@ class DatabaseManager:
         session = self.get_session()
         try:
             country_val = country if isinstance(country, str) else country.value
-            users = session.query(User).filter(
-                User.state == ConversationState.ACTIVE.value,
-                User.notifications_enabled == True,
-                or_(
-                    User.countries == country_val,
-                    User.countries == Country.ALL.value
+            users = (
+                session.query(User)
+                .filter(
+                    User.state == ConversationState.ACTIVE.value,
+                    User.notifications_enabled == True,
+                    or_(User.countries == country_val, User.countries == Country.ALL.value),
                 )
-            ).all()
+                .all()
+            )
             return [self._user_to_dict(u) for u in users]
         finally:
             session.close()
@@ -250,18 +264,16 @@ class DatabaseManager:
         """
         session = self.get_session()
         try:
-            contract = session.query(Contract).filter(
-                Contract.external_id == external_id
-            ).first()
+            contract = session.query(Contract).filter(Contract.external_id == external_id).first()
 
             if contract:
                 return self._contract_to_dict(contract), False
 
             # Convertir enums a valores string si es necesario
-            if 'country' in kwargs and hasattr(kwargs['country'], 'value'):
-                kwargs['country'] = kwargs['country'].value
-            if 'source_type' in kwargs and hasattr(kwargs['source_type'], 'value'):
-                kwargs['source_type'] = kwargs['source_type'].value
+            if "country" in kwargs and hasattr(kwargs["country"], "value"):
+                kwargs["country"] = kwargs["country"].value
+            if "source_type" in kwargs and hasattr(kwargs["source_type"], "value"):
+                kwargs["source_type"] = kwargs["source_type"].value
 
             contract = Contract(external_id=external_id, **kwargs)
             session.add(contract)
@@ -276,9 +288,7 @@ class DatabaseManager:
         """Obtiene un contrato por su ID externo."""
         session = self.get_session()
         try:
-            contract = session.query(Contract).filter(
-                Contract.external_id == external_id
-            ).first()
+            contract = session.query(Contract).filter(Contract.external_id == external_id).first()
             if contract:
                 return self._contract_to_dict(contract)
             return None
@@ -289,9 +299,7 @@ class DatabaseManager:
         """Obtiene un contrato por su ID interno."""
         session = self.get_session()
         try:
-            contract = session.query(Contract).filter(
-                Contract.id == contract_id
-            ).first()
+            contract = session.query(Contract).filter(Contract.id == contract_id).first()
             if contract:
                 return self._contract_to_dict(contract)
             return None
@@ -304,18 +312,11 @@ class DatabaseManager:
             return self.get_contract_by_id(contract_id)
         return self.get_contract_by_external_id(str(contract_id))
 
-    def update_contract_embedding(
-        self,
-        contract_id: int,
-        embedding: bytes,
-        model_name: str
-    ) -> Optional[dict]:
+    def update_contract_embedding(self, contract_id: int, embedding: bytes, model_name: str) -> Optional[dict]:
         """Actualiza el embedding de un contrato."""
         session = self.get_session()
         try:
-            contract = session.query(Contract).filter(
-                Contract.id == contract_id
-            ).first()
+            contract = session.query(Contract).filter(Contract.id == contract_id).first()
             if contract:
                 contract.embedding = embedding
                 contract.embedding_model = model_name
@@ -330,9 +331,7 @@ class DatabaseManager:
         """Obtiene contratos que no tienen embedding calculado."""
         session = self.get_session()
         try:
-            contracts = session.query(Contract).filter(
-                Contract.embedding == None
-            ).limit(limit).all()
+            contracts = session.query(Contract).filter(Contract.embedding == None).limit(limit).all()
             return [self._contract_to_dict(c) for c in contracts]
         finally:
             session.close()
@@ -344,11 +343,12 @@ class DatabaseManager:
             now = datetime.utcnow()
             deadline_limit = now + timedelta(days=days)
 
-            contracts = session.query(Contract).filter(
-                Contract.deadline != None,
-                Contract.deadline >= now,
-                Contract.deadline <= deadline_limit
-            ).order_by(Contract.deadline.asc()).all()
+            contracts = (
+                session.query(Contract)
+                .filter(Contract.deadline != None, Contract.deadline >= now, Contract.deadline <= deadline_limit)
+                .order_by(Contract.deadline.asc())
+                .all()
+            )
 
             return [self._contract_to_dict(c) for c in contracts]
         finally:
@@ -358,29 +358,23 @@ class DatabaseManager:
         """Verifica si un contrato ya fue enviado a un usuario."""
         session = self.get_session()
         try:
-            exists = session.query(UserContract).filter(
-                UserContract.user_id == user_id,
-                UserContract.contract_id == contract_id
-            ).first()
+            exists = (
+                session.query(UserContract)
+                .filter(UserContract.user_id == user_id, UserContract.contract_id == contract_id)
+                .first()
+            )
             return exists is not None
         finally:
             session.close()
 
     def mark_contract_sent(
-        self,
-        user_id: int,
-        contract_id: int,
-        relevance_score: float = 0.0,
-        semantic_score: float = 0.0
+        self, user_id: int, contract_id: int, relevance_score: float = 0.0, semantic_score: float = 0.0
     ) -> dict:
         """Marca un contrato como enviado a un usuario."""
         session = self.get_session()
         try:
             user_contract = UserContract(
-                user_id=user_id,
-                contract_id=contract_id,
-                relevance_score=relevance_score,
-                semantic_score=semantic_score
+                user_id=user_id, contract_id=contract_id, relevance_score=relevance_score, semantic_score=semantic_score
             )
             session.add(user_contract)
             session.commit()
@@ -390,7 +384,7 @@ class DatabaseManager:
                 "user_id": user_id,
                 "contract_id": contract_id,
                 "relevance_score": relevance_score,
-                "semantic_score": semantic_score
+                "semantic_score": semantic_score,
             }
         finally:
             session.close()
@@ -399,16 +393,20 @@ class DatabaseManager:
         """Obtiene el historial de contratos enviados a un usuario."""
         session = self.get_session()
         try:
-            user_contracts = session.query(UserContract).filter(
-                UserContract.user_id == user_id
-            ).order_by(UserContract.sent_at.desc()).limit(limit).all()
+            user_contracts = (
+                session.query(UserContract)
+                .filter(UserContract.user_id == user_id)
+                .order_by(UserContract.sent_at.desc())
+                .limit(limit)
+                .all()
+            )
 
             result = []
             for uc in user_contracts:
                 if uc.contract:
                     contract_dict = self._contract_to_dict(uc.contract)
-                    contract_dict['relevance_score'] = uc.relevance_score
-                    contract_dict['semantic_score'] = uc.semantic_score
+                    contract_dict["relevance_score"] = uc.relevance_score
+                    contract_dict["semantic_score"] = uc.semantic_score
                     result.append(contract_dict)
             return result
         finally:
@@ -419,18 +417,12 @@ class DatabaseManager:
     # =========================================================================
 
     def get_or_create_industry_embedding(
-        self,
-        industry_key: str,
-        embedding: bytes,
-        keywords_hash: str,
-        model_name: str
+        self, industry_key: str, embedding: bytes, keywords_hash: str, model_name: str
     ) -> Tuple[dict, bool]:
         """Obtiene o crea un embedding de industria."""
         session = self.get_session()
         try:
-            ind_emb = session.query(IndustryEmbedding).filter(
-                IndustryEmbedding.industry_key == industry_key
-            ).first()
+            ind_emb = session.query(IndustryEmbedding).filter(IndustryEmbedding.industry_key == industry_key).first()
 
             if ind_emb:
                 # Actualizar si el hash de keywords cambió
@@ -443,10 +435,7 @@ class DatabaseManager:
                 return self._industry_embedding_to_dict(ind_emb), False
 
             ind_emb = IndustryEmbedding(
-                industry_key=industry_key,
-                embedding=embedding,
-                keywords_hash=keywords_hash,
-                model_name=model_name
+                industry_key=industry_key, embedding=embedding, keywords_hash=keywords_hash, model_name=model_name
             )
             session.add(ind_emb)
             session.commit()
@@ -460,9 +449,7 @@ class DatabaseManager:
         """Obtiene el embedding de una industria."""
         session = self.get_session()
         try:
-            ind_emb = session.query(IndustryEmbedding).filter(
-                IndustryEmbedding.industry_key == industry_key
-            ).first()
+            ind_emb = session.query(IndustryEmbedding).filter(IndustryEmbedding.industry_key == industry_key).first()
             if ind_emb:
                 return self._industry_embedding_to_dict(ind_emb)
             return None
@@ -482,38 +469,28 @@ class DatabaseManager:
     # OPERACIONES DE ALERTAS DE DEADLINE
     # =========================================================================
 
-    def is_deadline_alert_sent(
-        self,
-        user_id: int,
-        contract_id: int,
-        urgency_level: int
-    ) -> bool:
+    def is_deadline_alert_sent(self, user_id: int, contract_id: int, urgency_level: int) -> bool:
         """Verifica si ya se envió una alerta de deadline."""
         session = self.get_session()
         try:
-            exists = session.query(DeadlineAlert).filter(
-                DeadlineAlert.user_id == user_id,
-                DeadlineAlert.contract_id == contract_id,
-                DeadlineAlert.urgency_level == urgency_level
-            ).first()
+            exists = (
+                session.query(DeadlineAlert)
+                .filter(
+                    DeadlineAlert.user_id == user_id,
+                    DeadlineAlert.contract_id == contract_id,
+                    DeadlineAlert.urgency_level == urgency_level,
+                )
+                .first()
+            )
             return exists is not None
         finally:
             session.close()
 
-    def mark_deadline_alert_sent(
-        self,
-        user_id: int,
-        contract_id: int,
-        urgency_level: int
-    ) -> dict:
+    def mark_deadline_alert_sent(self, user_id: int, contract_id: int, urgency_level: int) -> dict:
         """Marca una alerta de deadline como enviada."""
         session = self.get_session()
         try:
-            alert = DeadlineAlert(
-                user_id=user_id,
-                contract_id=contract_id,
-                urgency_level=urgency_level
-            )
+            alert = DeadlineAlert(user_id=user_id, contract_id=contract_id, urgency_level=urgency_level)
             session.add(alert)
             session.commit()
 
@@ -522,7 +499,7 @@ class DatabaseManager:
                 "user_id": user_id,
                 "contract_id": contract_id,
                 "urgency_level": urgency_level,
-                "sent_at": alert.sent_at
+                "sent_at": alert.sent_at,
             }
         finally:
             session.close()
@@ -532,27 +509,18 @@ class DatabaseManager:
     # =========================================================================
 
     def get_or_create_data_source(
-        self,
-        source_key: str,
-        display_name: str,
-        country: str,
-        source_type: str = SourceType.GOVERNMENT.value
+        self, source_key: str, display_name: str, country: str, source_type: str = SourceType.GOVERNMENT.value
     ) -> Tuple[dict, bool]:
         """Obtiene o crea una fuente de datos."""
         session = self.get_session()
         try:
-            source = session.query(DataSource).filter(
-                DataSource.source_key == source_key
-            ).first()
+            source = session.query(DataSource).filter(DataSource.source_key == source_key).first()
 
             if source:
                 return self._data_source_to_dict(source), False
 
             source = DataSource(
-                source_key=source_key,
-                display_name=display_name,
-                country=country,
-                source_type=source_type
+                source_key=source_key, display_name=display_name, country=country, source_type=source_type
             )
             session.add(source)
             session.commit()
@@ -562,17 +530,11 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def update_data_source_status(
-        self,
-        source_key: str,
-        success: bool = True
-    ) -> Optional[dict]:
+    def update_data_source_status(self, source_key: str, success: bool = True) -> Optional[dict]:
         """Actualiza el estado de una fuente de datos después de un fetch."""
         session = self.get_session()
         try:
-            source = session.query(DataSource).filter(
-                DataSource.source_key == source_key
-            ).first()
+            source = session.query(DataSource).filter(DataSource.source_key == source_key).first()
             if source:
                 if success:
                     source.last_successful_fetch = datetime.utcnow()
@@ -589,9 +551,7 @@ class DatabaseManager:
         """Obtiene todas las fuentes de datos habilitadas."""
         session = self.get_session()
         try:
-            sources = session.query(DataSource).filter(
-                DataSource.is_enabled == True
-            ).all()
+            sources = session.query(DataSource).filter(DataSource.is_enabled == True).all()
             return [self._data_source_to_dict(s) for s in sources]
         finally:
             session.close()
@@ -605,21 +565,17 @@ class DatabaseManager:
         session = self.get_session()
         try:
             total_users = session.query(User).count()
-            active_users = session.query(User).filter(
-                User.state == ConversationState.ACTIVE.value
-            ).count()
+            active_users = session.query(User).filter(User.state == ConversationState.ACTIVE.value).count()
             total_contracts = session.query(Contract).count()
             total_sent = session.query(UserContract).count()
-            contracts_with_embedding = session.query(Contract).filter(
-                Contract.embedding != None
-            ).count()
+            contracts_with_embedding = session.query(Contract).filter(Contract.embedding != None).count()
 
             return {
                 "total_users": total_users,
                 "active_users": active_users,
                 "total_contracts": total_contracts,
                 "contracts_with_embedding": contracts_with_embedding,
-                "total_notifications_sent": total_sent
+                "total_notifications_sent": total_sent,
             }
         finally:
             session.close()
@@ -728,7 +684,7 @@ class DatabaseManager:
         deadline: datetime = None,
         city: str = None,
         is_remote: bool = False,
-        country: str = "colombia"
+        country: str = "colombia",
     ) -> Optional[int]:
         """
         Crea un nuevo contrato privado en el marketplace.
@@ -754,7 +710,7 @@ class DatabaseManager:
                 city=city,
                 is_remote=is_remote,
                 country=country,
-                status=PrivateContractStatus.ACTIVE.value
+                status=PrivateContractStatus.ACTIVE.value,
             )
             session.add(contract)
             session.commit()
@@ -768,20 +724,14 @@ class DatabaseManager:
         """Obtiene un contrato privado por ID."""
         session = self.get_session()
         try:
-            contract = session.query(PrivateContract).filter(
-                PrivateContract.id == contract_id
-            ).first()
+            contract = session.query(PrivateContract).filter(PrivateContract.id == contract_id).first()
             if contract:
                 return self._private_contract_to_dict(contract)
             return None
         finally:
             session.close()
 
-    def get_user_private_contracts(
-        self,
-        phone: str,
-        status: str = None
-    ) -> List[dict]:
+    def get_user_private_contracts(self, phone: str, status: str = None) -> List[dict]:
         """Obtiene los contratos privados publicados por un usuario."""
         session = self.get_session()
         try:
@@ -789,9 +739,7 @@ class DatabaseManager:
             if not user:
                 return []
 
-            query = session.query(PrivateContract).filter(
-                PrivateContract.publisher_id == user.id
-            )
+            query = session.query(PrivateContract).filter(PrivateContract.publisher_id == user.id)
 
             if status:
                 query = query.filter(PrivateContract.status == status)
@@ -801,43 +749,28 @@ class DatabaseManager:
         finally:
             session.close()
 
-    def get_active_private_contracts(
-        self,
-        category: str = None,
-        country: str = None,
-        limit: int = 50
-    ) -> List[dict]:
+    def get_active_private_contracts(self, category: str = None, country: str = None, limit: int = 50) -> List[dict]:
         """Obtiene contratos privados activos para mostrar a contratistas."""
         session = self.get_session()
         try:
-            query = session.query(PrivateContract).filter(
-                PrivateContract.status == PrivateContractStatus.ACTIVE.value
-            )
+            query = session.query(PrivateContract).filter(PrivateContract.status == PrivateContractStatus.ACTIVE.value)
 
             if category:
                 query = query.filter(PrivateContract.category == category)
             if country:
                 query = query.filter(PrivateContract.country == country)
 
-            contracts = query.order_by(
-                PrivateContract.created_at.desc()
-            ).limit(limit).all()
+            contracts = query.order_by(PrivateContract.created_at.desc()).limit(limit).all()
 
             return [self._private_contract_to_dict(c) for c in contracts]
         finally:
             session.close()
 
-    def update_private_contract_status(
-        self,
-        contract_id: int,
-        status: str
-    ) -> Optional[dict]:
+    def update_private_contract_status(self, contract_id: int, status: str) -> Optional[dict]:
         """Actualiza el estado de un contrato privado."""
         session = self.get_session()
         try:
-            contract = session.query(PrivateContract).filter(
-                PrivateContract.id == contract_id
-            ).first()
+            contract = session.query(PrivateContract).filter(PrivateContract.id == contract_id).first()
             if contract:
                 contract.status = status
                 session.commit()
@@ -853,7 +786,7 @@ class DatabaseManager:
         proposed_amount: float = None,
         message: str = None,
         estimated_days: int = None,
-        match_score: float = 0.0
+        match_score: float = 0.0,
     ) -> Optional[int]:
         """
         Crea una aplicación/propuesta para un contrato privado.
@@ -869,10 +802,11 @@ class DatabaseManager:
                 return None
 
             # Verificar que no haya aplicado antes
-            existing = session.query(ContractApplication).filter(
-                ContractApplication.contract_id == contract_id,
-                ContractApplication.applicant_id == user.id
-            ).first()
+            existing = (
+                session.query(ContractApplication)
+                .filter(ContractApplication.contract_id == contract_id, ContractApplication.applicant_id == user.id)
+                .first()
+            )
             if existing:
                 return existing.id  # Ya aplicó
 
@@ -882,7 +816,7 @@ class DatabaseManager:
                 proposed_amount=proposed_amount,
                 message=message,
                 estimated_days=estimated_days,
-                match_score=match_score
+                match_score=match_score,
             )
             session.add(application)
             session.commit()
@@ -896,20 +830,18 @@ class DatabaseManager:
         """Obtiene todas las aplicaciones para un contrato privado."""
         session = self.get_session()
         try:
-            applications = session.query(ContractApplication).filter(
-                ContractApplication.contract_id == contract_id
-            ).order_by(ContractApplication.match_score.desc()).all()
+            applications = (
+                session.query(ContractApplication)
+                .filter(ContractApplication.contract_id == contract_id)
+                .order_by(ContractApplication.match_score.desc())
+                .all()
+            )
 
             return [self._application_to_dict(a) for a in applications]
         finally:
             session.close()
 
-    def get_users_by_category(
-        self,
-        category: str,
-        country: str = None,
-        limit: int = 100
-    ) -> List[dict]:
+    def get_users_by_category(self, category: str, country: str = None, limit: int = 100) -> List[dict]:
         """
         Obtiene usuarios que podrían estar interesados en una categoría.
         Busca por industria y keywords relacionadas.
@@ -917,14 +849,11 @@ class DatabaseManager:
         session = self.get_session()
         try:
             query = session.query(User).filter(
-                User.state == ConversationState.ACTIVE.value,
-                User.notifications_enabled == True
+                User.state == ConversationState.ACTIVE.value, User.notifications_enabled == True
             )
 
             if country:
-                query = query.filter(
-                    or_(User.countries == country, User.countries == "all")
-                )
+                query = query.filter(or_(User.countries == country, User.countries == "all"))
 
             users = query.limit(limit).all()
 

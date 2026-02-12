@@ -2,20 +2,29 @@
 Jobper Core — Modelos, Unit of Work, Repositorios
 14 tablas, ~450 líneas. Reemplaza database/models.py + database/manager.py (1,449 líneas).
 """
+
 from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta
-from typing import Optional, TypeVar, Generic, Type
+from typing import Generic, Optional, Type, TypeVar
 
 from sqlalchemy import (
-    create_engine, Column, Integer, String, Float, Boolean,
-    DateTime, Text, ForeignKey, LargeBinary, Index, UniqueConstraint,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
 )
-from sqlalchemy.orm import (
-    DeclarativeBase, relationship, sessionmaker, Session,
-)
-from sqlalchemy.types import TypeDecorator, TEXT
+from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
+from sqlalchemy.types import TEXT, TypeDecorator
 
 from config import Config
 
@@ -26,12 +35,14 @@ T = TypeVar("T")
 # BASE + CUSTOM TYPES
 # =============================================================================
 
+
 class Base(DeclarativeBase):
     pass
 
 
 class JSONType(TypeDecorator):
     """JSON compatible con PostgreSQL y SQLite."""
+
     impl = TEXT
     cache_ok = True
 
@@ -45,6 +56,7 @@ class JSONType(TypeDecorator):
 # =============================================================================
 # MODELOS (14 tablas)
 # =============================================================================
+
 
 class User(Base):
     __tablename__ = "users"
@@ -170,9 +182,7 @@ class Favorite(Base):
     user = relationship("User", back_populates="favorites")
     contract = relationship("Contract", back_populates="favorites")
 
-    __table_args__ = (
-        UniqueConstraint("user_id", "contract_id", name="uq_favorite"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "contract_id", name="uq_favorite"),)
 
 
 class PrivateContract(Base):
@@ -238,9 +248,7 @@ class ContractApplication(Base):
     contract = relationship("PrivateContract", back_populates="applications")
     applicant = relationship("User")
 
-    __table_args__ = (
-        UniqueConstraint("contract_id", "applicant_id", name="uq_application"),
-    )
+    __table_args__ = (UniqueConstraint("contract_id", "applicant_id", name="uq_application"),)
 
 
 class DataSource(Base):
@@ -271,6 +279,7 @@ class IndustryEmbedding(Base):
 
 # --- NEW MODELS ---
 
+
 class Subscription(Base):
     __tablename__ = "subscriptions"
 
@@ -288,9 +297,7 @@ class Subscription(Base):
 
     user = relationship("User", back_populates="subscriptions")
 
-    __table_args__ = (
-        Index("idx_sub_user_status", "user_id", "status"),
-    )
+    __table_args__ = (Index("idx_sub_user_status", "user_id", "status"),)
 
 
 class Payment(Base):
@@ -351,9 +358,7 @@ class PipelineEntry(Base):
 
     user = relationship("User", back_populates="pipeline_entries")
 
-    __table_args__ = (
-        Index("idx_pipe_user_stage", "user_id", "stage"),
-    )
+    __table_args__ = (Index("idx_pipe_user_stage", "user_id", "stage"),)
 
 
 class Referral(Base):
@@ -443,6 +448,7 @@ def init_database():
 # UNIT OF WORK
 # =============================================================================
 
+
 class UnitOfWork:
     """
     Context manager: 1 session per request, 1 commit at the end.
@@ -489,6 +495,7 @@ class UnitOfWork:
 # BASE REPOSITORY (generic CRUD)
 # =============================================================================
 
+
 class BaseRepository(Generic[T]):
     def __init__(self, model: Type[T], session: Session):
         self.model = model
@@ -516,6 +523,7 @@ class BaseRepository(Generic[T]):
 # SPECIFIC REPOSITORIES
 # =============================================================================
 
+
 class UserRepo(BaseRepository[User]):
     def __init__(self, session: Session):
         super().__init__(User, session)
@@ -527,19 +535,26 @@ class UserRepo(BaseRepository[User]):
         return self.session.query(User).filter(User.referral_code == code).first()
 
     def get_active_with_notifications(self):
-        return self.session.query(User).filter(
-            User.notifications_enabled == True,
-            User.email_verified == True,
-        ).all()
+        return (
+            self.session.query(User)
+            .filter(
+                User.notifications_enabled == True,
+                User.email_verified == True,
+            )
+            .all()
+        )
 
     def get_admins(self):
         return self.session.query(User).filter(User.is_admin == True).all()
 
     def search(self, query: str, limit: int = 50):
         pattern = f"%{query}%"
-        return self.session.query(User).filter(
-            (User.email.ilike(pattern)) | (User.company_name.ilike(pattern))
-        ).limit(limit).all()
+        return (
+            self.session.query(User)
+            .filter((User.email.ilike(pattern)) | (User.company_name.ilike(pattern)))
+            .limit(limit)
+            .all()
+        )
 
     def can_receive_alert(self, user: User) -> bool:
         """Check if user can receive an alert (respects free tier weekly limit)."""
@@ -582,28 +597,27 @@ class ContractRepo(BaseRepository[Contract]):
         super().__init__(Contract, session)
 
     def get_by_external_id(self, external_id: str) -> Optional[Contract]:
-        return self.session.query(Contract).filter(
-            Contract.external_id == external_id
-        ).first()
+        return self.session.query(Contract).filter(Contract.external_id == external_id).first()
 
     def get_expiring_soon(self, days: int = 3):
         now = datetime.utcnow()
         limit = now + timedelta(days=days)
-        return self.session.query(Contract).filter(
-            Contract.deadline != None,
-            Contract.deadline >= now,
-            Contract.deadline <= limit,
-        ).order_by(Contract.deadline.asc()).all()
+        return (
+            self.session.query(Contract)
+            .filter(
+                Contract.deadline != None,
+                Contract.deadline >= now,
+                Contract.deadline <= limit,
+            )
+            .order_by(Contract.deadline.asc())
+            .all()
+        )
 
     def get_without_embedding(self, limit: int = 100):
-        return self.session.query(Contract).filter(
-            Contract.embedding == None
-        ).limit(limit).all()
+        return self.session.query(Contract).filter(Contract.embedding == None).limit(limit).all()
 
     def get_recent(self, limit: int = 50):
-        return self.session.query(Contract).order_by(
-            Contract.created_at.desc()
-        ).limit(limit).all()
+        return self.session.query(Contract).order_by(Contract.created_at.desc()).limit(limit).all()
 
 
 class SubscriptionRepo(BaseRepository[Subscription]):
@@ -611,11 +625,15 @@ class SubscriptionRepo(BaseRepository[Subscription]):
         super().__init__(Subscription, session)
 
     def get_active_for_user(self, user_id: int) -> Optional[Subscription]:
-        return self.session.query(Subscription).filter(
-            Subscription.user_id == user_id,
-            Subscription.status == "active",
-            Subscription.ends_at > datetime.utcnow(),
-        ).first()
+        return (
+            self.session.query(Subscription)
+            .filter(
+                Subscription.user_id == user_id,
+                Subscription.status == "active",
+                Subscription.ends_at > datetime.utcnow(),
+            )
+            .first()
+        )
 
 
 class PaymentRepo(BaseRepository[Payment]):
@@ -623,14 +641,16 @@ class PaymentRepo(BaseRepository[Payment]):
         super().__init__(Payment, session)
 
     def get_by_wompi_ref(self, ref: str) -> Optional[Payment]:
-        return self.session.query(Payment).filter(
-            Payment.wompi_ref == ref
-        ).first()
+        return self.session.query(Payment).filter(Payment.wompi_ref == ref).first()
 
     def get_for_user(self, user_id: int, limit: int = 20):
-        return self.session.query(Payment).filter(
-            Payment.user_id == user_id
-        ).order_by(Payment.created_at.desc()).limit(limit).all()
+        return (
+            self.session.query(Payment)
+            .filter(Payment.user_id == user_id)
+            .order_by(Payment.created_at.desc())
+            .limit(limit)
+            .all()
+        )
 
 
 class MagicLinkRepo(BaseRepository[MagicLink]):
@@ -638,17 +658,25 @@ class MagicLinkRepo(BaseRepository[MagicLink]):
         super().__init__(MagicLink, session)
 
     def get_valid_by_hash(self, token_hash: str) -> Optional[MagicLink]:
-        return self.session.query(MagicLink).filter(
-            MagicLink.token_hash == token_hash,
-            MagicLink.used_at == None,
-            MagicLink.expires_at > datetime.utcnow(),
-        ).first()
+        return (
+            self.session.query(MagicLink)
+            .filter(
+                MagicLink.token_hash == token_hash,
+                MagicLink.used_at == None,
+                MagicLink.expires_at > datetime.utcnow(),
+            )
+            .first()
+        )
 
     def get_by_hash(self, token_hash: str) -> Optional[MagicLink]:
         """Get link by hash without validity checks (for debugging)."""
-        return self.session.query(MagicLink).filter(
-            MagicLink.token_hash == token_hash,
-        ).first()
+        return (
+            self.session.query(MagicLink)
+            .filter(
+                MagicLink.token_hash == token_hash,
+            )
+            .first()
+        )
 
     def get_failure_reason(self, token_hash: str) -> str:
         """Return specific reason why a token is invalid."""
@@ -667,15 +695,22 @@ class PipelineRepo(BaseRepository[PipelineEntry]):
         super().__init__(PipelineEntry, session)
 
     def get_for_user(self, user_id: int):
-        return self.session.query(PipelineEntry).filter(
-            PipelineEntry.user_id == user_id
-        ).order_by(PipelineEntry.updated_at.desc()).all()
+        return (
+            self.session.query(PipelineEntry)
+            .filter(PipelineEntry.user_id == user_id)
+            .order_by(PipelineEntry.updated_at.desc())
+            .all()
+        )
 
     def get_by_stage(self, user_id: int, stage: str):
-        return self.session.query(PipelineEntry).filter(
-            PipelineEntry.user_id == user_id,
-            PipelineEntry.stage == stage,
-        ).all()
+        return (
+            self.session.query(PipelineEntry)
+            .filter(
+                PipelineEntry.user_id == user_id,
+                PipelineEntry.stage == stage,
+            )
+            .all()
+        )
 
 
 class ReferralRepo(BaseRepository[Referral]):
@@ -686,12 +721,19 @@ class ReferralRepo(BaseRepository[Referral]):
         return self.session.query(Referral).filter(Referral.code == code).first()
 
     def count_for_referrer(self, referrer_id: int, status: str = "subscribed") -> int:
-        return self.session.query(Referral).filter(
-            Referral.referrer_id == referrer_id,
-            Referral.status == status,
-        ).count()
+        return (
+            self.session.query(Referral)
+            .filter(
+                Referral.referrer_id == referrer_id,
+                Referral.status == status,
+            )
+            .count()
+        )
 
     def get_for_referrer(self, referrer_id: int):
-        return self.session.query(Referral).filter(
-            Referral.referrer_id == referrer_id
-        ).order_by(Referral.clicked_at.desc()).all()
+        return (
+            self.session.query(Referral)
+            .filter(Referral.referrer_id == referrer_id)
+            .order_by(Referral.clicked_at.desc())
+            .all()
+        )

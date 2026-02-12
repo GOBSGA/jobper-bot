@@ -2,6 +2,7 @@
 Plantillas de mensajes para el bot Jobper
 Todos los mensajes de WhatsApp centralizados
 """
+
 from __future__ import annotations
 
 from config import Config
@@ -364,13 +365,13 @@ _Análisis generado por IA - Jobper Pro_"""
     def format_currency(amount: float, currency: str = "COP") -> str:
         """Formatea un valor monetario."""
         currency_formats = {
-            "COP": ("$", " COP", "."),      # Peso colombiano
-            "USD": ("$", " USD", ","),       # Dólar
-            "BRL": ("R$", " BRL", "."),     # Real brasileño
-            "MXN": ("$", " MXN", ","),       # Peso mexicano
-            "CLP": ("$", " CLP", "."),       # Peso chileno
-            "PEN": ("S/", " PEN", ","),      # Sol peruano
-            "ARS": ("$", " ARS", "."),       # Peso argentino
+            "COP": ("$", " COP", "."),  # Peso colombiano
+            "USD": ("$", " USD", ","),  # Dólar
+            "BRL": ("R$", " BRL", "."),  # Real brasileño
+            "MXN": ("$", " MXN", ","),  # Peso mexicano
+            "CLP": ("$", " CLP", "."),  # Peso chileno
+            "PEN": ("S/", " PEN", ","),  # Sol peruano
+            "ARS": ("$", " ARS", "."),  # Peso argentino
         }
 
         if currency in currency_formats:

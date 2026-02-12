@@ -9,17 +9,18 @@ Países soportados:
 - Brasil: ComprasNet (gov.br) + Petrobras
 """
 
-from scrapers.latam.mexico import CompraNetScraper
-from scrapers.latam.chile import ChileCompraScraper
-from scrapers.latam.peru import SeaceScraper
 from scrapers.latam.argentina import ComprarScraper
-from scrapers.latam.brasil import ComprasNetScraper as BrasilComprasNetScraper, PetrobrasScraper
+from scrapers.latam.brasil import ComprasNetScraper as BrasilComprasNetScraper
+from scrapers.latam.brasil import PetrobrasScraper
+from scrapers.latam.chile import ChileCompraScraper
+from scrapers.latam.mexico import CompraNetScraper
+from scrapers.latam.peru import SeaceScraper
 
 __all__ = [
-    "CompraNetScraper",       # México
-    "ChileCompraScraper",     # Chile
-    "SeaceScraper",           # Perú
-    "ComprarScraper",         # Argentina
-    "BrasilComprasNetScraper", # Brasil (gobierno)
-    "PetrobrasScraper",       # Brasil (Petrobras)
+    "CompraNetScraper",  # México
+    "ChileCompraScraper",  # Chile
+    "SeaceScraper",  # Perú
+    "ComprarScraper",  # Argentina
+    "BrasilComprasNetScraper",  # Brasil (gobierno)
+    "PetrobrasScraper",  # Brasil (Petrobras)
 ]

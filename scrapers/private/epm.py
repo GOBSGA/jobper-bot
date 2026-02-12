@@ -2,11 +2,12 @@
 Scraper para portal de proveedores de EPM
 Obtiene oportunidades de contratación de Empresas Públicas de Medellín
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import List, Optional
 
 from scrapers.base import ContractData
 from scrapers.private.base_private import PrivatePortalScraper
@@ -41,7 +42,7 @@ class EPMScraper(PrivatePortalScraper):
         keywords: Optional[List[str]] = None,
         min_amount: Optional[float] = None,
         max_amount: Optional[float] = None,
-        days_back: int = 30
+        days_back: int = 30,
     ) -> List[ContractData]:
         """
         Obtiene oportunidades de contratación de EPM.
@@ -83,11 +84,11 @@ class EPMScraper(PrivatePortalScraper):
 
             # Buscar elementos de procesos/oportunidades
             opportunity_elements = (
-                soup.select(".proceso-contratacion, .oportunidad-item") or
-                soup.select("article.contratacion") or
-                soup.select(".listado-procesos .item") or
-                soup.select(".card-proceso, .card-oportunidad") or
-                soup.select('a[href*="proceso"], a[href*="contratacion"]')
+                soup.select(".proceso-contratacion, .oportunidad-item")
+                or soup.select("article.contratacion")
+                or soup.select(".listado-procesos .item")
+                or soup.select(".card-proceso, .card-oportunidad")
+                or soup.select('a[href*="proceso"], a[href*="contratacion"]')
             )
 
             for element in opportunity_elements[:30]:
@@ -114,11 +115,7 @@ class EPMScraper(PrivatePortalScraper):
 
         return contracts
 
-    def _parse_opportunity_element(
-        self,
-        element,
-        keywords: Optional[List[str]] = None
-    ) -> Optional[ContractData]:
+    def _parse_opportunity_element(self, element, keywords: Optional[List[str]] = None) -> Optional[ContractData]:
         """Parsea un elemento HTML de oportunidad de EPM."""
         try:
             # Obtener título
@@ -188,24 +185,25 @@ class EPMScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=deadline,
-                raw_data={"source": "web_scrape"}
+                raw_data={"source": "web_scrape"},
             )
 
         except Exception as e:
             logger.debug(f"Error parsing EPM opportunity: {e}")
             return None
 
-    def _fallback_extraction(
-        self,
-        soup,
-        keywords: Optional[List[str]] = None
-    ) -> List[ContractData]:
+    def _fallback_extraction(self, soup, keywords: Optional[List[str]] = None) -> List[ContractData]:
         """Extracción de fallback buscando links de contratación."""
         contracts = []
 
         contract_keywords = [
-            "contratacion", "licitacion", "invitacion", "concurso",
-            "proceso", "proveedor", "suministro"
+            "contratacion",
+            "licitacion",
+            "invitacion",
+            "concurso",
+            "proceso",
+            "proveedor",
+            "suministro",
         ]
 
         all_links = soup.select("a[href]")
@@ -238,7 +236,7 @@ class EPMScraper(PrivatePortalScraper):
                 url=url,
                 publication_date=datetime.now(),
                 deadline=None,
-                raw_data={"source": "fallback_extraction"}
+                raw_data={"source": "fallback_extraction"},
             )
             contracts.append(contract)
 

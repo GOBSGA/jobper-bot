@@ -8,6 +8,7 @@ CACHING STRATEGY:
 - Sector detection: Cache common patterns indefinitely
 - Cost savings: ~95% reduction with typical usage patterns
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -34,8 +35,8 @@ CACHE_TTL_SECTOR = 604800  # 7 days - sector mappings are stable
 def _normalize_text(text: str) -> str:
     """Normalize text for consistent cache keys."""
     text = text.lower().strip()
-    text = re.sub(r'\s+', ' ', text)  # Multiple spaces → single
-    text = re.sub(r'[^\w\sáéíóúñü]', '', text)  # Remove punctuation except accents
+    text = re.sub(r"\s+", " ", text)  # Multiple spaces → single
+    text = re.sub(r"[^\w\sáéíóúñü]", "", text)  # Remove punctuation except accents
     return text
 
 
@@ -151,6 +152,7 @@ def _try_fast_path(description: str) -> Optional[dict]:
 
     return None
 
+
 # OpenAI client (lazy initialization)
 _openai_client = None
 
@@ -168,6 +170,7 @@ def get_openai_client():
 
     try:
         from openai import OpenAI
+
         _openai_client = OpenAI(api_key=api_key)
         logger.info("OpenAI client initialized")
         return _openai_client
@@ -183,27 +186,137 @@ def get_openai_client():
 # PROFILE EXTRACTION FROM FREE TEXT
 # =============================================================================
 
-SECTORS = [
-    "tecnologia", "construccion", "consultoria", "salud",
-    "educacion", "logistica", "energia", "marketing"
-]
+SECTORS = ["tecnologia", "construccion", "consultoria", "salud", "educacion", "logistica", "energia", "marketing"]
 
 SECTOR_KEYWORDS = {
-    "tecnologia": ["software", "desarrollo", "aplicación", "app", "sistema", "plataforma", "web", "móvil", "cloud", "nube", "datos", "inteligencia artificial", "ciberseguridad", "redes", "telecomunicaciones"],
-    "construccion": ["construcción", "obra", "edificio", "carretera", "puente", "infraestructura", "ingeniería civil", "vivienda", "acueducto", "alcantarillado", "mantenimiento", "pavimentación", "vial"],
-    "consultoria": ["consultoría", "asesoría", "auditoría", "gestión", "estrategia", "análisis", "estudio", "diagnóstico", "evaluación", "interventoría", "supervisión"],
-    "salud": ["salud", "médico", "hospital", "farmacéutico", "medicamento", "equipo médico", "laboratorio", "clínico", "insumos médicos", "vacunas", "ambulancia"],
-    "educacion": ["educación", "capacitación", "formación", "curso", "taller", "universidad", "escuela", "e-learning", "material educativo", "diplomado"],
-    "logistica": ["transporte", "logística", "distribución", "almacenamiento", "cadena de suministro", "flota", "envío", "carga", "mensajería", "courier"],
-    "energia": ["energía", "renovable", "solar", "eólica", "ambiental", "sostenibilidad", "residuos", "reciclaje", "agua", "saneamiento"],
-    "marketing": ["marketing", "publicidad", "comunicación", "diseño", "branding", "redes sociales", "contenido", "evento", "producción audiovisual"],
+    "tecnologia": [
+        "software",
+        "desarrollo",
+        "aplicación",
+        "app",
+        "sistema",
+        "plataforma",
+        "web",
+        "móvil",
+        "cloud",
+        "nube",
+        "datos",
+        "inteligencia artificial",
+        "ciberseguridad",
+        "redes",
+        "telecomunicaciones",
+    ],
+    "construccion": [
+        "construcción",
+        "obra",
+        "edificio",
+        "carretera",
+        "puente",
+        "infraestructura",
+        "ingeniería civil",
+        "vivienda",
+        "acueducto",
+        "alcantarillado",
+        "mantenimiento",
+        "pavimentación",
+        "vial",
+    ],
+    "consultoria": [
+        "consultoría",
+        "asesoría",
+        "auditoría",
+        "gestión",
+        "estrategia",
+        "análisis",
+        "estudio",
+        "diagnóstico",
+        "evaluación",
+        "interventoría",
+        "supervisión",
+    ],
+    "salud": [
+        "salud",
+        "médico",
+        "hospital",
+        "farmacéutico",
+        "medicamento",
+        "equipo médico",
+        "laboratorio",
+        "clínico",
+        "insumos médicos",
+        "vacunas",
+        "ambulancia",
+    ],
+    "educacion": [
+        "educación",
+        "capacitación",
+        "formación",
+        "curso",
+        "taller",
+        "universidad",
+        "escuela",
+        "e-learning",
+        "material educativo",
+        "diplomado",
+    ],
+    "logistica": [
+        "transporte",
+        "logística",
+        "distribución",
+        "almacenamiento",
+        "cadena de suministro",
+        "flota",
+        "envío",
+        "carga",
+        "mensajería",
+        "courier",
+    ],
+    "energia": [
+        "energía",
+        "renovable",
+        "solar",
+        "eólica",
+        "ambiental",
+        "sostenibilidad",
+        "residuos",
+        "reciclaje",
+        "agua",
+        "saneamiento",
+    ],
+    "marketing": [
+        "marketing",
+        "publicidad",
+        "comunicación",
+        "diseño",
+        "branding",
+        "redes sociales",
+        "contenido",
+        "evento",
+        "producción audiovisual",
+    ],
 }
 
 COLOMBIAN_CITIES = [
-    "bogotá", "medellín", "cali", "barranquilla", "cartagena",
-    "bucaramanga", "pereira", "manizales", "santa marta", "ibagué",
-    "villavicencio", "pasto", "neiva", "armenia", "cúcuta",
-    "montería", "popayán", "tunja", "sincelejo", "valledupar",
+    "bogotá",
+    "medellín",
+    "cali",
+    "barranquilla",
+    "cartagena",
+    "bucaramanga",
+    "pereira",
+    "manizales",
+    "santa marta",
+    "ibagué",
+    "villavicencio",
+    "pasto",
+    "neiva",
+    "armenia",
+    "cúcuta",
+    "montería",
+    "popayán",
+    "tunja",
+    "sincelejo",
+    "valledupar",
 ]
 
 EXTRACTION_PROMPT = """Analiza la siguiente descripción de una empresa colombiana y extrae la información en formato JSON.
@@ -291,12 +404,9 @@ def _extract_with_openai(client, description: str) -> dict:
         messages=[
             {
                 "role": "system",
-                "content": "Eres un asistente que extrae información estructurada de descripciones de empresas colombianas. Solo respondes con JSON válido."
+                "content": "Eres un asistente que extrae información estructurada de descripciones de empresas colombianas. Solo respondes con JSON válido.",
             },
-            {
-                "role": "user",
-                "content": EXTRACTION_PROMPT.format(description=description)
-            }
+            {"role": "user", "content": EXTRACTION_PROMPT.format(description=description)},
         ],
         temperature=0.1,
         max_tokens=500,
@@ -416,9 +526,20 @@ def _extract_keywords(text: str, sector: str) -> list:
 
     # Add other common business words found in text
     common_words = [
-        "software", "desarrollo", "construcción", "obra", "consultoría",
-        "asesoría", "equipos", "insumos", "servicios", "suministro",
-        "mantenimiento", "transporte", "diseño", "producción",
+        "software",
+        "desarrollo",
+        "construcción",
+        "obra",
+        "consultoría",
+        "asesoría",
+        "equipos",
+        "insumos",
+        "servicios",
+        "suministro",
+        "mantenimiento",
+        "transporte",
+        "diseño",
+        "producción",
     ]
     for word in common_words:
         if word in text and word not in keywords:
@@ -486,6 +607,7 @@ def _extract_company_name(text: str) -> Optional[str]:
 # CACHE STATS (for monitoring)
 # =============================================================================
 
+
 def get_ai_cache_stats() -> dict:
     """
     Get cache statistics for AI services.
@@ -509,6 +631,7 @@ def get_ai_cache_stats() -> dict:
 # CONTRACT ANALYSIS (for Competidor+ plans)
 # =============================================================================
 
+
 def analyze_contract(contract_id: int, user_id: int) -> dict:
     """
     AI analysis of a contract for a specific user.
@@ -526,7 +649,7 @@ def analyze_contract(contract_id: int, user_id: int) -> dict:
         cached["cached"] = True
         return cached
 
-    from core.database import UnitOfWork, Contract
+    from core.database import Contract, UnitOfWork
 
     client = get_openai_client()
     if not client:
@@ -571,7 +694,7 @@ Responde SOLO con JSON válido."""
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Eres un experto en licitaciones públicas en Colombia."},
-                {"role": "user", "content": prompt}
+                {"role": "user", "content": prompt},
             ],
             temperature=0.3,
             max_tokens=1000,

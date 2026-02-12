@@ -13,15 +13,16 @@ Flujo:
 6. Bot confirma y publica
 7. Sistema busca contratistas relevantes y los notifica
 """
+
 from __future__ import annotations
 
 import logging
 import re
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from database.models import ConversationState, PrivateContractStatus
 from database.manager import DatabaseManager
+from database.models import ConversationState, PrivateContractStatus
 
 logger = logging.getLogger(__name__)
 
@@ -136,20 +137,23 @@ class PrivateContractHandler:
         Returns:
             Respuesta del bot
         """
-        phone = user['phone']
+        phone = user["phone"]
 
         # Extraer información inicial
         info = self.extract_initial_info(message)
 
         # Guardar en temp_data
-        self.db.update_user_temp_data(phone, {
-            "posting": {
-                "title": info["title"],
-                "category": info["category"],
-                "description": info["description"],
-                "step": "budget"
-            }
-        })
+        self.db.update_user_temp_data(
+            phone,
+            {
+                "posting": {
+                    "title": info["title"],
+                    "category": info["category"],
+                    "description": info["description"],
+                    "step": "budget",
+                }
+            },
+        )
 
         # Cambiar estado
         self.db.update_user_state(phone, ConversationState.POSTING_AWAITING_BUDGET)
@@ -182,7 +186,7 @@ _Escribe el presupuesto o "cancelar" para salir_"""
         Returns:
             Respuesta del bot
         """
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["cancelar", "cancel", "salir"]:
             return self._cancel_posting(user)
@@ -191,13 +195,13 @@ _Escribe el presupuesto o "cancelar" para salir_"""
         budget_min, budget_max = self._parse_budget(message)
 
         # Actualizar temp_data
-        temp_data = user.get('temp_data', {})
-        posting = temp_data.get('posting', {})
-        posting['budget_min'] = budget_min
-        posting['budget_max'] = budget_max
-        posting['step'] = 'deadline'
+        temp_data = user.get("temp_data", {})
+        posting = temp_data.get("posting", {})
+        posting["budget_min"] = budget_min
+        posting["budget_max"] = budget_max
+        posting["step"] = "deadline"
 
-        self.db.update_user_temp_data(phone, {'posting': posting})
+        self.db.update_user_temp_data(phone, {"posting": posting})
         self.db.update_user_state(phone, ConversationState.POSTING_AWAITING_DEADLINE)
 
         # Formatear presupuesto para mostrar
@@ -232,7 +236,7 @@ _Escribe la fecha o plazo_"""
         Returns:
             Respuesta del bot
         """
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["cancelar", "cancel", "salir"]:
             return self._cancel_posting(user)
@@ -241,13 +245,13 @@ _Escribe la fecha o plazo_"""
         deadline = self._parse_deadline(message)
 
         # Actualizar temp_data
-        temp_data = user.get('temp_data', {})
-        posting = temp_data.get('posting', {})
-        posting['deadline'] = deadline.isoformat() if deadline else None
-        posting['deadline_text'] = message
-        posting['step'] = 'location'
+        temp_data = user.get("temp_data", {})
+        posting = temp_data.get("posting", {})
+        posting["deadline"] = deadline.isoformat() if deadline else None
+        posting["deadline_text"] = message
+        posting["step"] = "location"
 
-        self.db.update_user_temp_data(phone, {'posting': posting})
+        self.db.update_user_temp_data(phone, {"posting": posting})
         self.db.update_user_state(phone, ConversationState.POSTING_AWAITING_LOCATION)
 
         # Formatear fecha para mostrar
@@ -278,7 +282,7 @@ _Escribe la ubicación_"""
         Returns:
             Respuesta del bot
         """
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["cancelar", "cancel", "salir"]:
             return self._cancel_posting(user)
@@ -287,13 +291,13 @@ _Escribe la ubicación_"""
         is_remote = message.lower() in ["remoto", "remote", "virtual", "online", "a distancia"]
 
         # Actualizar temp_data
-        temp_data = user.get('temp_data', {})
-        posting = temp_data.get('posting', {})
-        posting['city'] = None if is_remote else message.title()
-        posting['is_remote'] = is_remote
-        posting['step'] = 'confirm'
+        temp_data = user.get("temp_data", {})
+        posting = temp_data.get("posting", {})
+        posting["city"] = None if is_remote else message.title()
+        posting["is_remote"] = is_remote
+        posting["step"] = "confirm"
 
-        self.db.update_user_temp_data(phone, {'posting': posting})
+        self.db.update_user_temp_data(phone, {"posting": posting})
         self.db.update_user_state(phone, ConversationState.POSTING_AWAITING_CONFIRM)
 
         # Generar resumen para confirmar
@@ -310,7 +314,7 @@ _Escribe la ubicación_"""
         Returns:
             Respuesta del bot
         """
-        phone = user['phone']
+        phone = user["phone"]
 
         if message in ["cancelar", "cancel", "salir", "no", "2"]:
             return self._cancel_posting(user)
@@ -320,9 +324,9 @@ _Escribe la ubicación_"""
 
         if message in ["editar", "modificar", "3"]:
             # Reiniciar el flujo
-            temp_data = user.get('temp_data', {})
-            posting = temp_data.get('posting', {})
-            return self.start_posting_flow(user, posting.get('description', ''))
+            temp_data = user.get("temp_data", {})
+            posting = temp_data.get("posting", {})
+            return self.start_posting_flow(user, posting.get("description", ""))
 
         return """❓ No entendí tu respuesta.
 
@@ -419,13 +423,13 @@ Por favor responde:
     def _generate_confirmation_message(self, posting: dict) -> str:
         """Genera mensaje de confirmación con resumen."""
 
-        title = posting.get('title', 'Sin título')
-        category = posting.get('category', 'general')
+        title = posting.get("title", "Sin título")
+        category = posting.get("category", "general")
         category_display = category.replace("_", " ").title() if category else "General"
 
         # Presupuesto
-        budget_min = posting.get('budget_min')
-        budget_max = posting.get('budget_max')
+        budget_min = posting.get("budget_min")
+        budget_max = posting.get("budget_max")
         if budget_min and budget_max and budget_min != budget_max:
             budget_display = f"${budget_min:,.0f} - ${budget_max:,.0f} COP"
         elif budget_min:
@@ -434,18 +438,18 @@ Por favor responde:
             budget_display = "Negociable"
 
         # Fecha
-        deadline_str = posting.get('deadline')
+        deadline_str = posting.get("deadline")
         if deadline_str:
             try:
                 deadline = datetime.fromisoformat(deadline_str)
                 deadline_display = deadline.strftime("%d/%m/%Y")
             except (ValueError, TypeError):
-                deadline_display = posting.get('deadline_text', 'Flexible')
+                deadline_display = posting.get("deadline_text", "Flexible")
         else:
             deadline_display = "Flexible"
 
         # Ubicación
-        if posting.get('is_remote'):
+        if posting.get("is_remote"):
             location_display = "🌐 Remoto"
         else:
             location_display = f"📍 {posting.get('city', 'Por definir')}"
@@ -470,13 +474,13 @@ _Responde con tu elección_"""
 
     def _publish_contract(self, user: dict) -> str:
         """Publica el contrato y notifica a contratistas."""
-        phone = user['phone']
-        temp_data = user.get('temp_data', {})
-        posting = temp_data.get('posting', {})
+        phone = user["phone"]
+        temp_data = user.get("temp_data", {})
+        posting = temp_data.get("posting", {})
 
         # Parsear deadline
         deadline = None
-        deadline_str = posting.get('deadline')
+        deadline_str = posting.get("deadline")
         if deadline_str:
             try:
                 deadline = datetime.fromisoformat(deadline_str)
@@ -486,14 +490,14 @@ _Responde con tu elección_"""
         # Crear contrato en DB
         contract_id = self.db.create_private_contract(
             publisher_phone=phone,
-            title=posting.get('title', ''),
-            description=posting.get('description'),
-            category=posting.get('category'),
-            budget_min=posting.get('budget_min'),
-            budget_max=posting.get('budget_max'),
+            title=posting.get("title", ""),
+            description=posting.get("description"),
+            category=posting.get("category"),
+            budget_min=posting.get("budget_min"),
+            budget_max=posting.get("budget_max"),
             deadline=deadline,
-            city=posting.get('city'),
-            is_remote=posting.get('is_remote', False)
+            city=posting.get("city"),
+            is_remote=posting.get("is_remote", False),
         )
 
         # Limpiar temp_data y volver a estado activo
@@ -523,7 +527,7 @@ _¡Gracias por usar Jobper!_"""
 
     def _cancel_posting(self, user: dict) -> str:
         """Cancela el flujo de publicación."""
-        phone = user['phone']
+        phone = user["phone"]
         self.db.clear_user_temp_data(phone)
         self.db.update_user_state(phone, ConversationState.ACTIVE)
 
@@ -545,6 +549,7 @@ _Escribe "menu" para ver opciones_"""
         # Importar aquí para evitar circular imports
         try:
             from marketplace.contractor_matcher import ContractorMatcher
+
             matcher = ContractorMatcher(self.db)
             matcher.find_and_notify(contract_id, posting)
         except ImportError:

@@ -2,6 +2,7 @@
 Jobper Services — Receipt Verification with OpenAI Vision
 Verifies payment receipts using AI to prevent fraud.
 """
+
 from __future__ import annotations
 
 import base64
@@ -14,7 +15,7 @@ from typing import NamedTuple
 
 from config import Config
 from core.cache import cache
-from core.database import UnitOfWork, Payment
+from core.database import Payment, UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,10 @@ logger = logging.getLogger(__name__)
 # VERIFICATION RESULT
 # =============================================================================
 
+
 class VerificationResult(NamedTuple):
     """Result of receipt verification."""
+
     is_valid: bool
     confidence: float  # 0.0 to 1.0
     extracted_amount: int | None
@@ -39,6 +42,7 @@ class VerificationResult(NamedTuple):
 # =============================================================================
 # REFERENCE CODE GENERATION
 # =============================================================================
+
 
 def generate_payment_reference(user_id: int, plan: str, amount: int) -> str:
     """
@@ -88,6 +92,7 @@ def parse_reference(reference: str) -> dict | None:
 # DUPLICATE DETECTION
 # =============================================================================
 
+
 def compute_image_hash(image_bytes: bytes) -> str:
     """Compute a perceptual hash of the image for duplicate detection."""
     # Simple SHA256 hash of image content
@@ -123,6 +128,7 @@ def check_duplicate_receipt(image_hash: str, user_id: int) -> dict | None:
 # =============================================================================
 # OPENAI VISION VERIFICATION
 # =============================================================================
+
 
 def verify_receipt_with_ai(
     image_path: str | Path,
@@ -179,6 +185,7 @@ def verify_receipt_with_ai(
 
     # Get current date for time validation
     from datetime import datetime
+
     today = datetime.utcnow().strftime("%Y-%m-%d")
 
     # Build the prompt
@@ -261,7 +268,7 @@ Si tienes CUALQUIER duda, indica confianza menor a 0.9.
         import json
 
         # Try to find JSON in the response
-        json_match = re.search(r'\{[\s\S]*\}', content)
+        json_match = re.search(r"\{[\s\S]*\}", content)
         if not json_match:
             logger.warning(f"No JSON found in OpenAI response: {content[:200]}")
             return VerificationResult(
@@ -288,7 +295,11 @@ Si tienes CUALQUIER duda, indica confianza menor a 0.9.
         if not analysis.get("amount_matches", False):
             extracted = analysis.get("extracted_amount")
             if extracted:
-                issues.append(f"Monto incorrecto: esperado {expected_amount_display}, encontrado ${extracted:,.0f}".replace(",", "."))
+                issues.append(
+                    f"Monto incorrecto: esperado {expected_amount_display}, encontrado ${extracted:,.0f}".replace(
+                        ",", "."
+                    )
+                )
             else:
                 issues.append("No se pudo leer el monto")
 
@@ -313,21 +324,17 @@ Si tienes CUALQUIER duda, indica confianza menor a 0.9.
 
         # STRICT: Require 85%+ confidence AND all checks passing
         is_valid = (
-            analysis.get("is_payment_receipt", False) and
-            analysis.get("amount_matches", False) and
-            analysis.get("reference_matches", False) and
-            analysis.get("destination_matches", False) and  # Added: must match destination
-            analysis.get("appears_authentic", True) and
-            analysis.get("date_is_recent", True) and  # Added: must be recent
-            confidence >= 0.85  # Raised from 0.7
+            analysis.get("is_payment_receipt", False)
+            and analysis.get("amount_matches", False)
+            and analysis.get("reference_matches", False)
+            and analysis.get("destination_matches", False)  # Added: must match destination
+            and analysis.get("appears_authentic", True)
+            and analysis.get("date_is_recent", True)  # Added: must be recent
+            and confidence >= 0.85  # Raised from 0.7
         )
 
         # Require manual review if borderline (40-85% confidence)
-        requires_manual_review = (
-            not is_valid and
-            confidence >= 0.4 and
-            analysis.get("is_payment_receipt", False)
-        )
+        requires_manual_review = not is_valid and confidence >= 0.4 and analysis.get("is_payment_receipt", False)
 
         return VerificationResult(
             is_valid=is_valid,
@@ -372,6 +379,7 @@ Si tienes CUALQUIER duda, indica confianza menor a 0.9.
 # =============================================================================
 # MAIN VERIFICATION FUNCTION
 # =============================================================================
+
 
 def verify_payment_receipt(
     user_id: int,
@@ -423,7 +431,9 @@ def verify_payment_receipt(
             }
         else:
             # Different user used this receipt - fraud attempt
-            logger.warning(f"FRAUD ALERT: Receipt reuse detected! User {user_id} tried to use receipt from user {duplicate['user_id']}")
+            logger.warning(
+                f"FRAUD ALERT: Receipt reuse detected! User {user_id} tried to use receipt from user {duplicate['user_id']}"
+            )
             return {
                 "valid": False,
                 "auto_approved": False,
@@ -468,7 +478,8 @@ def verify_payment_receipt(
         "valid": verification.is_valid,
         # STRICT: Only auto-approve with 95%+ confidence
         "auto_approved": verification.is_valid and verification.confidence >= 0.95,
-        "requires_review": verification.requires_manual_review or (verification.is_valid and verification.confidence < 0.95),
+        "requires_review": verification.requires_manual_review
+        or (verification.is_valid and verification.confidence < 0.95),
         "issues": verification.issues,
         "verification": {
             "confidence": verification.confidence,

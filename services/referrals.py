@@ -2,13 +2,14 @@
 Jobper Services — Referral system
 1 referral = 10%, 10 referrals = 50%, max 10/month
 """
+
 from __future__ import annotations
 
 import logging
 from datetime import datetime
 
 from config import Config
-from core.database import UnitOfWork, Referral
+from core.database import Referral, UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def generate_code(user_id: int) -> dict:
             return {"code": user.referral_code}
 
         import secrets
+
         code = f"JOB-{secrets.token_hex(4).upper()}"
         user.referral_code = code
         uow.commit()
@@ -91,9 +93,7 @@ def track_subscription(user_id: int):
     """Mark referral as converting when referred user subscribes."""
     with UnitOfWork() as uow:
         referral = (
-            uow.session.query(Referral)
-            .filter(Referral.referred_id == user_id, Referral.status == "registered")
-            .first()
+            uow.session.query(Referral).filter(Referral.referred_id == user_id, Referral.status == "registered").first()
         )
 
         if referral:

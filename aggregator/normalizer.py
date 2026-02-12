@@ -5,39 +5,42 @@ Sistema de normalización de contratos de múltiples fuentes.
 Transforma datos crudos de diferentes fuentes a un formato
 común y enriquecido para procesamiento uniforme.
 """
+
 from __future__ import annotations
 
-import re
 import hashlib
 import logging
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, Any, List, Optional, Tuple
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
 
 class NormalizationQuality(str, Enum):
     """Calidad de la normalización."""
-    HIGH = "high"           # Todos los campos principales
-    MEDIUM = "medium"       # Campos básicos
-    LOW = "low"             # Solo título y fuente
+
+    HIGH = "high"  # Todos los campos principales
+    MEDIUM = "medium"  # Campos básicos
+    LOW = "low"  # Solo título y fuente
     INCOMPLETE = "incomplete"
 
 
 @dataclass
 class NormalizedContract:
     """Contrato normalizado con campos enriquecidos."""
+
     # Identificación
-    id: str                          # ID interno único
-    external_id: str                 # ID de la fuente original
-    source: str                      # Clave de la fuente
-    source_name: str                 # Nombre legible de la fuente
+    id: str  # ID interno único
+    external_id: str  # ID de la fuente original
+    source: str  # Clave de la fuente
+    source_name: str  # Nombre legible de la fuente
 
     # Información principal
     title: str
-    title_normalized: str            # Título limpio y normalizado
+    title_normalized: str  # Título limpio y normalizado
     description: Optional[str] = None
     description_normalized: Optional[str] = None
 
@@ -64,7 +67,7 @@ class NormalizedContract:
     estimated_duration_days: Optional[int] = None
 
     # Clasificación
-    contract_type: Optional[str] = None      # "goods", "services", "construction", etc.
+    contract_type: Optional[str] = None  # "goods", "services", "construction", etc.
     procurement_method: Optional[str] = None  # "open", "restricted", "direct"
     sectors: List[str] = field(default_factory=list)
     categories: List[str] = field(default_factory=list)
@@ -107,7 +110,7 @@ class NormalizedContract:
             "keywords": self.keywords,
             "url": self.url,
             "quality": self.quality.value,
-            "completeness_score": self.completeness_score
+            "completeness_score": self.completeness_score,
         }
 
     def to_contract_data(self):
@@ -126,7 +129,7 @@ class NormalizedContract:
             url=self.url,
             publication_date=self.publication_date,
             deadline=self.deadline,
-            raw_data=self.raw_data
+            raw_data=self.raw_data,
         )
 
 
@@ -140,38 +143,48 @@ class ContractNormalizer:
 
     # Tasas de cambio aproximadas (actualizar periódicamente)
     EXCHANGE_RATES = {
-        "COP": 4000,    # COP a USD
-        "MXN": 17,      # MXN a USD
-        "CLP": 900,     # CLP a USD
-        "PEN": 3.7,     # PEN a USD
-        "ARS": 850,     # ARS a USD
-        "BRL": 5,       # BRL a USD
-        "EUR": 0.92,    # EUR a USD
-        "USD": 1        # USD a USD
+        "COP": 4000,  # COP a USD
+        "MXN": 17,  # MXN a USD
+        "CLP": 900,  # CLP a USD
+        "PEN": 3.7,  # PEN a USD
+        "ARS": 850,  # ARS a USD
+        "BRL": 5,  # BRL a USD
+        "EUR": 0.92,  # EUR a USD
+        "USD": 1,  # USD a USD
     }
 
     # Patrones para extracción
     TYPE_PATTERNS = {
         "goods": [
-            r"suministro", r"compra\s+de", r"adquisición", r"dotación",
-            r"equipos", r"materiales", r"insumos", r"supply", r"goods"
+            r"suministro",
+            r"compra\s+de",
+            r"adquisición",
+            r"dotación",
+            r"equipos",
+            r"materiales",
+            r"insumos",
+            r"supply",
+            r"goods",
         ],
         "services": [
-            r"prestación\s+de\s+servicios", r"servicio\s+de", r"services",
-            r"soporte", r"mantenimiento", r"outsourcing"
+            r"prestación\s+de\s+servicios",
+            r"servicio\s+de",
+            r"services",
+            r"soporte",
+            r"mantenimiento",
+            r"outsourcing",
         ],
-        "construction": [
-            r"construcción", r"obra", r"edificación", r"infrastructure",
-            r"civil\s+works", r"building"
-        ],
-        "consulting": [
-            r"consultoría", r"asesoría", r"consulting", r"advisory",
-            r"estudio", r"diagnóstico"
-        ],
+        "construction": [r"construcción", r"obra", r"edificación", r"infrastructure", r"civil\s+works", r"building"],
+        "consulting": [r"consultoría", r"asesoría", r"consulting", r"advisory", r"estudio", r"diagnóstico"],
         "it": [
-            r"software", r"sistema\s+de\s+información", r"desarrollo",
-            r"aplicación", r"plataforma", r"technology", r"it\s+services"
-        ]
+            r"software",
+            r"sistema\s+de\s+información",
+            r"desarrollo",
+            r"aplicación",
+            r"plataforma",
+            r"technology",
+            r"it\s+services",
+        ],
     }
 
     SECTOR_PATTERNS = {
@@ -182,7 +195,7 @@ class ContractNormalizer:
         "energia": ["energía", "eléctrico", "petróleo", "gas", "energy"],
         "transporte": ["transporte", "vial", "carretera", "transport"],
         "agricultura": ["agrícola", "agropecuario", "rural", "agriculture"],
-        "ambiente": ["ambiental", "sostenible", "environment", "green"]
+        "ambiente": ["ambiental", "sostenible", "environment", "green"],
     }
 
     # Rangos de presupuesto (en USD)
@@ -191,7 +204,7 @@ class ContractNormalizer:
         "small": (10_000, 100_000),
         "medium": (100_000, 1_000_000),
         "large": (1_000_000, 10_000_000),
-        "enterprise": (10_000_000, float('inf'))
+        "enterprise": (10_000_000, float("inf")),
     }
 
     # Nombres de países
@@ -204,19 +217,17 @@ class ContractNormalizer:
         "argentina": "Argentina",
         "brasil": "Brasil",
         "europa": "Europa",
-        "multilateral": "Internacional"
+        "multilateral": "Internacional",
     }
 
     def __init__(self):
         """Inicializa el normalizador."""
         # Compilar patrones
         self._type_patterns = {
-            t: [re.compile(p, re.IGNORECASE) for p in patterns]
-            for t, patterns in self.TYPE_PATTERNS.items()
+            t: [re.compile(p, re.IGNORECASE) for p in patterns] for t, patterns in self.TYPE_PATTERNS.items()
         }
         self._sector_patterns = {
-            s: [re.compile(p, re.IGNORECASE) for p in patterns]
-            for s, patterns in self.SECTOR_PATTERNS.items()
+            s: [re.compile(p, re.IGNORECASE) for p in patterns] for s, patterns in self.SECTOR_PATTERNS.items()
         }
 
         logger.info("ContractNormalizer inicializado")
@@ -226,7 +237,7 @@ class ContractNormalizer:
         raw_data: Dict[str, Any],
         source_key: str,
         source_name: str,
-        field_mapping: Optional[Dict[str, str]] = None
+        field_mapping: Optional[Dict[str, str]] = None,
     ) -> NormalizedContract:
         """
         Normaliza un contrato crudo.
@@ -285,7 +296,7 @@ class ContractNormalizer:
             publication_date=publication_date,
             deadline=deadline,
             url=url,
-            raw_data=raw_data
+            raw_data=raw_data,
         )
 
         # Enriquecer contrato
@@ -301,7 +312,7 @@ class ContractNormalizer:
         raw_contracts: List[Dict[str, Any]],
         source_key: str,
         source_name: str,
-        field_mapping: Optional[Dict[str, str]] = None
+        field_mapping: Optional[Dict[str, str]] = None,
     ) -> List[NormalizedContract]:
         """
         Normaliza múltiples contratos.
@@ -322,11 +333,7 @@ class ContractNormalizer:
         logger.info(f"Normalizados {len(normalized)}/{len(raw_contracts)} contratos de {source_key}")
         return normalized
 
-    def _apply_mapping(
-        self,
-        data: Dict[str, Any],
-        mapping: Dict[str, str]
-    ) -> Dict[str, Any]:
+    def _apply_mapping(self, data: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
         """Aplica mapeo de campos."""
         result = data.copy()
 
@@ -347,11 +354,7 @@ class ContractNormalizer:
         # Generar ID desde otros campos
         return f"{source_key}_{hashlib.md5(str(data).encode()).hexdigest()[:12]}"
 
-    def _extract_string(
-        self,
-        data: Dict[str, Any],
-        fields: List[str]
-    ) -> Optional[str]:
+    def _extract_string(self, data: Dict[str, Any], fields: List[str]) -> Optional[str]:
         """Extrae string de múltiples campos posibles."""
         for field in fields:
             if field in data and data[field]:
@@ -360,10 +363,7 @@ class ContractNormalizer:
                     return value
         return None
 
-    def _extract_amount(
-        self,
-        data: Dict[str, Any]
-    ) -> Tuple[Optional[float], str]:
+    def _extract_amount(self, data: Dict[str, Any]) -> Tuple[Optional[float], str]:
         """Extrae monto y moneda."""
         amount_fields = ["amount", "monto", "valor", "budget", "presupuesto", "value"]
         currency_fields = ["currency", "moneda", "divisa"]
@@ -394,11 +394,7 @@ class ContractNormalizer:
 
         return amount, currency
 
-    def _extract_date(
-        self,
-        data: Dict[str, Any],
-        fields: List[str]
-    ) -> Optional[datetime]:
+    def _extract_date(self, data: Dict[str, Any], fields: List[str]) -> Optional[datetime]:
         """Extrae fecha de múltiples campos posibles."""
         for field in fields:
             if field in data and data[field]:
@@ -424,7 +420,7 @@ class ContractNormalizer:
             "%d-%m-%Y",
             "%Y/%m/%d",
             "%d %b %Y",
-            "%B %d, %Y"
+            "%B %d, %Y",
         ]
 
         for fmt in formats:
@@ -435,7 +431,7 @@ class ContractNormalizer:
 
         # Intentar ISO format
         try:
-            return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return datetime.fromisoformat(value.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             pass
 
@@ -456,7 +452,7 @@ class ContractNormalizer:
             "ungm": "multilateral",
             "ted": "europa",
             "ecopetrol": "colombia",
-            "epm": "colombia"
+            "epm": "colombia",
         }
 
         for key, country in country_map.items():
@@ -489,15 +485,12 @@ class ContractNormalizer:
     def _normalize_entity(self, entity: str) -> str:
         """Normaliza nombre de entidad."""
         # Remover prefijos comunes
-        prefixes = [
-            "ministerio de", "secretaría de", "departamento de",
-            "alcaldía de", "gobernación de", "empresa de"
-        ]
+        prefixes = ["ministerio de", "secretaría de", "departamento de", "alcaldía de", "gobernación de", "empresa de"]
 
         normalized = entity.lower()
         for prefix in prefixes:
             if normalized.startswith(prefix):
-                normalized = normalized[len(prefix):].strip()
+                normalized = normalized[len(prefix) :].strip()
                 break
 
         return normalized
@@ -530,9 +523,7 @@ class ContractNormalizer:
             contract.budget_range = self._determine_budget_range(contract.amount_usd)
 
         # Estimar duración
-        contract.estimated_duration_days = self._estimate_duration(
-            contract.publication_date, contract.deadline, text
-        )
+        contract.estimated_duration_days = self._estimate_duration(contract.publication_date, contract.deadline, text)
 
     def _detect_type(self, text: str) -> Optional[str]:
         """Detecta tipo de contrato."""
@@ -561,9 +552,33 @@ class ContractNormalizer:
         """Extrae palabras clave relevantes."""
         # Palabras a ignorar
         stopwords = {
-            "de", "la", "el", "en", "y", "a", "los", "las", "del", "para",
-            "con", "por", "se", "al", "que", "un", "una", "su", "como",
-            "the", "of", "and", "to", "in", "for", "on", "with"
+            "de",
+            "la",
+            "el",
+            "en",
+            "y",
+            "a",
+            "los",
+            "las",
+            "del",
+            "para",
+            "con",
+            "por",
+            "se",
+            "al",
+            "que",
+            "un",
+            "una",
+            "su",
+            "como",
+            "the",
+            "of",
+            "and",
+            "to",
+            "in",
+            "for",
+            "on",
+            "with",
         }
 
         # Extraer palabras
@@ -582,11 +597,25 @@ class ContractNormalizer:
     def _extract_technologies(self, text: str) -> List[str]:
         """Extrae tecnologías mencionadas."""
         tech_patterns = [
-            r"python", r"java(?:script)?", r"\.net", r"node\.?js",
-            r"react", r"angular", r"vue", r"aws", r"azure",
-            r"google\s+cloud", r"kubernetes", r"docker",
-            r"postgresql", r"mysql", r"oracle", r"mongodb",
-            r"power\s*bi", r"tableau", r"sap"
+            r"python",
+            r"java(?:script)?",
+            r"\.net",
+            r"node\.?js",
+            r"react",
+            r"angular",
+            r"vue",
+            r"aws",
+            r"azure",
+            r"google\s+cloud",
+            r"kubernetes",
+            r"docker",
+            r"postgresql",
+            r"mysql",
+            r"oracle",
+            r"mongodb",
+            r"power\s*bi",
+            r"tableau",
+            r"sap",
         ]
 
         technologies = set()
@@ -627,25 +656,37 @@ class ContractNormalizer:
 
         # Gobierno
         gov_indicators = [
-            "ministerio", "secretaría", "alcaldía", "gobernación",
-            "departamento", "agencia", "instituto", "superintendencia",
-            "ministry", "department", "agency"
+            "ministerio",
+            "secretaría",
+            "alcaldía",
+            "gobernación",
+            "departamento",
+            "agencia",
+            "instituto",
+            "superintendencia",
+            "ministry",
+            "department",
+            "agency",
         ]
         if any(ind in entity_lower for ind in gov_indicators):
             return "gobierno"
 
         # Multilateral
         multilateral_indicators = [
-            "world bank", "banco mundial", "bid", "idb",
-            "naciones unidas", "united nations", "onu", "un"
+            "world bank",
+            "banco mundial",
+            "bid",
+            "idb",
+            "naciones unidas",
+            "united nations",
+            "onu",
+            "un",
         ]
         if any(ind in entity_lower for ind in multilateral_indicators):
             return "multilateral"
 
         # Privado
-        private_indicators = [
-            "s.a.", "s.a.s", "ltda", "inc", "corp", "llc"
-        ]
+        private_indicators = ["s.a.", "s.a.s", "ltda", "inc", "corp", "llc"]
         if any(ind in entity_lower for ind in private_indicators):
             return "privado"
 
@@ -664,10 +705,7 @@ class ContractNormalizer:
         return "enterprise"
 
     def _estimate_duration(
-        self,
-        pub_date: Optional[datetime],
-        deadline: Optional[datetime],
-        text: str
+        self, pub_date: Optional[datetime], deadline: Optional[datetime], text: str
     ) -> Optional[int]:
         """Estima duración del contrato en días."""
         # Si tenemos ambas fechas
@@ -679,7 +717,7 @@ class ContractNormalizer:
             (r"(\d+)\s*meses?", 30),
             (r"(\d+)\s*semanas?", 7),
             (r"(\d+)\s*d[ií]as?", 1),
-            (r"(\d+)\s*a[ñn]os?", 365)
+            (r"(\d+)\s*a[ñn]os?", 365),
         ]
 
         for pattern, multiplier in patterns:
@@ -689,10 +727,7 @@ class ContractNormalizer:
 
         return None
 
-    def _assess_quality(
-        self,
-        contract: NormalizedContract
-    ) -> Tuple[NormalizationQuality, float]:
+    def _assess_quality(self, contract: NormalizedContract) -> Tuple[NormalizationQuality, float]:
         """Evalúa calidad de la normalización."""
         score = 0
         max_score = 100

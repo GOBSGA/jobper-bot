@@ -2,6 +2,7 @@
 Scraper para ChileCompra - Sistema de Contratación Pública de Chile
 API: Mercado Público (api.mercadopublico.cl)
 """
+
 from __future__ import annotations
 
 import logging
@@ -30,11 +31,7 @@ class ChileCompraScraper(BaseScraper):
         self.api_ticket = api_ticket
 
     def fetch_contracts(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> List[ContractData]:
         """
         Obtiene licitaciones de ChileCompra.
@@ -76,16 +73,12 @@ class ChileCompraScraper(BaseScraper):
         return contracts
 
     def _build_query(
-        self,
-        keywords: List[str] = None,
-        min_amount: float = None,
-        max_amount: float = None,
-        days_back: int = 7
+        self, keywords: List[str] = None, min_amount: float = None, max_amount: float = None, days_back: int = 7
     ) -> dict:
         """Construye los parámetros de consulta para ChileCompra."""
 
-        date_start = (datetime.now() - timedelta(days=days_back)).strftime('%d%m%Y')
-        date_end = datetime.now().strftime('%d%m%Y')
+        date_start = (datetime.now() - timedelta(days=days_back)).strftime("%d%m%Y")
+        date_end = datetime.now().strftime("%d%m%Y")
 
         params = {
             "fecha": f"{date_start}-{date_end}",

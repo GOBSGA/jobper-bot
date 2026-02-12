@@ -5,42 +5,46 @@ Sistema de alertas inteligentes en tiempo real.
 Detecta oportunidades relevantes, cambios importantes,
 y genera notificaciones personalizadas para cada usuario.
 """
+
 from __future__ import annotations
 
 import logging
+import queue
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, Any, List, Optional, Callable
-import threading
-import queue
+from typing import Any, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class AlertType(str, Enum):
     """Tipos de alertas."""
-    NEW_OPPORTUNITY = "new_opportunity"      # Nueva oportunidad relevante
-    HIGH_MATCH = "high_match"                # Oportunidad con alto match
-    DEADLINE_URGENT = "deadline_urgent"      # Deadline próximo
-    DEADLINE_TODAY = "deadline_today"        # Vence hoy
-    PRICE_DROP = "price_drop"                # Reducción de precio/presupuesto
-    NEW_ADDENDUM = "new_addendum"            # Adenda publicada
-    MARKET_TREND = "market_trend"            # Tendencia de mercado
+
+    NEW_OPPORTUNITY = "new_opportunity"  # Nueva oportunidad relevante
+    HIGH_MATCH = "high_match"  # Oportunidad con alto match
+    DEADLINE_URGENT = "deadline_urgent"  # Deadline próximo
+    DEADLINE_TODAY = "deadline_today"  # Vence hoy
+    PRICE_DROP = "price_drop"  # Reducción de precio/presupuesto
+    NEW_ADDENDUM = "new_addendum"  # Adenda publicada
+    MARKET_TREND = "market_trend"  # Tendencia de mercado
     COMPETITOR_ACTIVITY = "competitor_activity"  # Actividad en sector
-    WEEKLY_DIGEST = "weekly_digest"          # Resumen semanal
+    WEEKLY_DIGEST = "weekly_digest"  # Resumen semanal
 
 
 class AlertPriority(str, Enum):
     """Prioridad de alertas."""
-    CRITICAL = "critical"    # Requiere acción inmediata
-    HIGH = "high"            # Importante
-    NORMAL = "normal"        # Informativo
-    LOW = "low"              # Puede esperar
+
+    CRITICAL = "critical"  # Requiere acción inmediata
+    HIGH = "high"  # Importante
+    NORMAL = "normal"  # Informativo
+    LOW = "low"  # Puede esperar
 
 
 class AlertChannel(str, Enum):
     """Canales de entrega."""
+
     WHATSAPP = "whatsapp"
     EMAIL = "email"
     PUSH = "push"
@@ -50,6 +54,7 @@ class AlertChannel(str, Enum):
 @dataclass
 class Alert:
     """Alerta generada."""
+
     id: str
     type: AlertType
     priority: AlertPriority
@@ -87,7 +92,7 @@ class Alert:
             "message": self.message,
             "contract_id": self.contract_id,
             "score": self.score,
-            "created_at": self.created_at.isoformat()
+            "created_at": self.created_at.isoformat(),
         }
 
     def format_whatsapp(self) -> str:
@@ -104,7 +109,7 @@ class Alert:
             AlertType.NEW_ADDENDUM: "📝",
             AlertType.MARKET_TREND: "📈",
             AlertType.COMPETITOR_ACTIVITY: "👀",
-            AlertType.WEEKLY_DIGEST: "📊"
+            AlertType.WEEKLY_DIGEST: "📊",
         }
 
         emoji = type_emoji.get(self.type, "📌")
@@ -114,7 +119,7 @@ class Alert:
             AlertPriority.CRITICAL: "🔴",
             AlertPriority.HIGH: "🟠",
             AlertPriority.NORMAL: "🟢",
-            AlertPriority.LOW: "⚪"
+            AlertPriority.LOW: "⚪",
         }
 
         priority = priority_indicator.get(self.priority, "")
@@ -147,6 +152,7 @@ class Alert:
 @dataclass
 class AlertRule:
     """Regla para generación de alertas."""
+
     id: str
     name: str
     enabled: bool = True
@@ -163,7 +169,7 @@ class AlertRule:
 
     # Timing
     time_window_hours: int = 24  # Solo contratos de las últimas N horas
-    cooldown_minutes: int = 60   # No repetir alerta similar en N minutos
+    cooldown_minutes: int = 60  # No repetir alerta similar en N minutos
 
     # Delivery
     channels: List[AlertChannel] = field(default_factory=lambda: [AlertChannel.WHATSAPP])
@@ -218,11 +224,7 @@ class SmartAlertEngine:
         if self._worker_thread:
             self._worker_thread.join(timeout=5)
 
-    def process_new_contracts(
-        self,
-        contracts: List[Any],
-        users: List[Dict[str, Any]]
-    ) -> int:
+    def process_new_contracts(self, contracts: List[Any], users: List[Dict[str, Any]]) -> int:
         """
         Procesa contratos nuevos y genera alertas.
 
@@ -248,11 +250,7 @@ class SmartAlertEngine:
         logger.info(f"Generadas {alerts_generated} alertas para {len(users)} usuarios")
         return alerts_generated
 
-    def process_deadlines(
-        self,
-        contracts: List[Any],
-        users: List[Dict[str, Any]]
-    ) -> int:
+    def process_deadlines(self, contracts: List[Any], users: List[Dict[str, Any]]) -> int:
         """
         Procesa deadlines próximos y genera alertas.
 
@@ -263,7 +261,7 @@ class SmartAlertEngine:
         now = datetime.now()
 
         for contract in contracts:
-            deadline = getattr(contract, 'deadline', None)
+            deadline = getattr(contract, "deadline", None)
             if not deadline:
                 continue
 
@@ -288,9 +286,7 @@ class SmartAlertEngine:
             # Generar alertas para usuarios relevantes
             for user in users:
                 if self._is_contract_relevant_for_user(contract, user):
-                    alert = self._create_deadline_alert(
-                        contract, user, alert_type, priority, days_until
-                    )
+                    alert = self._create_deadline_alert(contract, user, alert_type, priority, days_until)
                     if alert and not self._is_in_cooldown(alert):
                         self._queue_alert(alert)
                         alerts_generated += 1
@@ -298,10 +294,7 @@ class SmartAlertEngine:
         return alerts_generated
 
     def generate_weekly_digest(
-        self,
-        user: Dict[str, Any],
-        contracts: List[Any],
-        stats: Dict[str, Any]
+        self, user: Dict[str, Any], contracts: List[Any], stats: Dict[str, Any]
     ) -> Optional[Alert]:
         """
         Genera resumen semanal para un usuario.
@@ -323,14 +316,14 @@ class SmartAlertEngine:
         summary_parts = [
             f"Esta semana encontramos {len(contracts)} oportunidades para ti.",
             f"📈 Sector más activo: {stats.get('top_sector', 'Tecnología')}",
-            f"💰 Valor total: ${stats.get('total_value', 0)/1_000_000:.0f}M"
+            f"💰 Valor total: ${stats.get('total_value', 0)/1_000_000:.0f}M",
         ]
 
         # Top 3 contratos
         message_parts = ["*Top Oportunidades:*\n"]
         for i, contract in enumerate(contracts[:3], 1):
-            title = getattr(contract, 'title', 'Sin título')[:50]
-            score = getattr(contract, 'score', 0) if hasattr(contract, 'score') else 0
+            title = getattr(contract, "title", "Sin título")[:50]
+            score = getattr(contract, "score", 0) if hasattr(contract, "score") else 0
             message_parts.append(f"{i}. {title}")
             if score:
                 message_parts.append(f"   Match: {score:.0f}%")
@@ -343,7 +336,7 @@ class SmartAlertEngine:
             title="Resumen Semanal de Oportunidades",
             message="\n".join(message_parts),
             summary="\n".join(summary_parts),
-            action_text="Responde 'ver todas' para más detalles"
+            action_text="Responde 'ver todas' para más detalles",
         )
 
         return alert
@@ -376,11 +369,7 @@ class SmartAlertEngine:
             logger.error(f"Error enviando alerta: {e}")
             return False
 
-    def _evaluate_contracts_for_user(
-        self,
-        contracts: List[Any],
-        user: Dict[str, Any]
-    ) -> List[Alert]:
+    def _evaluate_contracts_for_user(self, contracts: List[Any], user: Dict[str, Any]) -> List[Alert]:
         """Evalúa contratos y genera alertas para un usuario."""
         alerts = []
         phone = user.get("phone", "")
@@ -388,6 +377,7 @@ class SmartAlertEngine:
         # Obtener scorer
         try:
             from intelligence.opportunity_scorer import get_opportunity_scorer
+
             scorer = get_opportunity_scorer()
         except ImportError:
             scorer = None
@@ -397,7 +387,7 @@ class SmartAlertEngine:
             score = 0
             if scorer:
                 try:
-                    contract_dict = contract.to_dict() if hasattr(contract, 'to_dict') else contract
+                    contract_dict = contract.to_dict() if hasattr(contract, "to_dict") else contract
                     result = scorer.score(contract_dict, user)
                     score = result.total_score
                 except Exception:
@@ -426,12 +416,7 @@ class SmartAlertEngine:
 
         return alerts
 
-    def _is_contract_relevant_for_user(
-        self,
-        contract: Any,
-        user: Dict[str, Any],
-        score: float = 0
-    ) -> bool:
+    def _is_contract_relevant_for_user(self, contract: Any, user: Dict[str, Any], score: float = 0) -> bool:
         """Determina si un contrato es relevante para un usuario."""
         # Score mínimo
         if score > 0 and score < 40:
@@ -439,7 +424,7 @@ class SmartAlertEngine:
 
         # País
         user_countries = user.get("countries", "all")
-        contract_country = getattr(contract, 'country', '') or ''
+        contract_country = getattr(contract, "country", "") or ""
 
         if user_countries != "all":
             if contract_country.lower() not in user_countries.lower():
@@ -448,7 +433,7 @@ class SmartAlertEngine:
                     return False
 
         # Presupuesto
-        contract_amount = getattr(contract, 'amount', 0) or 0
+        contract_amount = getattr(contract, "amount", 0) or 0
         min_budget = user.get("min_budget")
         max_budget = user.get("max_budget")
 
@@ -468,21 +453,16 @@ class SmartAlertEngine:
         return True
 
     def _create_opportunity_alert(
-        self,
-        contract: Any,
-        user: Dict[str, Any],
-        score: float,
-        alert_type: AlertType,
-        priority: AlertPriority
+        self, contract: Any, user: Dict[str, Any], score: float, alert_type: AlertType, priority: AlertPriority
     ) -> Alert:
         """Crea alerta de oportunidad."""
         phone = user.get("phone", "")
-        contract_id = getattr(contract, 'external_id', '') or getattr(contract, 'id', '')
-        title = getattr(contract, 'title', 'Sin título')
-        url = getattr(contract, 'url', '')
-        deadline = getattr(contract, 'deadline', None)
-        amount = getattr(contract, 'amount', 0)
-        currency = getattr(contract, 'currency', 'COP')
+        contract_id = getattr(contract, "external_id", "") or getattr(contract, "id", "")
+        title = getattr(contract, "title", "Sin título")
+        url = getattr(contract, "url", "")
+        deadline = getattr(contract, "deadline", None)
+        amount = getattr(contract, "amount", 0)
+        currency = getattr(contract, "currency", "COP")
 
         # Formatear monto
         if amount:
@@ -528,23 +508,18 @@ class SmartAlertEngine:
             contract_url=url,
             score=score,
             deadline=deadline,
-            action_text="Responde 'info' para más detalles"
+            action_text="Responde 'info' para más detalles",
         )
 
     def _create_deadline_alert(
-        self,
-        contract: Any,
-        user: Dict[str, Any],
-        alert_type: AlertType,
-        priority: AlertPriority,
-        days_until: int
+        self, contract: Any, user: Dict[str, Any], alert_type: AlertType, priority: AlertPriority, days_until: int
     ) -> Alert:
         """Crea alerta de deadline."""
         phone = user.get("phone", "")
-        contract_id = getattr(contract, 'external_id', '') or getattr(contract, 'id', '')
-        title = getattr(contract, 'title', 'Sin título')
-        url = getattr(contract, 'url', '')
-        deadline = getattr(contract, 'deadline', None)
+        contract_id = getattr(contract, "external_id", "") or getattr(contract, "id", "")
+        title = getattr(contract, "title", "Sin título")
+        url = getattr(contract, "url", "")
+        deadline = getattr(contract, "deadline", None)
 
         if days_until == 0:
             urgency = "VENCE HOY"
@@ -578,7 +553,7 @@ class SmartAlertEngine:
             contract_title=title,
             contract_url=url,
             deadline=deadline,
-            action_text="¡No dejes pasar esta oportunidad!"
+            action_text="¡No dejes pasar esta oportunidad!",
         )
 
     def _is_in_cooldown(self, alert: Alert, cooldown_minutes: int = 60) -> bool:
@@ -617,22 +592,22 @@ class SmartAlertEngine:
                 name="Oportunidades con alto match",
                 alert_type=AlertType.HIGH_MATCH,
                 min_score=75,
-                priority=AlertPriority.HIGH
+                priority=AlertPriority.HIGH,
             ),
             AlertRule(
                 id="deadline_urgent",
                 name="Deadlines urgentes",
                 alert_type=AlertType.DEADLINE_URGENT,
                 time_window_hours=72,
-                priority=AlertPriority.HIGH
+                priority=AlertPriority.HIGH,
             ),
             AlertRule(
                 id="new_opportunities",
                 name="Nuevas oportunidades relevantes",
                 alert_type=AlertType.NEW_OPPORTUNITY,
                 min_score=50,
-                priority=AlertPriority.NORMAL
-            )
+                priority=AlertPriority.NORMAL,
+            ),
         ]
 
 

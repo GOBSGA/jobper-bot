@@ -9,18 +9,20 @@ Usa Claude API para generar:
 Costo estimado: ~$0.01 por contrato analizado
 Valor agregado: +$40-50/mes en pricing
 """
+
 from __future__ import annotations
 
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Intentar importar Anthropic
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
@@ -103,11 +105,7 @@ class ContractAnalyzer:
             self._client = anthropic.Anthropic(api_key=self.api_key)
         return self._client
 
-    def analyze(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> Optional[ContractAnalysis]:
+    def analyze(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> Optional[ContractAnalysis]:
         """
         Analiza un contrato para un perfil de usuario específico.
 
@@ -126,9 +124,7 @@ class ContractAnalyzer:
             prompt = self._build_prompt(contract, user_profile)
 
             response = self.client.messages.create(
-                model=self.model,
-                max_tokens=1024,
-                messages=[{"role": "user", "content": prompt}]
+                model=self.model, max_tokens=1024, messages=[{"role": "user", "content": prompt}]
             )
 
             # Parsear respuesta
@@ -141,8 +137,10 @@ class ContractAnalyzer:
             analysis.analysis_cost_usd = (total_tokens / 1000) * self.COST_PER_1K_TOKENS
             analysis.model_used = self.model
 
-            logger.info(f"Contrato analizado: score={analysis.match_score}, "
-                       f"rec={analysis.recommendation}, cost=${analysis.analysis_cost_usd:.4f}")
+            logger.info(
+                f"Contrato analizado: score={analysis.match_score}, "
+                f"rec={analysis.recommendation}, cost=${analysis.analysis_cost_usd:.4f}"
+            )
 
             return analysis
 
@@ -151,10 +149,7 @@ class ContractAnalyzer:
             return self._basic_analysis(contract, user_profile)
 
     def analyze_batch(
-        self,
-        contracts: List[Dict[str, Any]],
-        user_profile: Dict[str, Any],
-        max_contracts: int = 20
+        self, contracts: List[Dict[str, Any]], user_profile: Dict[str, Any], max_contracts: int = 20
     ) -> List[ContractAnalysis]:
         """
         Analiza múltiples contratos.
@@ -179,11 +174,7 @@ class ContractAnalyzer:
 
         return results
 
-    def _build_prompt(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> str:
+    def _build_prompt(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> str:
         """Construye el prompt para Claude."""
 
         # Extraer datos del contrato
@@ -290,7 +281,7 @@ Sé conciso y accionable. El usuario necesita decidir rápidamente si vale la pe
                 try:
                     score_str = line.replace("SCORE:", "").strip()
                     # Extraer solo números
-                    score_num = ''.join(c for c in score_str if c.isdigit())
+                    score_num = "".join(c for c in score_str if c.isdigit())
                     score = int(score_num) if score_num else 50
                     score = max(0, min(100, score))  # Clamp 0-100
                 except ValueError:
@@ -338,14 +329,10 @@ Sé conciso y accionable. El usuario necesita decidir rápidamente si vale la pe
             key_reasons=reasons or ["Sin razones específicas"],
             requirements=requirements or ["Verificar requisitos en portal oficial"],
             risks=risks or ["Evaluar según criterios propios"],
-            next_steps=next_steps or ["Revisar documentos completos en el portal"]
+            next_steps=next_steps or ["Revisar documentos completos en el portal"],
         )
 
-    def _basic_analysis(
-        self,
-        contract: Dict[str, Any],
-        user_profile: Dict[str, Any]
-    ) -> ContractAnalysis:
+    def _basic_analysis(self, contract: Dict[str, Any], user_profile: Dict[str, Any]) -> ContractAnalysis:
         """
         Análisis básico sin IA (fallback).
 
@@ -404,8 +391,8 @@ Sé conciso y accionable. El usuario necesita decidir rápidamente si vale la pe
 
         return ContractAnalysis(
             executive_summary=f"Contrato de {contract.get('entity', 'entidad desconocida')}. "
-                            f"{'Alta' if score >= 70 else 'Media' if score >= 40 else 'Baja'} "
-                            f"compatibilidad con tu perfil.",
+            f"{'Alta' if score >= 70 else 'Media' if score >= 40 else 'Baja'} "
+            f"compatibilidad con tu perfil.",
             match_score=score,
             recommendation=recommendation,
             key_reasons=reasons or ["Análisis básico - sin IA disponible"],
@@ -413,7 +400,7 @@ Sé conciso y accionable. El usuario necesita decidir rápidamente si vale la pe
             risks=["Evaluar según criterios propios"],
             next_steps=["Revisar documentos completos en el portal"],
             analysis_cost_usd=0.0,
-            model_used="basic_heuristics"
+            model_used="basic_heuristics",
         )
 
 
@@ -428,11 +415,7 @@ def format_analysis_for_whatsapp(analysis: ContractAnalysis) -> str:
         Texto formateado para WhatsApp
     """
     # Emoji según recomendación
-    rec_emoji = {
-        "APLICAR": "✅",
-        "REVISAR": "🔍",
-        "IGNORAR": "⏭️"
-    }
+    rec_emoji = {"APLICAR": "✅", "REVISAR": "🔍", "IGNORAR": "⏭️"}
 
     # Emoji según score
     if analysis.match_score >= 80:
