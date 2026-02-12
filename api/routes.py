@@ -132,9 +132,14 @@ def login_password():
         logger.error(f"Login exception: {e}", exc_info=True)
         # Return more specific error for database issues
         error_str = str(e)
+        error_type = type(e).__name__
         if "connection" in error_str.lower() or "operational" in error_str.lower():
             return jsonify({"error": "Servicio temporalmente no disponible. Intenta en 1 minuto."}), 503
-        return jsonify({"error": "Error al procesar login. Contacta soporte@jobper.co"}), 500
+        # Return error details for debugging
+        return jsonify({
+            "error": "Error al procesar login. Contacta soporte@jobper.co",
+            "debug": f"{error_type}: {str(e)[:200]}"
+        }), 500
 
 
 # =============================================================================
