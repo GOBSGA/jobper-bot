@@ -25,10 +25,12 @@ export default function Login() {
     setError("");
     try {
       const res = await api.post("/auth/login-password", { email, password });
-      login(res);
+      await login(res);
       navigate("/contracts");
     } catch (err) {
-      setError(err.error || "Correo o contraseña incorrectos");
+      // Show the debug field from server if available (helps diagnose backend errors)
+      const msg = err.debug ? `${err.error} — ${err.debug}` : (err.error || "Correo o contraseña incorrectos");
+      setError(msg);
     } finally {
       setLoading(false);
     }

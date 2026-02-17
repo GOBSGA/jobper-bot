@@ -43,11 +43,12 @@ export default function Register() {
         password,
         referral_code: referralCode || undefined,
       });
-      login(res);
+      await login(res);
       // Show privacy policy modal instead of navigating directly
       setShowPrivacyModal(true);
     } catch (err) {
-      setError(err.error || "Error al crear la cuenta. Intenta de nuevo.");
+      const msg = err.debug ? `${err.error} — ${err.debug}` : (err.error || "Error al crear la cuenta. Intenta de nuevo.");
+      setError(msg);
     } finally {
       setLoading(false);
     }

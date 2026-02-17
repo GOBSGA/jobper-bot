@@ -29,7 +29,8 @@ export function AuthProvider({ children }) {
         setUser(null);
         setSubscription(null);
       }
-      // Network errors: keep current user state (don't log out on wifi hiccup)
+      // Re-throw so login page can show the real error to the user
+      throw err;
     } finally {
       setLoading(false);
     }
@@ -54,10 +55,11 @@ export function AuthProvider({ children }) {
     return () => clearInterval(interval);
   }, [user, fetchSubscription]);
 
-  const login = (tokens) => {
+  const login = async (tokens) => {
     localStorage.setItem("access_token", tokens.access_token);
     localStorage.setItem("refresh_token", tokens.refresh_token);
-    fetchUser();
+    setLoading(true);
+    await fetchUser();
   };
 
   const logout = async () => {

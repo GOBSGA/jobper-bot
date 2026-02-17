@@ -405,12 +405,16 @@ user_bp = Blueprint("user", __name__, url_prefix="/api/user")
 @user_bp.get("/profile")
 @require_auth
 def get_profile():
-    from services.auth import get_user_profile
+    try:
+        from services.auth import get_user_profile
 
-    result = get_user_profile(g.user_id)
-    if not result:
-        return jsonify({"error": "Usuario no encontrado"}), 404
-    return jsonify(result)
+        result = get_user_profile(g.user_id)
+        if not result:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"get_profile exception: {e}", exc_info=True)
+        return jsonify({"error": "Error cargando perfil", "debug": f"{type(e).__name__}: {str(e)[:200]}"}), 500
 
 
 @user_bp.put("/profile")
