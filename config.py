@@ -84,8 +84,11 @@ class Config:
     RESEND_FROM_EMAIL: str = os.getenv("RESEND_FROM_EMAIL", "Jobper <noreply@jobper.co>")
 
     # ======================================================================
-    # PAGOS MANUALES (Nequi / Bancolombia)
+    # PAGOS MANUALES (Bre-B / Nequi / Bancolombia)
     # ======================================================================
+    # Bre-B: pagos instantáneos interbancos de Colombia (método principal)
+    BREB_HANDLE: str = os.getenv("BREB_HANDLE", "@gabriela5264")
+    BREB_NAME: str = os.getenv("BREB_NAME", "Jobper")
     NEQUI_NUMBER: str = os.getenv("NEQUI_NUMBER", "")
     BANCOLOMBIA_ACCOUNT: str = os.getenv("BANCOLOMBIA_ACCOUNT", "")
     BANCOLOMBIA_TYPE: str = os.getenv("BANCOLOMBIA_TYPE", "Ahorros")

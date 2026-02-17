@@ -240,7 +240,7 @@ export default function Plans() {
         setComprobante(null);
         setComprobantePreview(null);
       } else if (result.status === "review") {
-        toast.info(result.message || "Tu comprobante está siendo verificado. Te notificaremos pronto.");
+        toast.info("¡Recibido! Tu pago está en revisión. Te avisamos en máximo 24 horas.");
         setShowPayment(false);
         setSelectedPlan(null);
         setCheckout(null);
@@ -307,6 +307,7 @@ export default function Plans() {
       </div>
     );
 
+  const breb = checkout?.payment_methods?.breb;
   const nequi = checkout?.payment_methods?.nequi;
   const banco = checkout?.payment_methods?.bancolombia;
   const userPlan = normalizePlan(user?.plan);
@@ -520,7 +521,7 @@ export default function Plans() {
         </div>
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-500" />
-          <span>Activación inmediata</span>
+          <span>Activación en máx. 24h</span>
         </div>
         <div className="flex items-center gap-2">
           <X className="h-4 w-4 text-gray-400" />
@@ -576,6 +577,11 @@ export default function Plans() {
               <div className="space-y-4">
                 <p className="text-sm text-gray-600 text-center">{checkout.instructions}</p>
 
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm text-blue-800">
+                  <Zap className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  <span>Tu plan se activa en <strong>máximo 24 horas</strong> una vez verifiquemos tu pago.</span>
+                </div>
+
                 {checkout.reference && (
                   <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 text-center">
                     <div className="flex items-center justify-center gap-2 mb-2">
@@ -601,6 +607,37 @@ export default function Plans() {
                       <br />
                       Sin el código, no podremos verificar tu pago automáticamente.
                     </p>
+                  </div>
+                )}
+
+                {/* Bre-B — método principal */}
+                {breb?.handle && (
+                  <div className="bg-green-50 border-2 border-green-400 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-bold text-green-700 uppercase tracking-wide">
+                            Bre-B — Cualquier banco
+                          </span>
+                          <span className="bg-green-200 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium">
+                            Recomendado
+                          </span>
+                        </div>
+                        <p className="text-xl text-green-900 font-mono font-bold tracking-wide">
+                          {breb.handle}
+                        </p>
+                        <p className="text-xs text-green-700 mt-1">
+                          Funciona con Nequi, Daviplata, Bancolombia, Bancoomeva y más
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(breb.handle)}
+                        className="p-2 hover:bg-green-100 rounded-lg transition"
+                        title="Copiar"
+                      >
+                        <Copy className="h-4 w-4 text-green-700" />
+                      </button>
+                    </div>
                   </div>
                 )}
 

@@ -221,6 +221,12 @@ def create_checkout(user_id: int, plan: str) -> dict:
 
     # Determine which payment method to show based on config
     payment_methods = {}
+    # Bre-B is the primary payment method (interbank instant transfer)
+    if Config.BREB_HANDLE:
+        payment_methods["breb"] = {
+            "handle": Config.BREB_HANDLE,
+            "name": "Bre-B",
+        }
     if Config.NEQUI_NUMBER:
         payment_methods["nequi"] = {
             "number": Config.NEQUI_NUMBER,

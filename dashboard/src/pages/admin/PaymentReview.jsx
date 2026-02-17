@@ -155,11 +155,12 @@ export default function PaymentReview() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
           <div>
-            <p className="font-medium text-amber-800">Antes de aprobar un pago:</p>
-            <ol className="text-sm text-amber-700 mt-1 list-decimal list-inside">
-              <li>Abre tu app de Nequi/Bancolombia</li>
-              <li>Verifica que el dinero REALMENTE llegó</li>
-              <li>Confirma que el monto y referencia coinciden</li>
+            <p className="font-medium text-amber-800">Antes de aprobar cada pago:</p>
+            <ol className="text-sm text-amber-700 mt-1 list-decimal list-inside space-y-0.5">
+              <li>Abre tu app Bre-B (o Nequi) y busca el pago del día</li>
+              <li>Verifica que el dinero <strong>realmente llegó</strong> a tu cuenta</li>
+              <li>Confirma que el monto y la referencia coinciden</li>
+              <li>Solo entonces haz clic en <strong>Aprobar</strong></li>
             </ol>
           </div>
         </div>
@@ -306,7 +307,7 @@ export default function PaymentReview() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="font-medium text-amber-800 mb-3">
-                Confirma que verificaste en tu Nequi/Bancolombia:
+                Confirma que verificaste en tu Bre-B (@gabriela5264):
               </p>
 
               <div className="space-y-3">
