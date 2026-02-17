@@ -341,6 +341,8 @@ def _ensure_missing_columns():
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS comprobante_hash VARCHAR(64)",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
+            # Telegram notifications
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
         ]
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.

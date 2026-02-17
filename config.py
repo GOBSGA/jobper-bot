@@ -114,6 +114,12 @@ class Config:
     WHATSAPP_PHONE_ID: str = os.getenv("WHATSAPP_PHONE_ID", "")
 
     # ======================================================================
+    # TELEGRAM BOT
+    # Set TELEGRAM_BOT_TOKEN from BotFather. Users link their chat_id in Settings.
+    # ======================================================================
+    TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
+
+    # ======================================================================
     # FLASK
     # ======================================================================
     FLASK_HOST: str = os.getenv("FLASK_HOST", "0.0.0.0")

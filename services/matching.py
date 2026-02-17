@@ -577,3 +577,28 @@ def _queue_push_notification(user: User, contract: Contract, score: int):
         )
     except Exception as e:
         logger.error(f"Email notification failed for user {user.email}: {e}")
+
+    # Send Telegram if user has linked their chat_id
+    try:
+        if getattr(user, "telegram_chat_id", None):
+            from services.notifications import send_telegram
+            from config import Config
+
+            amount = contract.amount or 0
+            if amount >= 1_000_000_000:
+                amt = f"${amount/1_000_000_000:.1f}B"
+            elif amount >= 1_000_000:
+                amt = f"${amount/1_000_000:.0f}M"
+            else:
+                amt = f"${amount:,.0f}" if amount else "No especificado"
+
+            msg = (
+                f"⭐ *Contrato {score}% compatible*\n\n"
+                f"*{(contract.title or 'Sin título')[:100]}*\n"
+                f"🏢 {contract.entity or 'No especificada'}\n"
+                f"💰 {amt} COP\n"
+                f"🔗 {Config.FRONTEND_URL}/contracts/{contract.id}"
+            )
+            send_telegram(user.telegram_chat_id, msg)
+    except Exception as e:
+        logger.error(f"Telegram notification failed for user {user.email}: {e}")

@@ -389,6 +389,47 @@ def _tmpl_payment_rejected(data: dict) -> tuple[str, str]:
 
 
 # =============================================================================
+# TELEGRAM
+# =============================================================================
+
+
+def send_telegram(chat_id: str, message: str) -> bool:
+    """
+    Send a Telegram message to a specific chat_id.
+    Requires TELEGRAM_BOT_TOKEN env var.
+    Users get their chat_id by starting the Jobper bot in Telegram.
+    """
+    if not Config.TELEGRAM_BOT_TOKEN:
+        logger.debug("Telegram: TELEGRAM_BOT_TOKEN not set, skipping")
+        return False
+    if not chat_id:
+        return False
+
+    try:
+        import urllib.request
+        import json as _json
+
+        url = f"https://api.telegram.org/bot{Config.TELEGRAM_BOT_TOKEN}/sendMessage"
+        payload = _json.dumps({
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "Markdown",
+            "disable_web_page_preview": False,
+        }).encode()
+        req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = _json.loads(resp.read())
+            if result.get("ok"):
+                logger.info(f"Telegram message sent to chat_id={chat_id}")
+                return True
+            logger.warning(f"Telegram API error: {result}")
+            return False
+    except Exception as e:
+        logger.error(f"Telegram send failed: {e}")
+        return False
+
+
+# =============================================================================
 # WEB PUSH
 # =============================================================================
 

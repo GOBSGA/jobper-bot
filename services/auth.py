@@ -395,6 +395,7 @@ def _user_to_public(user: User) -> dict:
         "notifications_enabled": user.notifications_enabled,
         "whatsapp_number": user.whatsapp_number,
         "whatsapp_enabled": user.whatsapp_enabled,
+        "telegram_chat_id": user.telegram_chat_id if hasattr(user, "telegram_chat_id") else None,
         "privacy_policy_accepted_at": user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
@@ -434,6 +435,8 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
             user.whatsapp_number = data["whatsapp_number"]
         if "whatsapp_enabled" in data:
             user.whatsapp_enabled = data["whatsapp_enabled"]
+        if "telegram_chat_id" in data:
+            user.telegram_chat_id = data["telegram_chat_id"] or None
 
         uow.commit()
         return _user_to_public(user)

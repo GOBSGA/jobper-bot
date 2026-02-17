@@ -43,6 +43,7 @@ export default function Settings() {
     budget_max: "",
     whatsapp_number: "",
     whatsapp_enabled: false,
+    telegram_chat_id: "",
   });
   const [saving, setSaving] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -62,6 +63,7 @@ export default function Settings() {
         budget_max: user.budget_max || "",
         whatsapp_number: user.whatsapp_number || "",
         whatsapp_enabled: user.whatsapp_enabled || false,
+        telegram_chat_id: user.telegram_chat_id || "",
       });
     }
   }, [user]);
@@ -79,6 +81,7 @@ export default function Settings() {
         budget_max: form.budget_max ? Number(form.budget_max) : null,
         whatsapp_number: form.whatsapp_number || null,
         whatsapp_enabled: form.whatsapp_enabled,
+        telegram_chat_id: form.telegram_chat_id || null,
       });
       await refresh();
       toast.success("Perfil guardado");
@@ -370,6 +373,28 @@ export default function Settings() {
             )}
             {form.whatsapp_enabled && form.whatsapp_number && (
               <p className="text-xs text-gray-500 mt-1">Guarda los cambios para activar WhatsApp.</p>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">✈️</span>
+              <p className="text-sm font-medium text-gray-900">Telegram</p>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Recibe alertas de contratos en Telegram. Pasos:
+              {" "}<strong>1)</strong> Busca <span className="font-mono bg-gray-100 px-1 rounded">@JobperAlertas_bot</span> en Telegram y envía{" "}
+              <span className="font-mono bg-gray-100 px-1 rounded">/start</span> o{" "}
+              <span className="font-mono bg-gray-100 px-1 rounded">/vincular {user?.email}</span>.
+              {" "}<strong>2)</strong> El bot te dará tu Chat ID. Pégalo aquí y guarda.
+            </p>
+            <Input
+              placeholder="Tu Chat ID de Telegram (ej: 123456789)"
+              value={form.telegram_chat_id}
+              onChange={(e) => setForm({ ...form, telegram_chat_id: e.target.value })}
+            />
+            {form.telegram_chat_id && (
+              <p className="text-xs text-green-600 mt-1">Guarda los cambios para activar Telegram.</p>
             )}
           </div>
         </div>

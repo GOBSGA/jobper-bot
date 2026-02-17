@@ -100,10 +100,11 @@ class User(Base):
     # Renewal tracking
     last_renewal_prompt = Column(DateTime, nullable=True)
 
-    # Contact / WhatsApp
+    # Contact / WhatsApp / Telegram
     phone = Column(String(20), nullable=True)
     whatsapp_number = Column(String(20), nullable=True)  # +57XXXXXXXXXX
     whatsapp_enabled = Column(Boolean, default=False)
+    telegram_chat_id = Column(String(50), nullable=True)  # numeric chat_id from Telegram
 
     # Onboarding
     onboarding_completed = Column(Boolean, default=False)

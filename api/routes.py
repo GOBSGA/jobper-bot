@@ -1245,6 +1245,117 @@ def debug_reset_password():
         return jsonify({"error": str(e)}), 500
 
 
+
+# =============================================================================
+# TELEGRAM WEBHOOK (bot receives messages → auto-links chat_id to user)
+# =============================================================================
+telegram_bp = Blueprint("telegram", __name__, url_prefix="/api/telegram")
+
+
+@telegram_bp.post("/webhook")
+def telegram_webhook():
+    """
+    Telegram sends updates here when users message the bot.
+    When a user sends /start <email>, the bot links their Telegram chat_id
+    to their Jobper account and confirms with a message.
+    Setup: set webhook via https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://www.jobper.com.co/api/telegram/webhook
+    """
+    from config import Config
+    data = request.get_json() or {}
+    message = data.get("message", {})
+    chat = message.get("chat", {})
+    chat_id = str(chat.get("id", ""))
+    text = (message.get("text") or "").strip()
+    first_name = chat.get("first_name", "")
+
+    if not chat_id or not text:
+        return jsonify({"ok": True})
+
+    def bot_reply(msg):
+        try:
+            from services.notifications import send_telegram
+            send_telegram(chat_id, msg)
+        except Exception:
+            pass
+
+    # /start command — welcome message
+    if text.startswith("/start"):
+        parts = text.split(maxsplit=1)
+        email_hint = parts[1].strip() if len(parts) > 1 else ""
+
+        if email_hint and "@" in email_hint:
+            # Auto-link if email was passed
+            try:
+                from core.database import UnitOfWork
+                with UnitOfWork() as uow:
+                    user = uow.users.get_by_email(email_hint.lower())
+                    if user:
+                        user.telegram_chat_id = chat_id
+                        uow.commit()
+                        bot_reply(
+                            f"✅ *¡Cuenta vinculada, {first_name}!*\n\n"
+                            f"Recibirás alertas de contratos relevantes aquí.\n"
+                            f"Email: {email_hint}"
+                        )
+                        return jsonify({"ok": True})
+            except Exception as e:
+                logger.error(f"Telegram auto-link failed: {e}")
+
+        bot_reply(
+            f"👋 *Hola {first_name}, soy el bot de Jobper!*\n\n"
+            f"Para vincular tu cuenta y recibir alertas de contratos:\n\n"
+            f"1️⃣ Ve a *Jobper → Configuración → Telegram*\n"
+            f"2️⃣ Ingresa tu Chat ID: `{chat_id}`\n\n"
+            f"O envíame tu email así:\n`/vincular tu@empresa.co`"
+        )
+
+    elif text.startswith("/vincular"):
+        parts = text.split(maxsplit=1)
+        email = parts[1].strip().lower() if len(parts) > 1 else ""
+        if not email or "@" not in email:
+            bot_reply("❌ Email inválido. Envía: `/vincular tu@empresa.co`")
+            return jsonify({"ok": True})
+        try:
+            from core.database import UnitOfWork
+            with UnitOfWork() as uow:
+                user = uow.users.get_by_email(email)
+                if not user:
+                    bot_reply(f"❌ No encontré una cuenta con el email `{email}`.\nRegístrate en jobper.co primero.")
+                else:
+                    user.telegram_chat_id = chat_id
+                    uow.commit()
+                    bot_reply(
+                        f"✅ *¡Listo, {first_name}!* Tu cuenta está vinculada.\n\n"
+                        f"Recibirás alertas cuando encontremos contratos compatibles con tu perfil."
+                    )
+        except Exception as e:
+            logger.error(f"Telegram /vincular failed: {e}")
+            bot_reply("⚠️ Error al vincular. Intenta de nuevo.")
+
+    elif text == "/desvincular":
+        try:
+            from core.database import UnitOfWork
+            with UnitOfWork() as uow:
+                from sqlalchemy import text as sqlt
+                uow.session.execute(
+                    sqlt("UPDATE users SET telegram_chat_id = NULL WHERE telegram_chat_id = :cid"),
+                    {"cid": chat_id}
+                )
+                uow.commit()
+            bot_reply("✅ Tu cuenta fue desvinculada. Ya no recibirás alertas aquí.")
+        except Exception as e:
+            logger.error(f"Telegram /desvincular failed: {e}")
+
+    else:
+        bot_reply(
+            "Comandos disponibles:\n"
+            "/vincular tu@empresa.co — vincular cuenta\n"
+            "/desvincular — dejar de recibir alertas"
+        )
+
+    return jsonify({"ok": True})
+
+
 ALL_BLUEPRINTS = [
     health_bp,
     debug_bp,
@@ -1259,4 +1370,5 @@ ALL_BLUEPRINTS = [
     admin_bp,
     public_bp,
     support_bp,
+    telegram_bp,
 ]
