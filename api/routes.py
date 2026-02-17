@@ -125,7 +125,10 @@ def login_password():
         result = login_with_password(g.validated.email, g.validated.password)
         if "error" in result:
             logger.warning(f"Login failed: {result.get('error')}")
-            return jsonify(result), 401
+            # IMPORTANT: Use 400, NOT 401. api.js intercepts ALL 401s to try token
+            # refresh, which clears localStorage and shows "Sesión expirada" — wrong.
+            # 401 = unauthenticated (for protected routes). 400 = bad credentials.
+            return jsonify(result), 400
         logger.info("Login success")
         return jsonify(result)
     except Exception as e:
