@@ -309,12 +309,6 @@ def logout(token: str):
 
 
 def _user_to_public(user: User) -> dict:
-    # Safely get privacy_policy_accepted_at (might not exist if migration hasn't run)
-    try:
-        privacy_accepted = user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None
-    except AttributeError:
-        privacy_accepted = None
-
     return {
         "id": user.id,
         "email": user.email,
@@ -331,7 +325,7 @@ def _user_to_public(user: User) -> dict:
         "notifications_enabled": user.notifications_enabled,
         "whatsapp_number": user.whatsapp_number,
         "whatsapp_enabled": user.whatsapp_enabled,
-        "privacy_policy_accepted_at": privacy_accepted,
+        "privacy_policy_accepted_at": user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 

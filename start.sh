@@ -6,6 +6,10 @@ echo "PORT: $PORT"
 echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
 echo "JWT_SECRET set: $([ -n "$JWT_SECRET" ] && echo 'YES' || echo 'NO')"
 
+echo "=== Running database migrations ==="
+alembic upgrade head
+echo "=== Migrations complete ==="
+
 echo "Starting Gunicorn on port $PORT..."
 exec gunicorn \
     --bind "0.0.0.0:${PORT:-5001}" \
