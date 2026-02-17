@@ -401,12 +401,16 @@ def _start_background_services():
     """Start background scheduler for periodic tasks."""
     import threading
     import time
+    from datetime import datetime
+
+    _last_digest_day = [None]  # mutable cell to track when daily digest last ran
 
     def scheduler_loop():
         """Run periodic tasks in background."""
         # Wait 5 minutes after startup before first run
         time.sleep(300)
 
+        iteration = 0
         while True:
             try:
                 # Run ingestion every 6 hours (moderate: 7 days back)
@@ -431,9 +435,24 @@ def _start_background_services():
                 cleanup_result = cleanup_expired_contracts(days_grace=30)
                 logger.info(f"Scheduler: Cleanup complete - {cleanup_result['deleted']} contracts removed")
 
+                # Send daily digest once per day (on first run after midnight Bogotá time)
+                today = datetime.utcnow().date()
+                current_hour = datetime.utcnow().hour  # 8am Bogotá = 13:00 UTC
+                if _last_digest_day[0] != today and current_hour >= 13:
+                    try:
+                        logger.info("Scheduler: Sending daily digest emails...")
+                        from services.notifications import send_daily_digest
+
+                        digest_result = send_daily_digest()
+                        logger.info(f"Scheduler: Daily digest complete - {digest_result}")
+                        _last_digest_day[0] = today
+                    except Exception as e:
+                        logger.error(f"Daily digest failed: {e}")
+
             except Exception as e:
                 logger.error(f"Scheduler error: {e}")
 
+            iteration += 1
             # Sleep 6 hours
             time.sleep(6 * 60 * 60)
 

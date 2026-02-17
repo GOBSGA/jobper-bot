@@ -532,9 +532,10 @@ def notify_high_priority_matches(new_count: int):
 
 
 def _queue_push_notification(user: User, contract: Contract, score: int):
-    """Queue a push notification for a high-priority match."""
+    """Queue a push + email notification for a high-priority match."""
     logger.info(f"High-priority match: user={user.email} contract={contract.id} score={score}")
-    # Push notification will be sent via the existing push infrastructure
+
+    # Try push first (requires VAPID keys — usually not configured)
     try:
         from services.notifications import send_push
 
@@ -545,4 +546,34 @@ def _queue_push_notification(user: User, contract: Contract, score: int):
             url=f"/contracts/{contract.id}",
         )
     except Exception as e:
-        logger.error(f"Push notification failed for user {user.email}: {e}")
+        logger.debug(f"Push not available for user {user.email}: {e}")
+
+    # Always send email for high-priority matches (this actually reaches users)
+    try:
+        from core.tasks import task_send_email
+        from config import Config
+
+        amount = contract.amount
+        if amount:
+            if amount >= 1_000_000_000:
+                amount_str = f"${amount/1_000_000_000:.1f}B COP"
+            elif amount >= 1_000_000:
+                amount_str = f"${amount/1_000_000:.0f}M COP"
+            else:
+                amount_str = f"${amount:,.0f} COP"
+        else:
+            amount_str = "No especificado"
+
+        task_send_email.delay(
+            user.email,
+            "contract_alert",
+            {
+                "title": contract.title or "Sin título",
+                "entity": contract.entity or "No especificada",
+                "amount": contract.amount or 0,
+                "match_score": score,
+                "url": f"{Config.FRONTEND_URL}/contracts/{contract.id}",
+            },
+        )
+    except Exception as e:
+        logger.error(f"Email notification failed for user {user.email}: {e}")

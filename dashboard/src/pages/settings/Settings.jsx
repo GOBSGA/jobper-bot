@@ -5,7 +5,7 @@ import Card, { CardHeader } from "../../components/ui/Card";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import { useToast } from "../../components/ui/Toast";
-import { Save, Bell, Building2, MapPin, DollarSign, Tag, User, MessageCircle } from "lucide-react";
+import { Save, Bell, Building2, MapPin, DollarSign, Tag, User, MessageCircle, Lock, Eye, EyeOff } from "lucide-react";
 
 const SECTORS = [
   { key: "tecnologia", label: "Tecnología", emoji: "💻" },
@@ -46,6 +46,9 @@ export default function Settings() {
   });
   const [saving, setSaving] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [showPw, setShowPw] = useState(false);
+  const [savingPw, setSavingPw] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -92,6 +95,27 @@ export default function Settings() {
       budget_min: range.min || "",
       budget_max: range.max || "",
     });
+  };
+
+  const changePassword = async (e) => {
+    e.preventDefault();
+    if (pwForm.next !== pwForm.confirm) {
+      toast.error("Las contraseñas no coinciden");
+      return;
+    }
+    setSavingPw(true);
+    try {
+      await api.post("/user/change-password", {
+        current_password: pwForm.current,
+        new_password: pwForm.next,
+      });
+      setPwForm({ current: "", next: "", confirm: "" });
+      toast.success("Contraseña actualizada");
+    } catch (err) {
+      toast.error(err.error || "Error al cambiar la contraseña");
+    } finally {
+      setSavingPw(false);
+    }
   };
 
   const enablePush = async () => {
@@ -249,6 +273,57 @@ export default function Settings() {
               <Save className="h-4 w-4" /> {saving ? "Guardando..." : "Guardar cambios"}
             </Button>
           </div>
+        </form>
+      </Card>
+
+      {/* Cambiar contraseña */}
+      <Card>
+        <CardHeader title="Seguridad" subtitle="Cambia tu contraseña de acceso" />
+        <form onSubmit={changePassword} className="space-y-4">
+          <div className="relative">
+            <Input
+              label="Contraseña actual"
+              type={showPw ? "text" : "password"}
+              placeholder="Tu contraseña actual"
+              value={pwForm.current}
+              onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+              required
+            />
+          </div>
+          <Input
+            label="Nueva contraseña"
+            type={showPw ? "text" : "password"}
+            placeholder="Mínimo 6 caracteres"
+            value={pwForm.next}
+            onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+            required
+            minLength={6}
+          />
+          <Input
+            label="Confirmar nueva contraseña"
+            type={showPw ? "text" : "password"}
+            placeholder="Repite la nueva contraseña"
+            value={pwForm.confirm}
+            onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+            required
+          />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowPw(!showPw)}
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700"
+            >
+              {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPw ? "Ocultar" : "Mostrar"} contraseñas
+            </button>
+            <Button type="submit" size="sm" disabled={savingPw} className="ml-auto">
+              <Lock className="h-4 w-4" />
+              {savingPw ? "Guardando..." : "Cambiar contraseña"}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-400">
+            Si creaste tu cuenta con Magic Link (sin contraseña), puedes dejar "Contraseña actual" en blanco.
+          </p>
         </form>
       </Card>
 

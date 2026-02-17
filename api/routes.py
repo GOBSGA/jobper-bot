@@ -504,6 +504,43 @@ def register_push():
     return jsonify(result)
 
 
+@user_bp.post("/change-password")
+@require_auth
+def change_password():
+    """Change password for authenticated user."""
+    data = request.get_json() or {}
+    current_password = data.get("current_password", "")
+    new_password = data.get("new_password", "")
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Contraseña actual y nueva requeridas"}), 400
+    if len(new_password) < 6:
+        return jsonify({"error": "La nueva contraseña debe tener al menos 6 caracteres"}), 400
+    if current_password == new_password:
+        return jsonify({"error": "La nueva contraseña debe ser diferente a la actual"}), 400
+
+    try:
+        from services.auth import _verify_password, _hash_password
+        from core.database import UnitOfWork
+
+        with UnitOfWork() as uow:
+            user = uow.users.get(g.user_id)
+            if not user:
+                return jsonify({"error": "Usuario no encontrado"}), 404
+
+            # Users who registered via magic link have no password yet → allow setting one
+            if user.password_hash and not _verify_password(current_password, user.password_hash):
+                return jsonify({"error": "La contraseña actual es incorrecta"}), 400
+
+            user.password_hash = _hash_password(new_password)
+            uow.commit()
+
+        return jsonify({"ok": True, "message": "Contraseña actualizada correctamente"})
+    except Exception as e:
+        logger.error(f"Change password error: {e}", exc_info=True)
+        return jsonify({"error": "Error al cambiar la contraseña"}), 500
+
+
 # =============================================================================
 # ONBOARDING (2 endpoints)
 # =============================================================================
