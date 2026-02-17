@@ -61,7 +61,8 @@ def verify():
 
     result = verify_magic_link(g.validated.token, referral_code=g.validated.referral_code)
     if "error" in result:
-        return jsonify(result), 401
+        # Use 400, not 401 — api.js would intercept 401 and show "Sesión expirada"
+        return jsonify(result), 400
     return jsonify(result)
 
 
