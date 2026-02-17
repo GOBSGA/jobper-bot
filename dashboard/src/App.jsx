@@ -7,6 +7,8 @@ import Layout from "./components/layout/Layout";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Verify from "./pages/auth/Verify";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 import Onboarding from "./pages/auth/Onboarding";
 import OnboardingConversational from "./pages/auth/OnboardingConversational";
 
@@ -59,6 +61,8 @@ export default function App() {
         <Route path="/register" element={<Register />} />
       </Route>
       <Route path="/verify" element={<Verify />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/onboarding" element={<OnboardingConversational />} />
       <Route path="/onboarding/traditional" element={<Onboarding />} />
       <Route path="/terms" element={<Terms />} />

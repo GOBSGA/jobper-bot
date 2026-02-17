@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
-import Button from "../../components/ui/Input";
+import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
 import Logo from "../../components/ui/Logo";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
@@ -17,7 +17,7 @@ export default function ForgotPassword() {
     setLoading(true);
     setError("");
     try {
-      await api.post("/auth/login", { email });
+      await api.post("/auth/forgot-password", { email });
       setSent(true);
     } catch (err) {
       setError(err.error || "Error enviando el link. Intenta de nuevo.");

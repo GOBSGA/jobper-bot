@@ -134,6 +134,7 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         "renewal_reminder": _tmpl_renewal_reminder,
         "renewal_urgent": _tmpl_renewal_urgent,
         "subscription_expired": _tmpl_subscription_expired,
+        "password_reset": _tmpl_password_reset,
         # Payment verification templates
         "payment_review_needed": _tmpl_payment_review_needed,
         "payment_auto_approved": _tmpl_payment_auto_approved,
@@ -184,6 +185,19 @@ def _tmpl_magic_link(data: dict) -> tuple[str, str]:
 <p style="color:#64748b;font-size:12px;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">¿El botón no funciona? Copia y pega este enlace en tu navegador:<br><span style="color:#3b82f6;word-break:break-all">{_escape(url)}</span></p>
 """
     return "Tu enlace de acceso a Jobper", _base_html(content)
+
+
+def _tmpl_password_reset(data: dict) -> tuple[str, str]:
+    url = data.get("url", "")
+    content = f"""
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Restablecer contraseña</h2>
+<p style="color:#475569;line-height:1.6">Recibimos una solicitud para restablecer la contraseña de tu cuenta. Haz clic en el botón para elegir una nueva.</p>
+<p style="color:#475569;line-height:1.6"><strong>Este enlace expira en 30 minutos</strong> y solo puede usarse una vez.</p>
+{_button(url, "Restablecer contraseña")}
+<p style="color:#94a3b8;font-size:13px">Si no solicitaste esto, puedes ignorar este correo. Tu contraseña no cambiará.</p>
+<p style="color:#64748b;font-size:12px;margin-top:12px;border-top:1px solid #e2e8f0;padding-top:12px">¿El botón no funciona? Copia y pega este enlace:<br><span style="color:#3b82f6;word-break:break-all">{_escape(url)}</span></p>
+"""
+    return "Restablece tu contraseña de Jobper", _base_html(content)
 
 
 def _tmpl_welcome(data: dict) -> tuple[str, str]:

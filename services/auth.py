@@ -202,6 +202,76 @@ def register_with_password(email: str, password: str, referral_code: str = None)
     }
 
 
+def send_password_reset(email: str, ip: str = None) -> dict:
+    """
+    Send password reset email with a secure one-time link.
+    Always returns {ok: True} — never reveals if the email exists.
+    """
+    email = email.lower().strip()
+
+    with UnitOfWork() as uow:
+        user = uow.users.get_by_email(email)
+        if not user:
+            logger.info(f"Password reset requested for unknown email: {email}")
+            return {"ok": True}
+
+    token = generate_secure_token(32)
+    token_hash = hash_token(token)
+    expires_at = datetime.utcnow() + timedelta(minutes=30)
+
+    with UnitOfWork() as uow:
+        link = MagicLink(
+            email=email,
+            token_hash=token_hash,
+            expires_at=expires_at,
+            ip_address=ip,
+        )
+        uow.magic_links.create(link)
+        uow.commit()
+
+    reset_url = f"{Config.FRONTEND_URL}/reset-password?token={token}"
+    from core.tasks import task_send_email
+
+    task_send_email.delay(email, "password_reset", {"url": reset_url, "email": email})
+    logger.info(f"Password reset email sent to {email}")
+    return {"ok": True}
+
+
+def reset_password_with_token(token: str, new_password: str) -> dict:
+    """
+    Validate reset token and update password. Auto-logs user in on success.
+    Returns: {access_token, refresh_token, user} or {error: str}
+    """
+    if len(new_password) < 6:
+        return {"error": "La contraseña debe tener al menos 6 caracteres"}
+
+    token_hash = hash_token(token)
+
+    with UnitOfWork() as uow:
+        link = uow.magic_links.get_valid_by_hash(token_hash)
+        if not link:
+            reason = uow.magic_links.get_failure_reason(token_hash)
+            if reason == "already_used":
+                return {"error": "Este enlace ya fue utilizado. Solicita uno nuevo desde ¿Olvidaste tu contraseña?"}
+            return {"error": "El enlace expiró o es inválido. Solicita uno nuevo."}
+
+        link.used_at = datetime.utcnow()
+
+        user = uow.users.get_by_email(link.email)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        user.password_hash = _hash_password(new_password)
+        uow.commit()
+
+        access = _create_access_token(user)
+        refresh = _create_refresh_token(user)
+        user_data = _user_to_public(user)
+
+    logger.info(f"Password reset completed for {link.email}")
+    return {"access_token": access, "refresh_token": refresh, "user": user_data}
+
+
 def login_with_password(email: str, password: str) -> dict:
     """
     Login with email + password.

@@ -142,6 +142,43 @@ def login_password():
         }), 500
 
 
+@auth_bp.post("/forgot-password")
+@rate_limit(5)
+def forgot_password():
+    """Send a password reset link by email. Never reveals if email exists."""
+    data = request.get_json() or {}
+    email = data.get("email", "").strip()
+    if not email:
+        return jsonify({"error": "Email requerido"}), 400
+    try:
+        from services.auth import send_password_reset
+        result = send_password_reset(email, ip=request.remote_addr)
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Forgot password error: {e}", exc_info=True)
+        return jsonify({"error": "Error enviando el correo. Intenta de nuevo."}), 500
+
+
+@auth_bp.post("/reset-password")
+@rate_limit(10)
+def reset_password():
+    """Validate reset token and set new password. Auto-logs user in."""
+    data = request.get_json() or {}
+    token = data.get("token", "").strip()
+    new_password = data.get("new_password", "")
+    if not token or not new_password:
+        return jsonify({"error": "Token y contraseña requeridos"}), 400
+    try:
+        from services.auth import reset_password_with_token
+        result = reset_password_with_token(token, new_password)
+        if "error" in result:
+            return jsonify(result), 400
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"Reset password error: {e}", exc_info=True)
+        return jsonify({"error": "Error al restablecer contraseña. Intenta de nuevo."}), 500
+
+
 # =============================================================================
 # CONTRACTS (6 endpoints)
 # =============================================================================
