@@ -1136,6 +1136,38 @@ def debug_user():
     })
 
 
+@debug_bp.post("/reset-password")
+def debug_reset_password():
+    """
+    Emergency password reset for debugging.
+    Body: {"email": "...", "new_password": "...", "secret": "jobper-reset-2026"}
+    REMOVE THIS ENDPOINT AFTER LOGIN IS FIXED.
+    """
+    data = request.get_json() or {}
+    if data.get("secret") != "jobper-reset-2026":
+        return jsonify({"error": "Unauthorized"}), 403
+
+    email = data.get("email", "").lower().strip()
+    new_password = data.get("new_password", "")
+
+    if not email or len(new_password) < 6:
+        return jsonify({"error": "email and new_password (min 6 chars) required"}), 400
+
+    try:
+        from services.auth import _hash_password
+        from core.database import UnitOfWork
+
+        with UnitOfWork() as uow:
+            user = uow.users.get_by_email(email)
+            if not user:
+                return jsonify({"error": f"No user found with email {email}"}), 404
+            user.password_hash = _hash_password(new_password)
+            uow.commit()
+        return jsonify({"ok": True, "message": f"Password updated for {email}. Now try logging in."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 ALL_BLUEPRINTS = [
     health_bp,
     debug_bp,
