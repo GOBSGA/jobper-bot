@@ -114,7 +114,10 @@ export default function Login() {
             <form onSubmit={submitPassword} className="space-y-4">
               <Input
                 label="Email"
+                id="login-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 placeholder="tu@empresa.co"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -123,7 +126,10 @@ export default function Login() {
               <div className="relative">
                 <Input
                   label="Contraseña"
+                  id="login-password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

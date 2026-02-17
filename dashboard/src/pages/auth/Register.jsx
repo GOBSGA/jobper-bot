@@ -102,7 +102,10 @@ export default function Register() {
           <form onSubmit={submit} className="space-y-4">
             <Input
               label="Email"
+              id="register-email"
+              name="email"
               type="email"
+              autoComplete="email"
               placeholder="tu@empresa.co"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -111,7 +114,10 @@ export default function Register() {
             <div className="relative">
               <Input
                 label="Contraseña"
+                id="register-password"
+                name="password"
                 type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
                 placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -127,7 +133,10 @@ export default function Register() {
             </div>
             <Input
               label="Confirmar contraseña"
+              id="register-confirm"
+              name="confirm_password"
               type={showPassword ? "text" : "password"}
+              autoComplete="new-password"
               placeholder="Repite tu contraseña"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}

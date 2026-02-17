@@ -58,8 +58,16 @@ export function AuthProvider({ children }) {
   const login = async (tokens) => {
     localStorage.setItem("access_token", tokens.access_token);
     localStorage.setItem("refresh_token", tokens.refresh_token);
-    setLoading(true);
-    await fetchUser();
+    // Login response already contains user — use it directly to avoid a second
+    // API call that could fail and make login appear broken.
+    if (tokens.user) {
+      setUser(tokens.user);
+      setLoading(false);
+      fetchSubscription(); // non-blocking, non-critical
+    } else {
+      setLoading(true);
+      await fetchUser();
+    }
   };
 
   const logout = async () => {
