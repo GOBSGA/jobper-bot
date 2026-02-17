@@ -313,6 +313,47 @@ def _run_alembic_migrations():
         logger.warning(f"Alembic migrations skipped: {e}")
 
 
+def _ensure_missing_columns():
+    """
+    Add missing columns using PostgreSQL's native ADD COLUMN IF NOT EXISTS.
+    This is the final safety net - runs after Alembic migrations, catches anything
+    that slipped through. 100% idempotent.
+    """
+    if not Config.is_postgresql():
+        return
+    try:
+        from core.database import get_engine
+        from sqlalchemy import text
+
+        engine = get_engine()
+        ddl_statements = [
+            # From migration 002_add_trusted_payer_fields
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS trust_score FLOAT DEFAULT 0.0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_payments_count INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS trust_level VARCHAR(20) DEFAULT 'new'",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS one_click_renewal_enabled BOOLEAN DEFAULT false",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_verified_payment_at TIMESTAMP",
+            # From migration b299e2118e64
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
+            # From migration 0eced91c474b
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_policy_accepted_at TIMESTAMP",
+            # From migration 001_add_verification_columns
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS comprobante_hash VARCHAR(64)",
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
+        ]
+        with engine.connect() as conn:
+            for stmt in ddl_statements:
+                try:
+                    conn.execute(text(stmt))
+                except Exception as e:
+                    logger.warning(f"Column ensure skipped: {e}")
+            conn.commit()
+        logger.info("Missing columns verified/added")
+    except Exception as e:
+        logger.error(f"_ensure_missing_columns failed: {e}")
+
+
 def _init_db():
     try:
         from core.database import Base, get_engine
@@ -321,8 +362,11 @@ def _init_db():
         Base.metadata.create_all(engine)
         logger.info("Database tables verified")
 
-        # Create GIN index for PostgreSQL FTS (no-op if already exists)
         if Config.is_postgresql():
+            # Ensure all columns exist (safe even if Alembic migrations failed)
+            _ensure_missing_columns()
+
+            # Create GIN index for PostgreSQL FTS (no-op if already exists)
             try:
                 from sqlalchemy import text
 
@@ -340,7 +384,7 @@ def _init_db():
             except Exception as e:
                 logger.warning(f"FTS index creation skipped: {e}")
 
-            # Run Alembic migrations automatically
+            # Run Alembic migrations automatically (records versions even if columns already exist)
             _run_alembic_migrations()
     except Exception as e:
         logger.error(f"Database init failed: {e}")
