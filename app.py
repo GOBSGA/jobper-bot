@@ -342,13 +342,15 @@ def _ensure_missing_columns():
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
         ]
-        with engine.connect() as conn:
-            for stmt in ddl_statements:
-                try:
+        # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
+        # the whole transaction), it won't prevent the others from running.
+        for stmt in ddl_statements:
+            try:
+                with engine.connect() as conn:
                     conn.execute(text(stmt))
-                except Exception as e:
-                    logger.warning(f"Column ensure skipped: {e}")
-            conn.commit()
+                    conn.commit()
+            except Exception as e:
+                logger.warning(f"Column ensure skipped ({stmt[:50]}...): {e}")
         logger.info("Missing columns verified/added")
     except Exception as e:
         logger.error(f"_ensure_missing_columns failed: {e}")

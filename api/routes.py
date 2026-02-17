@@ -1058,8 +1058,51 @@ def health_check():
 # ALL BLUEPRINTS (for app registration)
 # =============================================================================
 
+debug_bp = Blueprint("debug", __name__, url_prefix="/api/debug")
+
+
+@debug_bp.get("/db")
+def debug_db():
+    """
+    Debug endpoint: shows DB column status and tries a test login query.
+    Visit /api/debug/db to diagnose login failures.
+    """
+    from sqlalchemy import inspect, text
+    from core.database import get_engine
+
+    engine = get_engine()
+    result = {"status": "ok", "columns": {}, "test_query": None, "error": None}
+
+    try:
+        inspector = inspect(engine)
+        user_cols = [c["name"] for c in inspector.get_columns("users")]
+        critical = ["id", "email", "password_hash", "plan", "privacy_policy_accepted_at",
+                    "trust_score", "trust_level", "one_click_renewal_enabled"]
+        result["columns"] = {c: (c in user_cols) for c in critical}
+        result["all_user_columns"] = sorted(user_cols)
+    except Exception as e:
+        result["error"] = f"inspect failed: {e}"
+
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(text("SELECT id, email, plan FROM users LIMIT 1")).fetchone()
+            result["test_query"] = "SELECT id,email,plan OK" if row else "no users in DB"
+    except Exception as e:
+        result["test_query"] = f"FAILED: {e}"
+
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT id, email, password_hash, privacy_policy_accepted_at FROM users LIMIT 1"))
+            result["full_select"] = "OK"
+    except Exception as e:
+        result["full_select"] = f"FAILED: {e}"
+
+    return jsonify(result)
+
+
 ALL_BLUEPRINTS = [
     health_bp,
+    debug_bp,
     auth_bp,
     contracts_bp,
     pipeline_bp,
