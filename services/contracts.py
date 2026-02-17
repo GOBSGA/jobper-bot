@@ -310,6 +310,35 @@ def get_demo_contracts(limit: int = 6) -> list:
         return result
 
 
+def cleanup_expired_contracts(days_grace: int = 30) -> dict:
+    """
+    Delete contracts that expired more than `days_grace` days ago.
+    Keeps recently-expired contracts so users can still see them briefly.
+    Returns: {deleted: int}
+    """
+    from datetime import timedelta
+
+    cutoff = datetime.utcnow() - timedelta(days=days_grace)
+    deleted = 0
+
+    try:
+        with UnitOfWork() as uow:
+            expired = (
+                uow.session.query(Contract)
+                .filter(Contract.deadline < cutoff)
+                .all()
+            )
+            for contract in expired:
+                uow.session.delete(contract)
+                deleted += 1
+            uow.commit()
+        logger.info(f"Cleanup: deleted {deleted} contracts expired before {cutoff.date()}")
+    except Exception as e:
+        logger.error(f"Cleanup failed: {e}")
+
+    return {"deleted": deleted}
+
+
 def get_public_stats() -> dict:
     """Get public stats for landing page."""
     with UnitOfWork() as uow:

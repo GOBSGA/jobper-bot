@@ -501,11 +501,12 @@ def notify_high_priority_matches(new_count: int):
         # Get users with notifications enabled
         users = uow.users.get_active_with_notifications()
 
-        # Get contracts from last hour (just ingested), limit to avoid overload
-        since = datetime.utcnow() - timedelta(hours=1)
+        # Get contracts ingested in last 2 hours (use created_at, not publication_date,
+        # because imported contracts may have old publication dates)
+        since = datetime.utcnow() - timedelta(hours=2)
         new_contracts = (
             uow.session.query(Contract)
-            .filter(Contract.publication_date >= since)
+            .filter(Contract.created_at >= since)
             .limit(MAX_CONTRACTS_FOR_MATCHING)
             .all()
         )

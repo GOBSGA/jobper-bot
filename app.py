@@ -378,6 +378,13 @@ def _start_background_services():
                 check_renewals()
                 logger.info("Scheduler: Renewal check complete")
 
+                # Clean up expired contracts (older than 30 days past deadline)
+                logger.info("Scheduler: Cleaning up expired contracts...")
+                from services.contracts import cleanup_expired_contracts
+
+                cleanup_result = cleanup_expired_contracts(days_grace=30)
+                logger.info(f"Scheduler: Cleanup complete - {cleanup_result['deleted']} contracts removed")
+
             except Exception as e:
                 logger.error(f"Scheduler error: {e}")
 
