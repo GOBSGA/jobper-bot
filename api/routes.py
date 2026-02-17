@@ -1100,6 +1100,42 @@ def debug_db():
     return jsonify(result)
 
 
+@debug_bp.get("/user")
+def debug_user():
+    """
+    Check a specific user's auth status.
+    Usage: /api/debug/user?email=tu@email.com
+    """
+    email = request.args.get("email", "").lower().strip()
+    if not email:
+        return jsonify({"error": "Pass ?email=tu@email.com"}), 400
+
+    from sqlalchemy import text
+    from core.database import get_engine
+
+    engine = get_engine()
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT id, email, plan, password_hash IS NOT NULL as has_password, created_at FROM users WHERE email = :email"),
+                {"email": email}
+            ).fetchone()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    if not row:
+        return jsonify({"exists": False, "email": email, "message": "No existe — puedes registrarte con este email"})
+
+    return jsonify({
+        "exists": True,
+        "email": row[1],
+        "plan": row[2],
+        "has_password": bool(row[3]),
+        "created_at": str(row[4]),
+        "message": "Tiene contraseña — puede hacer login" if row[3] else "SIN contraseña — fue creado por magic link, no puede hacer login con contraseña"
+    })
+
+
 ALL_BLUEPRINTS = [
     health_bp,
     debug_bp,
