@@ -701,6 +701,15 @@ def get_subscription():
     return jsonify({"subscription": result})
 
 
+@payments_bp.get("/status")
+@require_auth
+def get_payment_status():
+    """Return pending/grace payment info for the current user (used for status banner)."""
+    from services.payments import get_user_payment_status
+
+    return jsonify(get_user_payment_status(g.user_id))
+
+
 @payments_bp.post("/request")
 @require_auth
 @rate_limit(5)
@@ -1015,6 +1024,18 @@ def admin_approve_payment_route(payment_id: int):
     result = admin_approve_payment(payment_id)
     if "error" in result:
         return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.post("/payments/approve-all-today")
+@require_auth
+@require_admin
+@audit("admin_batch_approve")
+def admin_batch_approve_route():
+    """Approve ALL grace/review payments from the last 24h with one click."""
+    from services.payments import admin_batch_approve_today
+
+    result = admin_batch_approve_today()
     return jsonify(result)
 
 

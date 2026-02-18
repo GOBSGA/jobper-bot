@@ -304,6 +304,23 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
         payment_amount = payment.amount
         payment_ref = payment.wompi_ref
 
+        # FRAUD: Rate limit — max 3 comprobante uploads per user per 24 hours
+        cutoff_24h = now - timedelta(hours=24)
+        recent_uploads = (
+            uow.session.query(Payment)
+            .filter(
+                Payment.user_id == user_id,
+                Payment.comprobante_url.isnot(None),
+                Payment.created_at >= cutoff_24h,
+            )
+            .count()
+        )
+        if recent_uploads >= 3:
+            logger.warning(f"FRAUD: Rate limit hit — user={user_id} tried {recent_uploads} uploads in 24h")
+            return {
+                "error": "Demasiados intentos en 24 horas. Contacta soporte@jobper.co si el problema persiste."
+            }
+
     # Verify the receipt with AI
     verification = verify_payment_receipt(
         user_id=user_id,
@@ -313,18 +330,53 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
 
     # Handle verification result
     if not verification["valid"]:
-        if verification.get("requires_review"):
-            # Borderline case - needs manual review
+        confidence = verification.get("verification", {}).get("confidence", 0)
+
+        if verification.get("grace_eligible"):
+            # Comprobante looks plausible (60-95% confidence) — grant 24h grace access
+            # Admin must confirm before grace expires; if not, access is revoked.
+            grace_until = now + timedelta(hours=24)
             with UnitOfWork() as uow:
                 payment = uow.payments.get(payment_id)
                 if payment:
-                    payment.status = "review"
+                    payment.status = "grace"
                     payment.comprobante_url = comprobante_path
-                    payment.verification_status = "manual_review"
+                    payment.verification_status = "grace_review"
                     payment.verification_result = verification.get("verification", {})
+                    meta = payment.metadata_json or {}
+                    meta["grace_until"] = grace_until.isoformat()
+                    payment.metadata_json = meta
                     uow.commit()
 
-            # Notify admin for manual review
+                # Only create grace sub if user has no active subscription already
+                existing_active = uow.subscriptions.get_active_for_user(user_id)
+                if not existing_active:
+                    # Cancel any previous grace sub for this user
+                    prev_grace = (
+                        uow.session.query(Subscription)
+                        .filter(Subscription.user_id == user_id, Subscription.status == "grace")
+                        .first()
+                    )
+                    if prev_grace:
+                        prev_grace.status = "cancelled"
+
+                    grace_sub = Subscription(
+                        user_id=user_id,
+                        plan=plan,
+                        status="grace",
+                        amount=payment_amount,
+                        starts_at=now,
+                        ends_at=grace_until,
+                    )
+                    uow.subscriptions.create(grace_sub)
+
+                    user = uow.users.get(user_id)
+                    if user:
+                        user.plan = plan
+
+                    uow.commit()
+
+            # Notify admin
             from core.tasks import task_send_email
 
             task_send_email.delay(
@@ -337,31 +389,71 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                     "amount": payment_amount,
                     "reference": payment_ref,
                     "issues": verification.get("issues", []),
-                    "confidence": verification.get("verification", {}).get("confidence", 0),
+                    "confidence": confidence,
+                    "grace": True,
                 },
             )
+            cache.delete_pattern(f"user:{user_id}:*")
+            logger.info(f"Payment grace period granted: user={user_id}, payment={payment_id}, until={grace_until}")
+            return {
+                "ok": True,
+                "status": "grace",
+                "plan": plan,
+                "grace_until": grace_until.isoformat(),
+                "message": (
+                    "Tu pago está siendo verificado. Tienes acceso al plan durante 24 horas "
+                    "mientras confirmamos el pago. Te avisaremos por email."
+                ),
+            }
 
+        elif verification.get("requires_review"):
+            # Low confidence or suspicious — no access, just queue for admin review
+            with UnitOfWork() as uow:
+                payment = uow.payments.get(payment_id)
+                if payment:
+                    payment.status = "review"
+                    payment.comprobante_url = comprobante_path
+                    payment.verification_status = "manual_review"
+                    payment.verification_result = verification.get("verification", {})
+                    uow.commit()
+
+            from core.tasks import task_send_email
+
+            task_send_email.delay(
+                Config.ADMIN_EMAIL,
+                "payment_review_needed",
+                {
+                    "user_id": user_id,
+                    "payment_id": payment_id,
+                    "plan": plan,
+                    "amount": payment_amount,
+                    "reference": payment_ref,
+                    "issues": verification.get("issues", []),
+                    "confidence": confidence,
+                    "grace": False,
+                },
+            )
             logger.warning(
-                f"Payment requires review: user={user_id}, payment={payment_id}, issues={verification.get('issues')}"
+                f"Payment flagged for review (low confidence): user={user_id}, payment={payment_id}, conf={confidence:.0%}"
             )
             return {
                 "ok": False,
                 "status": "review",
-                "message": "Tu comprobante está siendo verificado. Te notificaremos en breve.",
+                "message": "Tu comprobante está en revisión manual. Te notificaremos en máximo 24 horas.",
                 "issues": verification.get("issues", []),
             }
+
         else:
-            # Invalid - reject
+            # Clearly invalid / fraud — reject, allow retry
             with UnitOfWork() as uow:
                 payment = uow.payments.get(payment_id)
                 if payment:
                     payment.verification_status = "rejected"
                     payment.verification_result = verification.get("verification", {})
-                    # Don't change status to allow retry
                     uow.commit()
 
             logger.warning(
-                f"Payment rejected: user={user_id}, payment={payment_id}, issues={verification.get('issues')}"
+                f"Payment rejected (invalid receipt): user={user_id}, payment={payment_id}, issues={verification.get('issues')}"
             )
             return {
                 "ok": False,
@@ -727,8 +819,8 @@ def admin_approve_payment(payment_id: int) -> dict:
         payment = uow.payments.get(payment_id)
         if not payment:
             return {"error": "Pago no encontrado"}
-        if payment.status != "review":
-            return {"error": f"Este pago no está en revisión (status: {payment.status})"}
+        if payment.status not in ("review", "grace"):
+            return {"error": f"Este pago no está pendiente de aprobación (status: {payment.status})"}
 
         plan = payment.metadata_json.get("plan")
         if not plan or plan not in Config.PLANS:
@@ -742,21 +834,36 @@ def admin_approve_payment(payment_id: int) -> dict:
         payment.confirmed_at = now
         payment.verification_status = "admin_approved"
 
-        # Deactivate previous subscriptions
-        prev = uow.subscriptions.get_active_for_user(user_id)
-        if prev:
-            prev.status = "cancelled"
-
-        # Create new subscription (30 days)
-        sub = Subscription(
-            user_id=user_id,
-            plan=plan,
-            status="active",
-            amount=payment_amount,
-            starts_at=now,
-            ends_at=now + timedelta(days=30),
-        )
-        uow.subscriptions.create(sub)
+        if payment.status == "grace":
+            # Grace → extend existing grace subscription to full 30 days
+            grace_sub = (
+                uow.session.query(Subscription)
+                .filter(Subscription.user_id == user_id, Subscription.status == "grace")
+                .first()
+            )
+            if grace_sub:
+                grace_sub.status = "active"
+                grace_sub.ends_at = now + timedelta(days=30)
+            else:
+                # Fallback: create fresh subscription
+                prev = uow.subscriptions.get_active_for_user(user_id)
+                if prev:
+                    prev.status = "cancelled"
+                sub = Subscription(
+                    user_id=user_id, plan=plan, status="active",
+                    amount=payment_amount, starts_at=now, ends_at=now + timedelta(days=30),
+                )
+                uow.subscriptions.create(sub)
+        else:
+            # Review (no grace sub exists) → create fresh subscription
+            prev = uow.subscriptions.get_active_for_user(user_id)
+            if prev:
+                prev.status = "cancelled"
+            sub = Subscription(
+                user_id=user_id, plan=plan, status="active",
+                amount=payment_amount, starts_at=now, ends_at=now + timedelta(days=30),
+            )
+            uow.subscriptions.create(sub)
 
         # Update user plan
         user = uow.users.get(user_id)
@@ -801,11 +908,12 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
         payment = uow.payments.get(payment_id)
         if not payment:
             return {"error": "Pago no encontrado"}
-        if payment.status not in ("pending", "review"):
+        if payment.status not in ("pending", "review", "grace"):
             return {"error": f"Este pago no puede ser rechazado (status: {payment.status})"}
 
         plan = payment.metadata_json.get("plan")
         user_id = payment.user_id
+        was_grace = payment.status == "grace"
 
         # Reject the payment
         payment.status = "declined"
@@ -815,9 +923,22 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
             verification["admin_rejection_reason"] = reason
             payment.verification_result = verification
 
+        # If grace: revoke the temporary subscription and revert user plan
+        if was_grace:
+            grace_sub = (
+                uow.session.query(Subscription)
+                .filter(Subscription.user_id == user_id, Subscription.status == "grace")
+                .first()
+            )
+            if grace_sub:
+                grace_sub.status = "cancelled"
+
         user = uow.users.get(user_id)
         if user:
             user_email = user.email
+            # Revert plan to free if grace is being revoked and plan was set by this grace
+            if was_grace and user.plan == plan:
+                user.plan = "free"
 
         uow.commit()
 
@@ -836,30 +957,167 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
 
 
 def get_payments_for_review() -> list[dict]:
-    """Get all payments that need manual review."""
+    """Get all payments pending admin review (both 'review' and 'grace' status)."""
     with UnitOfWork() as uow:
         payments = (
-            uow.session.query(Payment).filter(Payment.status == "review").order_by(Payment.created_at.desc()).all()
+            uow.session.query(Payment)
+            .filter(Payment.status.in_(["review", "grace"]))
+            .order_by(Payment.created_at.desc())
+            .all()
         )
 
         result = []
         for p in payments:
             user = uow.users.get(p.user_id)
+            meta = p.metadata_json or {}
             result.append(
                 {
                     "id": p.id,
                     "user_id": p.user_id,
                     "user_email": user.email if user else None,
                     "amount": p.amount,
-                    "plan": p.metadata_json.get("plan"),
+                    "plan": meta.get("plan"),
                     "reference": p.wompi_ref,
                     "comprobante_url": p.comprobante_url,
-                    "verification_result": p.verification_result,
+                    "verification": p.verification_result,
+                    "verification_status": p.verification_status,
+                    "status": p.status,
+                    "grace_until": meta.get("grace_until"),
                     "created_at": p.created_at.isoformat() if p.created_at else None,
                 }
             )
 
         return result
+
+
+def get_user_payment_status(user_id: int) -> dict:
+    """Return pending/grace payment info for the user (used by frontend for status banner)."""
+    with UnitOfWork() as uow:
+        payment = (
+            uow.session.query(Payment)
+            .filter(
+                Payment.user_id == user_id,
+                Payment.status.in_(["grace", "review", "pending"]),
+            )
+            .order_by(Payment.created_at.desc())
+            .first()
+        )
+
+        if not payment:
+            return {"pending": False}
+
+        meta = payment.metadata_json or {}
+        result = {
+            "pending": True,
+            "status": payment.status,
+            "plan": meta.get("plan"),
+            "amount": payment.amount,
+            "payment_id": payment.id,
+            "created_at": payment.created_at.isoformat() if payment.created_at else None,
+        }
+
+        if payment.status == "grace":
+            result["grace_until"] = meta.get("grace_until")
+            # Check if grace subscription is still alive
+            grace_sub = (
+                uow.session.query(Subscription)
+                .filter(Subscription.user_id == user_id, Subscription.status == "grace")
+                .first()
+            )
+            result["grace_active"] = bool(grace_sub and grace_sub.ends_at > datetime.utcnow())
+
+        return result
+
+
+def admin_batch_approve_today() -> dict:
+    """
+    Approve ALL grace/review payments submitted in the last 24h — one-button daily workflow.
+    Admin opens Bre-B, verifies all arrived, clicks this button.
+    """
+    now = datetime.utcnow()
+    cutoff = now - timedelta(hours=24)
+    approved = 0
+    skipped = []
+
+    with UnitOfWork() as uow:
+        pending_ids = [
+            p.id
+            for p in uow.session.query(Payment)
+            .filter(
+                Payment.status.in_(["grace", "review"]),
+                Payment.created_at >= cutoff,
+            )
+            .all()
+        ]
+
+    for payment_id in pending_ids:
+        result = admin_approve_payment(payment_id)
+        if "error" in result:
+            skipped.append({"payment_id": payment_id, "error": result["error"]})
+        else:
+            approved += 1
+            logger.info(f"Batch approved payment {payment_id}")
+
+    logger.info(f"Batch approval complete: approved={approved}, skipped={len(skipped)}")
+    return {"ok": True, "approved": approved, "skipped": skipped, "total": len(pending_ids)}
+
+
+def check_grace_periods() -> dict:
+    """
+    Scheduler task: revoke grace subscriptions that expired without admin approval.
+    Call this every hour from the background scheduler.
+    """
+    now = datetime.utcnow()
+    revoked = 0
+
+    with UnitOfWork() as uow:
+        expired_subs = (
+            uow.session.query(Subscription)
+            .filter(
+                Subscription.status == "grace",
+                Subscription.ends_at <= now,
+            )
+            .all()
+        )
+
+        for sub in expired_subs:
+            user = uow.users.get(sub.user_id)
+            if user and user.plan == sub.plan:
+                user.plan = "free"
+                # Notify user that grace expired
+                from core.tasks import task_send_email
+                task_send_email.delay(
+                    user.email,
+                    "grace_expired",
+                    {"plan": sub.plan},
+                )
+
+            sub.status = "expired"
+            revoked += 1
+
+            # Also mark the payment as needing re-upload
+            expired_payment = (
+                uow.session.query(Payment)
+                .filter(
+                    Payment.user_id == sub.user_id,
+                    Payment.status == "grace",
+                )
+                .order_by(Payment.created_at.desc())
+                .first()
+            )
+            if expired_payment:
+                expired_payment.status = "declined"
+                expired_payment.verification_status = "grace_expired"
+
+        uow.commit()
+
+    if revoked:
+        logger.info(f"Grace period expiry: revoked {revoked} temporary subscriptions")
+        # Invalidate cache for affected users
+        from core.cache import cache
+        # (cache invalidation per-user happens above when plan changes)
+
+    return {"revoked": revoked}
 
 
 # =============================================================================

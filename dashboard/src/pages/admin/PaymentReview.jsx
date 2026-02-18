@@ -25,6 +25,7 @@ export default function PaymentReview() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -43,6 +44,22 @@ export default function PaymentReview() {
       toast.error(err.error || "Error cargando pagos pendientes");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBatchApprove = async () => {
+    if (!window.confirm(
+      `¿Aprobaste TODOS los pagos de hoy en tu Bre-B?\n\nEsto activará ${payments.length} plan(es). Solo confirma si ya verificaste que el dinero llegó.`
+    )) return;
+    setBatchLoading(true);
+    try {
+      const data = await api.post("/admin/payments/approve-all-today");
+      toast.success(`✅ ${data.approved} pago(s) aprobado(s)${data.skipped?.length ? ` — ${data.skipped.length} omitido(s)` : ""}`);
+      fetchPayments();
+    } catch (err) {
+      toast.error(err.error || "Error en aprobación masiva");
+    } finally {
+      setBatchLoading(false);
     }
   };
 
@@ -116,6 +133,8 @@ export default function PaymentReview() {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case "grace":
+        return <Badge color="green"><CheckCircle className="h-3 w-3 mr-1" />Gracia 24h</Badge>;
       case "review":
         return <Badge color="yellow"><Clock className="h-3 w-3 mr-1" />Revisión manual</Badge>;
       case "pending":
@@ -139,15 +158,32 @@ export default function PaymentReview() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Shield className="h-6 w-6 text-brand-600" />
           <h1 className="text-2xl font-bold text-gray-900">Revisión de Pagos</h1>
+          {payments.length > 0 && (
+            <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded-full">
+              {payments.length} pendiente{payments.length !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
-        <Button variant="secondary" onClick={fetchPayments} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
+        <div className="flex gap-2">
+          {payments.length > 0 && (
+            <Button
+              onClick={handleBatchApprove}
+              disabled={batchLoading}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className={`h-4 w-4 mr-2 ${batchLoading ? "animate-spin" : ""}`} />
+              Aprobar todos hoy ({payments.length})
+            </Button>
+          )}
+          <Button variant="secondary" onClick={fetchPayments} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* Warning banner */}
@@ -182,13 +218,20 @@ export default function PaymentReview() {
             <Card key={payment.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div className="space-y-2">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-lg font-bold text-gray-900">
                       {money(payment.amount)}
                     </span>
                     {getStatusBadge(payment.status)}
-                    {payment.verification_status && (
-                      <Badge color="purple">{payment.verification_status}</Badge>
+                    {payment.status === "grace" && (
+                      <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded-full">
+                        ⚡ Acceso temporal activo
+                      </span>
+                    )}
+                    {payment.grace_until && (
+                      <span className="text-xs text-amber-700">
+                        Expira: {formatDate(payment.grace_until)}
+                      </span>
                     )}
                   </div>
 

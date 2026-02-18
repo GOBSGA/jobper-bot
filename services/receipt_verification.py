@@ -442,9 +442,10 @@ def verify_payment_receipt(
                 "verification": {"fraud_suspected": True},
             }
 
-    # 3. Determine expected destination
-    # Check which payment method they're likely using based on reference
-    if Config.NEQUI_NUMBER:
+    # 3. Determine expected destination — Bre-B (@gabriela5264) is the primary method
+    if Config.BREB_HANDLE:
+        expected_destination = Config.BREB_HANDLE
+    elif Config.NEQUI_NUMBER:
         expected_destination = Config.NEQUI_NUMBER
     elif Config.BANCOLOMBIA_ACCOUNT:
         expected_destination = Config.BANCOLOMBIA_ACCOUNT
@@ -474,15 +475,24 @@ def verify_payment_receipt(
                 }
                 uow.commit()
 
+    # Extract is_payment_receipt for grace-period decision in confirm_payment
+    is_receipt = verification.raw_analysis.get("is_payment_receipt", False)
+    confidence = verification.confidence
+
     return {
         "valid": verification.is_valid,
         # STRICT: Only auto-approve with 95%+ confidence
-        "auto_approved": verification.is_valid and verification.confidence >= 0.95,
+        "auto_approved": verification.is_valid and confidence >= 0.95,
         "requires_review": verification.requires_manual_review
-        or (verification.is_valid and verification.confidence < 0.95),
+        or (verification.is_valid and confidence < 0.95),
+        # Grace eligibility: plausible receipt but not auto-approvable
+        "grace_eligible": (not verification.is_valid)
+        and is_receipt
+        and confidence >= 0.60,
         "issues": verification.issues,
         "verification": {
-            "confidence": verification.confidence,
+            "confidence": confidence,
+            "is_payment_receipt": is_receipt,
             "extracted_amount": verification.extracted_amount,
             "extracted_reference": verification.extracted_reference,
             "extracted_date": verification.extracted_date,

@@ -33,6 +33,8 @@ import {
   Bell,
   Star,
   RefreshCw,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { TrustBadge, TrustCard } from "../../components/ui/TrustBadge";
 
@@ -138,10 +140,52 @@ function normalizePlan(plan) {
   return PLAN_ALIASES[plan] || plan || "free";
 }
 
+// Grace period banner: shows countdown timer while payment is pending admin approval
+function GraceBanner({ graceUntil, plan }) {
+  const countdown = useCountdown(graceUntil);
+  return (
+    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-start gap-3">
+      <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <p className="font-semibold text-amber-800">Acceso temporal activo — Plan {plan}</p>
+          <span className="bg-amber-200 text-amber-900 text-xs px-2 py-0.5 rounded-full font-bold">
+            {countdown} restantes
+          </span>
+        </div>
+        <p className="text-sm text-amber-700 mt-1">
+          Tu pago está siendo verificado. Tienes acceso completo mientras lo confirmamos (máx. 24h).
+          Si el pago es válido, tu plan se activa por 30 días completos sin que tengas que hacer nada.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Helper: format time remaining until a date
+function useCountdown(isoDate) {
+  const [remaining, setRemaining] = useState("");
+  useEffect(() => {
+    if (!isoDate) return;
+    const tick = () => {
+      const diff = new Date(isoDate) - new Date();
+      if (diff <= 0) { setRemaining("Expirado"); return; }
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      setRemaining(`${h}h ${m}m`);
+    };
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [isoDate]);
+  return remaining;
+}
+
 export default function Plans() {
   const { user, refresh } = useAuth();
   const { data: sub, loading } = useApi("/payments/subscription");
   const { data: trustInfo, loading: loadingTrust, refresh: refreshTrust } = useApi("/payments/trust");
+  const { data: paymentStatus } = useApi("/payments/status");
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState(null);
@@ -370,6 +414,24 @@ export default function Plans() {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Grace period banner — user paid but admin hasn't confirmed yet */}
+      {paymentStatus?.status === "grace" && paymentStatus?.grace_active && (
+        <GraceBanner graceUntil={paymentStatus.grace_until} plan={paymentStatus.plan} />
+      )}
+
+      {/* Pending review banner (no grace access) */}
+      {paymentStatus?.status === "review" && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <Clock className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-blue-800">Tu comprobante está en revisión manual</p>
+            <p className="text-sm text-blue-700 mt-0.5">
+              Lo revisaremos en las próximas horas. Si pagaste el monto correcto, se activará tu plan.
+            </p>
+          </div>
+        </div>
       )}
 
       {/* Trust Card for verified payers */}

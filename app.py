@@ -455,13 +455,31 @@ def _start_background_services():
                 logger.error(f"Scheduler error: {e}")
 
             iteration += 1
-            # Sleep 6 hours
+            # Sleep 6 hours (grace period check runs hourly via separate loop)
             time.sleep(6 * 60 * 60)
+
+    def grace_checker_loop():
+        """Check and expire grace subscriptions every hour."""
+        time.sleep(60)  # short initial delay
+        while True:
+            try:
+                from services.payments import check_grace_periods
+                result = check_grace_periods()
+                if result.get("revoked"):
+                    logger.info(f"Grace checker: revoked {result['revoked']} expired subscriptions")
+            except Exception as e:
+                logger.error(f"Grace checker error: {e}")
+            time.sleep(60 * 60)  # every hour
 
     # Start scheduler in daemon thread
     thread = threading.Thread(target=scheduler_loop, daemon=True, name="scheduler")
     thread.start()
     logger.info("Background scheduler started (first run in 5 minutes, then every 6 hours)")
+
+    # Start grace period checker (every hour)
+    grace_thread = threading.Thread(target=grace_checker_loop, daemon=True, name="grace-checker")
+    grace_thread.start()
+    logger.info("Grace period checker started (runs every hour)")
 
 
 # ---------------------------------------------------------------------------
