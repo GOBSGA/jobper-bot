@@ -343,6 +343,8 @@ def _ensure_missing_columns():
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
             # Telegram notifications
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
+            # Cross-source contract deduplication
+            "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
         ]
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.
@@ -406,6 +408,7 @@ def _start_background_services():
     from datetime import datetime
 
     _last_digest_day = [None]  # mutable cell to track when daily digest last ran
+    _consecutive_scraper_failures = [0]  # mutable cell: count of consecutive all-error runs
 
     def scheduler_loop():
         """Run periodic tasks in background."""
@@ -420,8 +423,41 @@ def _start_background_services():
                 from services.ingestion import ingest_all
 
                 result = ingest_all(days_back=7)
-                total_new = sum(r.get("new", 0) for r in result.values())
-                logger.info(f"Scheduler: Ingestion complete - {total_new} new contracts")
+                total_new = result.get("total_new", 0)
+                total_errors = result.get("total_errors", 0)
+                sources = result.get("sources", {})
+                logger.info(f"Scheduler: Ingestion complete - {total_new} new contracts, {total_errors} errors")
+
+                # Heartbeat: detect silent failures (errors > 0 AND zero new contracts)
+                if total_errors > 0 and total_new == 0:
+                    _consecutive_scraper_failures[0] += 1
+                    failed_sources = [k for k, v in sources.items() if v.get("errors", 0) > 0]
+                    logger.warning(
+                        f"Scraper heartbeat: run #{_consecutive_scraper_failures[0]} with "
+                        f"{total_errors} errors, 0 new contracts. Failed: {failed_sources}"
+                    )
+                    # Alert admin after 2 consecutive bad runs
+                    if _consecutive_scraper_failures[0] >= 2:
+                        try:
+                            from services.notifications import send_email
+                            send_email(
+                                Config.ADMIN_EMAIL,
+                                "scraper_alert",
+                                {
+                                    "failed_sources": failed_sources,
+                                    "total_errors": total_errors,
+                                    "run_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                                    "consecutive_failures": _consecutive_scraper_failures[0],
+                                },
+                            )
+                            logger.warning(f"Scraper alert email sent to {Config.ADMIN_EMAIL}")
+                        except Exception as e:
+                            logger.error(f"Failed to send scraper alert: {e}")
+                else:
+                    # Reset counter on any successful run
+                    if _consecutive_scraper_failures[0] > 0:
+                        logger.info(f"Scraper heartbeat: recovered after {_consecutive_scraper_failures[0]} failed runs")
+                    _consecutive_scraper_failures[0] = 0
 
                 # Check subscription renewals every 6 hours
                 logger.info("Scheduler: Checking subscription renewals...")

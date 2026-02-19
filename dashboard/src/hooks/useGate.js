@@ -1,20 +1,5 @@
 import { useAuth } from "../context/AuthContext";
-
-// =============================================================================
-// PLAN HIERARCHY — Los 4 Planes de Jobper
-// =============================================================================
-const PLAN_ORDER = {
-  free: 0,
-  trial: 0,           // Trial = Free
-  cazador: 1,         // $29,900/mes
-  competidor: 2,      // $149,900/mes
-  dominador: 3,       // $599,900/mes
-  // Aliases para compatibilidad
-  alertas: 1,
-  starter: 1,
-  business: 2,
-  enterprise: 3,
-};
+import { PLAN_ORDER, normalizePlan as normalize } from "../lib/planConfig";
 
 // =============================================================================
 // FEATURE GATES — Qué plan necesita cada feature
@@ -118,26 +103,12 @@ export const PLAN_INFO = {
 };
 
 // =============================================================================
-// NORMALIZE PLAN — Convierte nombres viejos a nuevos
-// =============================================================================
-function normalizePlan(plan) {
-  const aliases = {
-    alertas: "cazador",
-    starter: "cazador",
-    business: "competidor",
-    enterprise: "dominador",
-    trial: "free",
-  };
-  return aliases[plan] || plan || "free";
-}
-
-// =============================================================================
 // useGate HOOK — Verifica si el usuario tiene acceso a una feature
 // =============================================================================
 export function useGate(feature) {
   const { user } = useAuth();
   const rawPlan = user?.plan || "free";
-  const userPlan = normalizePlan(rawPlan);
+  const userPlan = normalize(rawPlan);
   const requiredPlan = FEATURE_GATES[feature];
 
   // Si no está en gates, permitir
@@ -157,11 +128,11 @@ export function useGate(feature) {
 
   return {
     allowed,
-    requiredPlan: normalizePlan(requiredPlan),
+    requiredPlan: normalize(requiredPlan),
     currentPlan: userPlan,
     fomoMessage: allowed ? null : FOMO_MESSAGES[feature] || `Requiere plan ${requiredPlan}`,
     upgradeUrl: allowed ? null : `/payments?plan=${requiredPlan}&feature=${feature}`,
-    planInfo: PLAN_INFO[normalizePlan(requiredPlan)],
+    planInfo: PLAN_INFO[normalize(requiredPlan)],
   };
 }
 
@@ -171,7 +142,7 @@ export function useGate(feature) {
 export function usePlanLimits() {
   const { user } = useAuth();
   const rawPlan = user?.plan || "free";
-  const userPlan = normalizePlan(rawPlan);
+  const userPlan = normalize(rawPlan);
 
   const limits = {
     free: {
@@ -226,7 +197,7 @@ export function usePlanLimits() {
 // =============================================================================
 export function useUpgradePrompt() {
   const { user } = useAuth();
-  const userPlan = normalizePlan(user?.plan || "free");
+  const userPlan = normalize(user?.plan || "free");
 
   const getNextPlan = () => {
     if (userPlan === "free") return "cazador";

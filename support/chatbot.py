@@ -29,9 +29,9 @@ KNOWLEDGE_BASE: list[FAQ] = [
         "Sí, todos los planes incluyen 14 días de prueba gratis sin tarjeta de crédito. Al registrarte con tu email inicias automáticamente el trial con acceso Business.",
     ),
     FAQ(
-        ("pago", "wompi", "tarjeta", "pse", "nequi", "bancolombia"),
+        ("pago", "transferencia", "nequi", "bancolombia", "breb"),
         "¿Cómo pago?",
-        "Aceptamos todos los medios de pago colombianos a través de Wompi: tarjeta de crédito/débito, PSE, Nequi y Bancolombia. El cobro es mensual automático.",
+        "Aceptamos pagos mediante transferencia bancaria (Bre-B, Nequi, Bancolombia). Sube tu comprobante y tu plan se activa en máximo 24 horas.",
     ),
     FAQ(
         ("cancelar", "anular", "desuscribir"),

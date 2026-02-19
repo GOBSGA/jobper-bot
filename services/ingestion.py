@@ -6,7 +6,9 @@ Supports multi-dataset ingestion with aggressive first-run loading.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import re
 import threading
 from datetime import datetime
 
@@ -133,6 +135,19 @@ def _post_ingestion_notify(new_count: int):
     notify_high_priority_matches(new_count)
 
 
+def _compute_content_hash(title: str, entity: str) -> str:
+    """
+    Compute a cross-source dedup hash from normalized title + entity.
+    Same contract published on SECOP and Ecopetrol will produce the same hash.
+    """
+    # Normalize: lowercase, remove punctuation/spaces, keep alphanumeric only
+    def _norm(s: str) -> str:
+        return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+    raw = f"{_norm(title)}|{_norm(entity)}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
 def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
     """Persist a list of ContractData to the database, skipping duplicates."""
     if not _ingestion_lock.acquire(blocking=False):
@@ -147,13 +162,30 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
         with UnitOfWork() as uow:
             for cd in contracts:
                 try:
+                    # Same-source dedup: exact external_id match
                     existing = uow.contracts.get_by_external_id(cd.external_id)
                     if existing:
                         skip_count += 1
                         continue
 
+                    # Cross-source dedup: same contract from a different portal
+                    content_hash = _compute_content_hash(cd.title, cd.entity or "")
+                    cross_existing = (
+                        uow.session.query(Contract)
+                        .filter(Contract.content_hash == content_hash)
+                        .first()
+                    )
+                    if cross_existing:
+                        logger.debug(
+                            f"[{source_key}] Cross-source dup skipped: '{cd.title[:60]}' "
+                            f"(already from '{cross_existing.source}')"
+                        )
+                        skip_count += 1
+                        continue
+
                     contract = Contract(
                         external_id=cd.external_id,
+                        content_hash=content_hash,
                         title=cd.title,
                         description=cd.description,
                         entity=cd.entity,

@@ -35,10 +35,6 @@ REDIS_URL=redis://user:password@host:6379
 ADMIN_EMAIL=tu@email.com
 CORS_ORIGINS=https://tu-dominio.com
 
-# Pagos (si usas Wompi)
-WOMPI_EVENTS_SECRET=<secret_from_wompi>
-WOMPI_PUBLIC_KEY=<public_key>
-WOMPI_PRIVATE_KEY=<private_key>
 ```
 
 ---

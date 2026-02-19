@@ -140,6 +140,7 @@ class Contract(Base):
 
     id = Column(Integer, primary_key=True)
     external_id = Column(String(100), unique=True, nullable=False, index=True)
+    content_hash = Column(String(64), nullable=True, index=True)  # cross-source dedup hash
 
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
@@ -291,7 +292,7 @@ class Subscription(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     plan = Column(String(20), nullable=False)  # starter, business, enterprise
     status = Column(String(20), default="active")  # active, cancelled, expired
-    wompi_ref = Column(String(100), nullable=True)
+    reference = Column(String(100), nullable=True)
     amount = Column(Integer, nullable=False)  # COP, sin decimales
     starts_at = Column(DateTime, default=datetime.utcnow)
     ends_at = Column(DateTime, nullable=False)
@@ -312,7 +313,7 @@ class Payment(Base):
     amount = Column(Integer, nullable=False)
     currency = Column(String(10), default="COP")
     type = Column(String(20), nullable=False)  # subscription, feature, pack
-    wompi_ref = Column(String(100), unique=True, nullable=True)
+    reference = Column(String(100), unique=True, nullable=True)
     status = Column(String(20), default="pending")  # pending, approved, declined, review
     comprobante_url = Column(String(500), nullable=True)
     confirmed_at = Column(DateTime, nullable=True)
@@ -644,8 +645,8 @@ class PaymentRepo(BaseRepository[Payment]):
     def __init__(self, session: Session):
         super().__init__(Payment, session)
 
-    def get_by_wompi_ref(self, ref: str) -> Optional[Payment]:
-        return self.session.query(Payment).filter(Payment.wompi_ref == ref).first()
+    def get_by_reference(self, ref: str) -> Optional[Payment]:
+        return self.session.query(Payment).filter(Payment.reference == ref).first()
 
     def get_for_user(self, user_id: int, limit: int = 20):
         return (

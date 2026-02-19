@@ -30,6 +30,7 @@ export default function ContractSearch() {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [showFomoBanner, setShowFomoBanner] = useState(true);
+  const [searchError, setSearchError] = useState(null);
 
   const { isFreeTier, limits } = usePlanLimits();
   const scoreGate = useGate("match_scores");
@@ -37,13 +38,15 @@ export default function ContractSearch() {
 
   const searchAll = async (p = 1) => {
     setLoading(true);
+    setSearchError(null);
     try {
       const data = await api.get(
         `/contracts/search?query=${encodeURIComponent(query)}&page=${p}&per_page=20`
       );
       setResults(data);
       setPage(p);
-    } catch {
+    } catch (err) {
+      setSearchError(err?.error || "Error al buscar contratos. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -51,10 +54,12 @@ export default function ContractSearch() {
 
   const loadMatched = async () => {
     setLoading(true);
+    setSearchError(null);
     try {
       const data = await api.get("/contracts/matched?limit=50&min_score=20");
       setMatched(data);
-    } catch {
+    } catch (err) {
+      setSearchError(err?.error || "Error cargando contratos. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
@@ -91,6 +96,13 @@ export default function ContractSearch() {
           message={`${highMatchCount} contratos tienen 70%+ de compatibilidad contigo — ve los detalles`}
           onDismiss={() => setShowFomoBanner(false)}
         />
+      )}
+
+      {/* Error banner */}
+      {searchError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+          {searchError}
+        </div>
       )}
 
       <form onSubmit={handleSearch} className="flex gap-3">

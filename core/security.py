@@ -103,25 +103,6 @@ class RateLimiter:
 rate_limiter = RateLimiter()
 
 
-# =============================================================================
-# HMAC VERIFICATION (Wompi webhooks)
-# =============================================================================
-
-
-def verify_wompi_signature(payload: bytes, signature: str) -> bool:
-    """Verify Wompi webhook HMAC-SHA256 signature."""
-    if not Config.WOMPI_EVENTS_SECRET:
-        logger.error("WOMPI_EVENTS_SECRET not configured")
-        return False
-
-    expected = hmac.new(
-        Config.WOMPI_EVENTS_SECRET.encode(),
-        payload,
-        hashlib.sha256,
-    ).hexdigest()
-
-    return hmac.compare_digest(expected, signature)
-
 
 # =============================================================================
 # INPUT SANITIZATION

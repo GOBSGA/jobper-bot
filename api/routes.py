@@ -139,11 +139,7 @@ def login_password():
         error_type = type(e).__name__
         if "connection" in error_str.lower() or "operational" in error_str.lower():
             return jsonify({"error": "Servicio temporalmente no disponible. Intenta en 1 minuto."}), 503
-        # Return error details for debugging
-        return jsonify({
-            "error": "Error al procesar login. Contacta soporte@jobper.co",
-            "debug": f"{error_type}: {str(e)[:200]}"
-        }), 500
+        return jsonify({"error": "Error al procesar login. Contacta soporte@jobper.co"}), 500
 
 
 @auth_bp.post("/forgot-password")
@@ -455,7 +451,7 @@ def get_profile():
         return jsonify(result)
     except Exception as e:
         logger.error(f"get_profile exception: {e}", exc_info=True)
-        return jsonify({"error": "Error cargando perfil", "debug": f"{type(e).__name__}: {str(e)[:200]}"}), 500
+        return jsonify({"error": "Error cargando perfil"}), 500
 
 
 @user_bp.put("/profile")
@@ -764,11 +760,10 @@ def confirm_payment():
     magic_bytes = comprobante.read(12)
     comprobante.seek(0)
 
-    # Magic bytes for image formats
+    # Validate file type by magic bytes
     MAGIC_SIGNATURES = {
         b"\xff\xd8\xff": "jpg",  # JPEG
         b"\x89PNG\r\n\x1a\n": "png",  # PNG
-        b"RIFF": "webp",  # WebP (starts with RIFF)
     }
 
     detected_ext = None
@@ -777,11 +772,9 @@ def confirm_payment():
             detected_ext = ext
             break
 
-    # WebP has RIFF header, need to check for WEBP at byte 8
-    if magic_bytes[:4] == b"RIFF" and len(magic_bytes) >= 12 and magic_bytes[8:12] == b"WEBP":
+    # WebP: RIFF container + "WEBP" at bytes 8-12
+    if not detected_ext and magic_bytes[:4] == b"RIFF" and magic_bytes[8:12] == b"WEBP":
         detected_ext = "webp"
-    elif magic_bytes[:4] == b"RIFF" and (len(magic_bytes) < 12 or magic_bytes[8:12] != b"WEBP"):
-        detected_ext = None  # RIFF but not WebP
 
     if not detected_ext:
         return jsonify({"error": "Solo se aceptan imágenes válidas (JPG, PNG, WebP)"}), 400
@@ -1157,114 +1150,6 @@ def health_check():
 # ALL BLUEPRINTS (for app registration)
 # =============================================================================
 
-debug_bp = Blueprint("debug", __name__, url_prefix="/api/debug")
-
-
-@debug_bp.get("/db")
-def debug_db():
-    """
-    Debug endpoint: shows DB column status and tries a test login query.
-    Visit /api/debug/db to diagnose login failures.
-    """
-    from sqlalchemy import inspect, text
-    from core.database import get_engine
-
-    engine = get_engine()
-    result = {"status": "ok", "columns": {}, "test_query": None, "error": None}
-
-    try:
-        inspector = inspect(engine)
-        user_cols = [c["name"] for c in inspector.get_columns("users")]
-        critical = ["id", "email", "password_hash", "plan", "privacy_policy_accepted_at",
-                    "trust_score", "trust_level", "one_click_renewal_enabled"]
-        result["columns"] = {c: (c in user_cols) for c in critical}
-        result["all_user_columns"] = sorted(user_cols)
-    except Exception as e:
-        result["error"] = f"inspect failed: {e}"
-
-    try:
-        with engine.connect() as conn:
-            row = conn.execute(text("SELECT id, email, plan FROM users LIMIT 1")).fetchone()
-            result["test_query"] = "SELECT id,email,plan OK" if row else "no users in DB"
-    except Exception as e:
-        result["test_query"] = f"FAILED: {e}"
-
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT id, email, password_hash, privacy_policy_accepted_at FROM users LIMIT 1"))
-            result["full_select"] = "OK"
-    except Exception as e:
-        result["full_select"] = f"FAILED: {e}"
-
-    return jsonify(result)
-
-
-@debug_bp.get("/user")
-def debug_user():
-    """
-    Check a specific user's auth status.
-    Usage: /api/debug/user?email=tu@email.com
-    """
-    email = request.args.get("email", "").lower().strip()
-    if not email:
-        return jsonify({"error": "Pass ?email=tu@email.com"}), 400
-
-    from sqlalchemy import text
-    from core.database import get_engine
-
-    engine = get_engine()
-    try:
-        with engine.connect() as conn:
-            row = conn.execute(
-                text("SELECT id, email, plan, password_hash IS NOT NULL as has_password, created_at FROM users WHERE email = :email"),
-                {"email": email}
-            ).fetchone()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-    if not row:
-        return jsonify({"exists": False, "email": email, "message": "No existe — puedes registrarte con este email"})
-
-    return jsonify({
-        "exists": True,
-        "email": row[1],
-        "plan": row[2],
-        "has_password": bool(row[3]),
-        "created_at": str(row[4]),
-        "message": "Tiene contraseña — puede hacer login" if row[3] else "SIN contraseña — fue creado por magic link, no puede hacer login con contraseña"
-    })
-
-
-@debug_bp.post("/reset-password")
-def debug_reset_password():
-    """
-    Emergency password reset for debugging.
-    Body: {"email": "...", "new_password": "...", "secret": "jobper-reset-2026"}
-    REMOVE THIS ENDPOINT AFTER LOGIN IS FIXED.
-    """
-    data = request.get_json() or {}
-    if data.get("secret") != "jobper-reset-2026":
-        return jsonify({"error": "Unauthorized"}), 403
-
-    email = data.get("email", "").lower().strip()
-    new_password = data.get("new_password", "")
-
-    if not email or len(new_password) < 6:
-        return jsonify({"error": "email and new_password (min 6 chars) required"}), 400
-
-    try:
-        from services.auth import _hash_password
-        from core.database import UnitOfWork
-
-        with UnitOfWork() as uow:
-            user = uow.users.get_by_email(email)
-            if not user:
-                return jsonify({"error": f"No user found with email {email}"}), 404
-            user.password_hash = _hash_password(new_password)
-            uow.commit()
-        return jsonify({"ok": True, "message": f"Password updated for {email}. Now try logging in."})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 
@@ -1380,7 +1265,6 @@ def telegram_webhook():
 
 ALL_BLUEPRINTS = [
     health_bp,
-    debug_bp,
     auth_bp,
     contracts_bp,
     pipeline_bp,

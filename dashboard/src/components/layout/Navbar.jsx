@@ -18,7 +18,7 @@ export default function Navbar() {
           <span className="font-bold text-gray-900">Jobper</span>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate("/settings")} className="p-2 rounded-lg hover:bg-gray-100">
+          <button onClick={() => navigate("/support")} className="p-2 rounded-lg hover:bg-gray-100" title="Soporte">
             <Bell className="h-5 w-5 text-gray-500" />
           </button>
           <button onClick={logout} className="p-2 rounded-lg hover:bg-gray-100">

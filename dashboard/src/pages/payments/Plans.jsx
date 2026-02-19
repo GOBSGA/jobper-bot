@@ -7,34 +7,25 @@ import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
-import Modal from "../../components/ui/Modal";
 import { money, date } from "../../lib/format";
 import { useToast } from "../../components/ui/Toast";
+import { normalizePlan } from "../../lib/planConfig";
+import GraceBanner from "../../components/payments/GraceBanner";
+import PlanCard from "../../components/payments/PlanCard";
+import PaymentModal from "../../components/payments/PaymentModal";
 import {
   Check,
   X,
   Zap,
-  Copy,
   Shield,
-  Banknote,
-  ChevronRight,
-  Upload,
-  ImageIcon,
   Eye,
   Target,
   Sword,
   Crown,
   Lock,
   Sparkles,
-  TrendingUp,
-  Users,
-  Bot,
-  FileText,
-  Bell,
-  Star,
   RefreshCw,
   Clock,
-  AlertCircle,
 } from "lucide-react";
 import { TrustBadge, TrustCard } from "../../components/ui/TrustBadge";
 
@@ -127,74 +118,17 @@ const PLANS = [
   },
 ];
 
-// Plan key aliases for backwards compatibility
-const PLAN_ALIASES = {
-  alertas: "cazador",
-  business: "competidor",
-  enterprise: "dominador",
-  starter: "cazador",
-  trial: "free",
-};
-
-function normalizePlan(plan) {
-  return PLAN_ALIASES[plan] || plan || "free";
-}
-
-// Grace period banner: shows countdown timer while payment is pending admin approval
-function GraceBanner({ graceUntil, plan }) {
-  const countdown = useCountdown(graceUntil);
-  return (
-    <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 flex items-start gap-3">
-      <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <p className="font-semibold text-amber-800">Acceso temporal activo — Plan {plan}</p>
-          <span className="bg-amber-200 text-amber-900 text-xs px-2 py-0.5 rounded-full font-bold">
-            {countdown} restantes
-          </span>
-        </div>
-        <p className="text-sm text-amber-700 mt-1">
-          Tu pago está siendo verificado. Tienes acceso completo mientras lo confirmamos (máx. 24h).
-          Si el pago es válido, tu plan se activa por 30 días completos sin que tengas que hacer nada.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// Helper: format time remaining until a date
-function useCountdown(isoDate) {
-  const [remaining, setRemaining] = useState("");
-  useEffect(() => {
-    if (!isoDate) return;
-    const tick = () => {
-      const diff = new Date(isoDate) - new Date();
-      if (diff <= 0) { setRemaining("Expirado"); return; }
-      const h = Math.floor(diff / 3600000);
-      const m = Math.floor((diff % 3600000) / 60000);
-      setRemaining(`${h}h ${m}m`);
-    };
-    tick();
-    const id = setInterval(tick, 60000);
-    return () => clearInterval(id);
-  }, [isoDate]);
-  return remaining;
-}
 
 export default function Plans() {
   const { user, refresh } = useAuth();
   const { data: sub, loading } = useApi("/payments/subscription");
-  const { data: trustInfo, loading: loadingTrust, refresh: refreshTrust } = useApi("/payments/trust");
+  const { data: trustInfo, loading: loadingTrust, refetch: refreshTrust } = useApi("/payments/trust");
   const { data: paymentStatus } = useApi("/payments/status");
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [showPayment, setShowPayment] = useState(false);
   const [checkout, setCheckout] = useState(null);
   const [loadingCheckout, setLoadingCheckout] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [comprobante, setComprobante] = useState(null);
-  const [comprobantePreview, setComprobantePreview] = useState(null);
   const [renewalLoading, setRenewalLoading] = useState(false);
 
   // Auto-open modal if plan param in URL
@@ -209,110 +143,29 @@ export default function Plans() {
     }
   }, [searchParams]);
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copiado");
-  };
-
   const openPaymentModal = async (plan) => {
     setSelectedPlan(plan);
-    setShowPayment(true);
     setLoadingCheckout(true);
     try {
       const data = await api.post("/payments/checkout", { plan: plan.key });
       setCheckout(data);
     } catch (err) {
       toast.error(err.error || "Error cargando información de pago");
-      setShowPayment(false);
       setSelectedPlan(null);
     } finally {
       setLoadingCheckout(false);
     }
   };
 
-  const handleComprobanteChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const allowed = ["image/jpeg", "image/png", "image/webp"];
-    if (!allowed.includes(file.type)) {
-      toast.error("Solo se permiten imágenes (JPG, PNG, WebP)");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("El archivo no puede superar 5MB");
-      return;
-    }
-
-    setComprobante(file);
-    setComprobantePreview(URL.createObjectURL(file));
+  const closePaymentModal = () => {
+    setSelectedPlan(null);
+    setCheckout(null);
   };
 
-  const confirmPayment = async () => {
-    if (!comprobante || !checkout?.payment_id) return;
-
-    setConfirming(true);
-    try {
-      const formData = new FormData();
-      formData.append("payment_id", checkout.payment_id);
-      formData.append("comprobante", comprobante);
-
-      const result = await api.upload("/payments/confirm", formData);
-
-      // Handle different verification statuses
-      if (result.status === "approved" || result.ok) {
-        toast.success(`¡Plan ${result.plan} activado! Disfruta Jobper.`);
-
-        // Show trust rewards if any were earned
-        if (result.rewards && result.rewards.length > 0) {
-          result.rewards.forEach((reward) => {
-            setTimeout(() => {
-              toast.success(reward.message);
-            }, 1500);
-          });
-        } else if (result.trust?.points_earned) {
-          setTimeout(() => {
-            toast.info(`+${result.trust.points_earned} puntos de confianza`);
-          }, 1500);
-        }
-
-        await refresh();
-        refreshTrust();  // Refresh trust info to show new badge
-        setShowPayment(false);
-        setSelectedPlan(null);
-        setCheckout(null);
-        setComprobante(null);
-        setComprobantePreview(null);
-      } else if (result.status === "review") {
-        toast.info("¡Recibido! Tu pago está en revisión. Te avisamos en máximo 24 horas.");
-        setShowPayment(false);
-        setSelectedPlan(null);
-        setCheckout(null);
-        setComprobante(null);
-        setComprobantePreview(null);
-      } else if (result.status === "rejected") {
-        const issues = result.issues?.join(", ") || result.message || "Comprobante no válido";
-        toast.error(`Verificación fallida: ${issues}. Puedes intentar de nuevo.`);
-        // Don't close modal, allow retry
-        setComprobante(null);
-        setComprobantePreview(null);
-      }
-    } catch (err) {
-      // Handle HTTP error responses
-      if (err.status === "review") {
-        toast.info(err.message || "Tu comprobante está siendo revisado manualmente.");
-        setShowPayment(false);
-      } else if (err.status === "rejected" && err.can_retry) {
-        const issues = err.issues?.join(", ") || "Comprobante no válido";
-        toast.error(`${issues}. Puedes intentar con otro comprobante.`);
-        setComprobante(null);
-        setComprobantePreview(null);
-      } else {
-        toast.error(err.error || err.message || "Error confirmando pago");
-      }
-    } finally {
-      setConfirming(false);
-    }
+  const handlePaymentSuccess = async (result) => {
+    await refresh();
+    refreshTrust();
+    closePaymentModal();
   };
 
   const cancel = async () => {
@@ -334,7 +187,6 @@ export default function Plans() {
       if (result.ok) {
         setCheckout(result);
         setSelectedPlan(PLANS.find((p) => p.key === result.plan) || PLANS[1]);
-        setShowPayment(true);
         toast.info("Transferencia preparada. Solo sube tu comprobante.");
       }
     } catch (err) {
@@ -344,16 +196,14 @@ export default function Plans() {
     }
   };
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex justify-center py-12">
         <Spinner />
       </div>
     );
+  }
 
-  const breb = checkout?.payment_methods?.breb;
-  const nequi = checkout?.payment_methods?.nequi;
-  const banco = checkout?.payment_methods?.bancolombia;
   const userPlan = normalizePlan(user?.plan);
 
   return (
@@ -455,122 +305,17 @@ export default function Plans() {
       {/* Plans grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         {PLANS.map((plan) => {
-          const Icon = plan.icon;
-          const isCurrent = userPlan === plan.key;
           const isDowngrade =
             PLANS.findIndex((p) => p.key === userPlan) > PLANS.findIndex((p) => p.key === plan.key);
 
           return (
-            <Card
+            <PlanCard
               key={plan.key}
-              className={`relative flex flex-col ${
-                plan.popular ? "ring-2 ring-purple-500 shadow-lg" : ""
-              } ${plan.color === "amber" ? "bg-gradient-to-b from-amber-50 to-white" : ""}`}
-            >
-              {/* Popular badge */}
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <Badge color="purple" className="shadow-md">
-                    <Zap className="h-3 w-3 mr-1" /> Más popular
-                  </Badge>
-                </div>
-              )}
-
-              <div className="flex-1 space-y-4">
-                {/* Header */}
-                <div className="text-center pt-2">
-                  <div
-                    className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-3 ${
-                      plan.color === "gray" ? "bg-gray-100" : ""
-                    } ${plan.color === "blue" ? "bg-blue-100" : ""} ${
-                      plan.color === "purple" ? "bg-purple-100" : ""
-                    } ${plan.color === "amber" ? "bg-amber-100" : ""}`}
-                  >
-                    <Icon
-                      className={`h-6 w-6 ${plan.color === "gray" ? "text-gray-600" : ""} ${
-                        plan.color === "blue" ? "text-blue-600" : ""
-                      } ${plan.color === "purple" ? "text-purple-600" : ""} ${
-                        plan.color === "amber" ? "text-amber-600" : ""
-                      }`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-center gap-2">
-                    <span className="text-2xl">{plan.emoji}</span>
-                    <h3 className="text-xl font-bold text-gray-900">{plan.displayName}</h3>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">{plan.tagline}</p>
-                </div>
-
-                {/* Price */}
-                <div className="text-center py-2">
-                  {plan.price === 0 ? (
-                    <p className="text-3xl font-bold text-gray-900">Gratis</p>
-                  ) : (
-                    <div>
-                      <p className="text-3xl font-bold text-gray-900">
-                        {money(plan.price)}
-                        <span className="text-base font-normal text-gray-500">/mes</span>
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {money(plan.price * 12)}/año
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Features */}
-                <ul className="space-y-2.5 px-2">
-                  {plan.features.map((f, i) => (
-                    <li
-                      key={i}
-                      className={`flex items-start gap-2 text-sm ${
-                        f.included ? "text-gray-700" : "text-gray-400"
-                      }`}
-                    >
-                      {f.included ? (
-                        <Check
-                          className={`h-4 w-4 flex-shrink-0 mt-0.5 ${
-                            f.highlight ? "text-green-500" : "text-green-400"
-                          }`}
-                        />
-                      ) : (
-                        <X className="h-4 w-4 flex-shrink-0 mt-0.5 text-gray-300" />
-                      )}
-                      <span className={f.highlight ? "font-medium" : ""}>{f.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* CTA Button */}
-              <div className="pt-4 mt-4 border-t border-gray-100">
-                {isCurrent ? (
-                  <Button className="w-full" variant="secondary" disabled>
-                    <Check className="h-4 w-4 mr-1" /> Plan actual
-                  </Button>
-                ) : plan.price === 0 ? (
-                  <Button className="w-full" variant="secondary" disabled>
-                    Plan gratuito
-                  </Button>
-                ) : isDowngrade ? (
-                  <Button className="w-full" variant="secondary" disabled>
-                    Ya tienes un plan superior
-                  </Button>
-                ) : (
-                  <Button
-                    className={`w-full ${
-                      plan.color === "blue" ? "bg-blue-600 hover:bg-blue-700" : ""
-                    } ${plan.color === "purple" ? "bg-purple-600 hover:bg-purple-700" : ""} ${
-                      plan.color === "amber" ? "bg-amber-600 hover:bg-amber-700" : ""
-                    }`}
-                    onClick={() => openPaymentModal(plan)}
-                  >
-                    Activar {plan.displayName}
-                    <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                )}
-              </div>
-            </Card>
+              plan={plan}
+              currentPlan={userPlan}
+              onSelect={openPaymentModal}
+              isDowngrade={isDowngrade}
+            />
           );
         })}
       </div>
@@ -599,219 +344,16 @@ export default function Plans() {
         <ComparisonTable plans={PLANS} currentPlan={userPlan} />
       </div>
 
+
       {/* Payment Modal */}
-      {showPayment && selectedPlan && (
-        <Modal
-          open={true}
-          onClose={() => {
-            setShowPayment(false);
-            setSelectedPlan(null);
-            setCheckout(null);
-            setComprobante(null);
-            setComprobantePreview(null);
-          }}
-        >
-          <div className="space-y-5">
-            <div className="text-center">
-              <div
-                className={`inline-flex items-center justify-center w-14 h-14 rounded-full mb-3 ${
-                  selectedPlan.color === "blue" ? "bg-blue-100" : ""
-                } ${selectedPlan.color === "purple" ? "bg-purple-100" : ""} ${
-                  selectedPlan.color === "amber" ? "bg-amber-100" : ""
-                }`}
-              >
-                <span className="text-3xl">{selectedPlan.emoji}</span>
-              </div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Activar {selectedPlan.displayName}
-              </h2>
-              <p className="text-2xl font-bold text-brand-600 mt-1">
-                {checkout?.amount_display || money(selectedPlan.price) + " COP"}
-                <span className="text-sm font-normal text-gray-500">/mes</span>
-              </p>
-            </div>
-
-            {loadingCheckout ? (
-              <div className="flex justify-center py-6">
-                <Spinner />
-              </div>
-            ) : checkout ? (
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600 text-center">{checkout.instructions}</p>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-center gap-2 text-sm text-blue-800">
-                  <Zap className="h-4 w-4 text-blue-500 flex-shrink-0" />
-                  <span>Tu plan se activa en <strong>máximo 24 horas</strong> una vez verifiquemos tu pago.</span>
-                </div>
-
-                {checkout.reference && (
-                  <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <span className="text-lg">⚠️</span>
-                      <p className="text-sm font-bold text-amber-800">IMPORTANTE: Incluye este código</p>
-                    </div>
-                    <div className="bg-white border border-amber-200 rounded-lg p-3 mb-2">
-                      <div className="flex items-center justify-center gap-2">
-                        <p className="text-lg font-mono font-bold text-gray-900 tracking-wide">
-                          {checkout.reference}
-                        </p>
-                        <button
-                          onClick={() => copyToClipboard(checkout.reference)}
-                          className="p-2 hover:bg-amber-100 rounded-lg transition"
-                          title="Copiar referencia"
-                        >
-                          <Copy className="h-4 w-4 text-amber-600" />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-xs text-amber-700">
-                      Copia este código y pégalo en la <strong>descripción/concepto</strong> de tu transferencia.
-                      <br />
-                      Sin el código, no podremos verificar tu pago automáticamente.
-                    </p>
-                  </div>
-                )}
-
-                {/* Bre-B — método principal */}
-                {breb?.handle && (
-                  <div className="bg-green-50 border-2 border-green-400 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-xs font-bold text-green-700 uppercase tracking-wide">
-                            Bre-B — Cualquier banco
-                          </span>
-                          <span className="bg-green-200 text-green-800 text-xs px-2 py-0.5 rounded-full font-medium">
-                            Recomendado
-                          </span>
-                        </div>
-                        <p className="text-xl text-green-900 font-mono font-bold tracking-wide">
-                          {breb.handle}
-                        </p>
-                        <p className="text-xs text-green-700 mt-1">
-                          Funciona con Nequi, Daviplata, Bancolombia, Bancoomeva y más
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(breb.handle)}
-                        className="p-2 hover:bg-green-100 rounded-lg transition"
-                        title="Copiar"
-                      >
-                        <Copy className="h-4 w-4 text-green-700" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Nequi */}
-                {nequi?.number && (
-                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-purple-600 font-semibold uppercase tracking-wide">
-                          {nequi.name}
-                        </p>
-                        <p className="text-lg text-purple-800 font-mono font-bold mt-1">
-                          {nequi.number}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(nequi.number)}
-                        className="p-2 hover:bg-purple-100 rounded-lg transition"
-                      >
-                        <Copy className="h-4 w-4 text-purple-600" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bancolombia */}
-                {banco?.account && (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <p className="text-xs text-yellow-600 font-semibold uppercase tracking-wide">
-                      {banco.name} — {banco.type}
-                    </p>
-                    <div className="flex items-center justify-between mt-1">
-                      <div>
-                        <p className="text-lg text-yellow-800 font-mono font-bold">
-                          {banco.account}
-                        </p>
-                        <p className="text-xs text-yellow-700 mt-0.5">{banco.holder}</p>
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(banco.account)}
-                        className="p-2 hover:bg-yellow-100 rounded-lg transition"
-                      >
-                        <Copy className="h-4 w-4 text-yellow-600" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Comprobante upload */}
-                <div className="border-t border-gray-200 pt-4 space-y-3">
-                  <p className="text-sm font-medium text-gray-700">
-                    ¿Ya transferiste? Sube tu comprobante:
-                  </p>
-
-                  <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-brand-400 hover:bg-brand-50/50 transition">
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      onChange={handleComprobanteChange}
-                    />
-                    {comprobantePreview ? (
-                      <div className="flex items-center gap-3 w-full">
-                        <img
-                          src={comprobantePreview}
-                          alt="Comprobante"
-                          className="h-12 w-12 object-cover rounded-lg"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">
-                            {comprobante?.name}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {(comprobante?.size / 1024).toFixed(0)} KB — Toca para cambiar
-                          </p>
-                        </div>
-                        <ImageIcon className="h-4 w-4 text-green-500" />
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-500">
-                          Seleccionar imagen del comprobante
-                        </span>
-                      </>
-                    )}
-                  </label>
-
-                  <Button
-                    className="w-full h-12 text-base"
-                    onClick={confirmPayment}
-                    disabled={!comprobante || confirming}
-                  >
-                    {confirming ? (
-                      <>
-                        <Spinner className="h-5 w-5 mr-2" />
-                        Verificando comprobante...
-                      </>
-                    ) : (
-                      <>
-                        Verificar y activar plan <ChevronRight className="h-4 w-4" />
-                      </>
-                    )}
-                  </Button>
-                  <p className="text-xs text-center text-gray-400">
-                    Verificamos tu comprobante con IA. Si todo está correcto, tu plan se activa al instante.
-                  </p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </Modal>
+      {selectedPlan && (
+        <PaymentModal
+          plan={selectedPlan}
+          checkout={checkout}
+          loading={loadingCheckout}
+          onClose={closePaymentModal}
+          onSuccess={handlePaymentSuccess}
+        />
       )}
     </div>
   );

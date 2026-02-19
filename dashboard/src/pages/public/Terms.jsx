@@ -44,7 +44,7 @@ export default function Terms() {
 
         <h2>4. Planes y Pagos</h2>
         <p>
-          La Plataforma ofrece planes de suscripción mensual. Los pagos se procesan a través de Wompi, proveedor de pagos
+          La Plataforma ofrece planes de suscripción mensual. Los pagos se procesan mediante transferencia bancaria
           autorizado por la Superintendencia Financiera de Colombia. Los precios están en pesos colombianos (COP) e incluyen IVA.
         </p>
         <ul>

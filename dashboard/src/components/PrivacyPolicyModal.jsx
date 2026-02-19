@@ -59,7 +59,7 @@ export default function PrivacyPolicyModal({ onAccept, onReject }) {
               <li>Información de cuenta: email, nombre de empresa</li>
               <li>Información de perfil: sector, ciudad, presupuesto</li>
               <li>Datos de uso: contratos guardados, búsquedas realizadas</li>
-              <li>Información de pago: procesada de forma segura a través de Wompi</li>
+              <li>Información de pago: procesada mediante transferencia bancaria</li>
             </ul>
 
             <h3 className="text-lg font-semibold text-gray-900 mt-6">3. Cómo Usamos tu Información</h3>

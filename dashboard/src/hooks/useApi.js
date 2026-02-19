@@ -3,10 +3,11 @@ import { api } from "../lib/api";
 
 export function useApi(path, { immediate = true } = {}) {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(immediate);
+  const [loading, setLoading] = useState(immediate && !!path);
   const [error, setError] = useState(null);
 
   const fetch = useCallback(async () => {
+    if (!path) return; // Don't fire if path is null/undefined
     setLoading(true);
     setError(null);
     try {
@@ -20,8 +21,8 @@ export function useApi(path, { immediate = true } = {}) {
   }, [path]);
 
   useEffect(() => {
-    if (immediate) fetch();
-  }, [fetch, immediate]);
+    if (immediate && path) fetch();
+  }, [fetch, immediate, path]);
 
   return { data, loading, error, refetch: fetch };
 }

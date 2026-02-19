@@ -80,7 +80,6 @@ export default function Privacy() {
         <h2>5. Compartición de Datos</h2>
         <p>Jobper <strong>no vende</strong> datos personales. Solo compartimos información con:</p>
         <ul>
-          <li><strong>Wompi:</strong> Procesador de pagos (datos de transacción)</li>
           <li><strong>Resend:</strong> Servicio de envío de correo electrónico (dirección de email)</li>
           <li><strong>Autoridades:</strong> Cuando sea requerido por ley colombiana</li>
         </ul>

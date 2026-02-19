@@ -3,6 +3,9 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import Spinner from "../../components/ui/Spinner";
+import Alert from "../../components/ui/Alert";
+import AuthLayout from "../../components/auth/AuthLayout";
+import Button from "../../components/ui/Button";
 
 // Module-level flag to prevent double verification in React 18 StrictMode
 // and from email link scanners (Gmail, Outlook Safe Links)
@@ -49,13 +52,16 @@ export default function Verify() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center hero-gradient px-4">
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 max-w-sm w-full text-center">
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Error de verificación</h1>
-          <p className="text-sm text-gray-500 mb-6">{error}</p>
-          <a href="/login" className="inline-block px-6 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition">Solicitar nuevo link</a>
-        </div>
-      </div>
+      <AuthLayout title="Error de verificación">
+        <Alert variant="error">{error}</Alert>
+        <Button
+          as="a"
+          href="/login"
+          className="w-full mt-4"
+        >
+          Solicitar nuevo link
+        </Button>
+      </AuthLayout>
     );
   }
 

@@ -1,5 +1,4 @@
 import { useApi } from "../../hooks/useApi";
-import { useAuth } from "../../context/AuthContext";
 import Card, { CardHeader } from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
@@ -8,13 +7,18 @@ import { useToast } from "../../components/ui/Toast";
 import { Users, Copy, Gift, MessageCircle, Share2, Mail } from "lucide-react";
 
 export default function Referrals() {
-  const { user } = useAuth();
-  const { data, loading } = useApi("/referrals/stats");
+  // Call /referrals/ (not /referrals/stats) — this generates a code AND returns stats
+  const { data, loading } = useApi("/referrals/");
   const toast = useToast();
 
-  const referralUrl = `${window.location.origin}/login?ref=${user?.referral_code}`;
+  // Backend spreads {code, total_clicks, total_signups, total_subscribed, current_discount, max_per_month}
+  const code = data?.code || "";
+  const referralUrl = code
+    ? `${window.location.origin}/register?ref=${code}`
+    : `${window.location.origin}/register`;
 
   const copy = () => {
+    if (!referralUrl) return;
     navigator.clipboard.writeText(referralUrl);
     toast.success("Link copiado al portapapeles");
   };
@@ -36,8 +40,8 @@ export default function Referrals() {
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
 
-  const stats = data || {};
-  const referralsNeeded = Math.max(0, 3 - (stats.signups || 0));
+  const signups = data?.total_signups ?? 0;
+  const referralsNeeded = Math.max(0, 3 - signups);
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -66,17 +70,19 @@ export default function Referrals() {
         <CardHeader title="Comparte tu link" />
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <code className="flex-1 bg-gray-50 px-4 py-3 rounded-lg border text-sm font-mono truncate">{referralUrl}</code>
-            <Button size="sm" onClick={copy}><Copy className="h-4 w-4" /> Copiar</Button>
+            <code className="flex-1 bg-gray-50 px-4 py-3 rounded-lg border text-sm font-mono truncate">
+              {referralUrl || "Cargando tu link..."}
+            </code>
+            <Button size="sm" onClick={copy} disabled={!code}><Copy className="h-4 w-4" /> Copiar</Button>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <Button onClick={shareWhatsApp} className="bg-green-600 hover:bg-green-700 text-white">
+            <Button onClick={shareWhatsApp} disabled={!code} className="bg-green-600 hover:bg-green-700 text-white">
               <MessageCircle className="h-4 w-4" /> WhatsApp
             </Button>
-            <Button onClick={shareEmail} variant="secondary">
+            <Button onClick={shareEmail} disabled={!code} variant="secondary">
               <Mail className="h-4 w-4" /> Email
             </Button>
-            <Button onClick={copy} variant="secondary">
+            <Button onClick={copy} disabled={!code} variant="secondary">
               <Share2 className="h-4 w-4" /> Copiar link
             </Button>
           </div>
@@ -86,10 +92,10 @@ export default function Referrals() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Clicks", value: stats.clicks ?? 0 },
-          { label: "Registros", value: stats.signups ?? 0 },
-          { label: "Suscritos", value: stats.subscribed ?? 0 },
-          { label: "Descuento actual", value: `${stats.discount ?? 0}%` },
+          { label: "Clicks", value: data?.total_clicks ?? 0 },
+          { label: "Registros", value: data?.total_signups ?? 0 },
+          { label: "Suscritos", value: data?.total_subscribed ?? 0 },
+          { label: "Descuento actual", value: `${Math.round((data?.current_discount ?? 0) * 100)}%` },
         ].map((s) => (
           <Card key={s.label} className="text-center">
             <p className="text-2xl font-bold text-gray-900">{s.value}</p>
@@ -109,17 +115,17 @@ export default function Referrals() {
             { refs: 10, reward: "50% descuento permanente" },
           ].map((tier) => (
             <div key={tier.refs} className={`flex items-center justify-between p-3 rounded-lg ${
-              (stats.signups || 0) >= tier.refs ? "bg-green-50 border border-green-200" : "bg-gray-50"
+              signups >= tier.refs ? "bg-green-50 border border-green-200" : "bg-gray-50"
             }`}>
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  (stats.signups || 0) >= tier.refs ? "bg-green-600 text-white" : "bg-gray-300 text-white"
+                  signups >= tier.refs ? "bg-green-600 text-white" : "bg-gray-300 text-white"
                 }`}>
                   {tier.refs}
                 </div>
                 <span className="text-sm font-medium text-gray-900">{tier.reward}</span>
               </div>
-              {(stats.signups || 0) >= tier.refs && (
+              {signups >= tier.refs && (
                 <Badge color="green">Desbloqueado</Badge>
               )}
             </div>

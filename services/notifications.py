@@ -139,6 +139,8 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         "payment_review_needed": _tmpl_payment_review_needed,
         "payment_auto_approved": _tmpl_payment_auto_approved,
         "payment_rejected": _tmpl_payment_rejected,
+        # System alerts
+        "scraper_alert": _tmpl_scraper_alert,
     }
 
     fn = templates.get(template)
@@ -368,6 +370,34 @@ def _tmpl_payment_auto_approved(data: dict) -> tuple[str, str]:
 <p style="color:#94a3b8;font-size:13px">Este pago fue verificado automáticamente. El comprobante queda guardado para auditoría.</p>
 """
     return f"✅ Pago auto-aprobado — {reference}", _base_html(content)
+
+
+def _tmpl_scraper_alert(data: dict) -> tuple[str, str]:
+    """Admin alert: scrapers failing silently."""
+    failed = data.get("failed_sources", [])
+    errors = data.get("total_errors", 0)
+    run_time = data.get("run_time", "desconocida")
+    consecutive = data.get("consecutive_failures", 2)
+
+    sources_html = "".join(
+        f"<li style='margin:4px 0;color:#dc2626'><strong>{_escape(s)}</strong></li>"
+        for s in failed
+    )
+    content = f"""
+<h2 style="margin:0 0 8px;color:#dc2626;font-size:18px">⚠️ Alerta: Scrapers fallando</h2>
+<p style="color:#475569;line-height:1.6">
+  Se detectaron <strong>{consecutive} ejecuciones consecutivas</strong> del scraper sin contratos nuevos y con errores.
+  Esto puede indicar que alguna fuente cambió su estructura o está bloqueando las peticiones.
+</p>
+<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:12px 0">
+  <p style="margin:0 0 8px;color:#991b1b"><strong>Fuentes con problemas ({len(failed)}):</strong></p>
+  <ul style="margin:0;padding-left:20px">{sources_html}</ul>
+  <p style="margin:8px 0 0;color:#991b1b"><strong>Total errores:</strong> {errors} — <strong>Hora:</strong> {_escape(run_time)}</p>
+</div>
+<p style="color:#475569;line-height:1.6">Revisa los logs del servidor para ver el error exacto de cada fuente.</p>
+{_button(Config.FRONTEND_URL + "/admin/payments", "Ir al panel admin")}
+"""
+    return f"⚠️ Alerta scrapers — {len(failed)} fuentes fallando", _base_html(content)
 
 
 def _tmpl_payment_rejected(data: dict) -> tuple[str, str]:

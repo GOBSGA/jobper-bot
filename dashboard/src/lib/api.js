@@ -1,3 +1,5 @@
+import { saveTokens, getAccessToken, getRefreshToken, clearTokens } from "./storage";
+
 const BASE = import.meta.env.VITE_API_URL || "/api";
 
 let isRefreshing = false;
@@ -8,8 +10,30 @@ function onRefreshed(success) {
   refreshQueue = [];
 }
 
+// Returns { success, serverError }
+// serverError=true → network/server down → keep tokens, don't log user out
+// serverError=false + success=false → token genuinely invalid → clear tokens
+async function tryRefresh() {
+  const rt = getRefreshToken();
+  if (!rt) return { success: false, serverError: false };
+  try {
+    const res = await fetch(`${BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: rt }),
+    });
+    if (!res.ok) return { success: false, serverError: false }; // Token invalid/expired
+    const data = await res.json();
+    saveTokens(data.access_token, data.refresh_token);
+    return { success: true, serverError: false };
+  } catch {
+    // Network/server down — keep tokens so user stays logged in when server recovers
+    return { success: false, serverError: true };
+  }
+}
+
 async function request(path, opts = {}) {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   const headers = { "Content-Type": "application/json", ...opts.headers };
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -32,15 +56,17 @@ async function request(path, opts = {}) {
     }
 
     isRefreshing = true;
-    const refreshed = await tryRefresh();
+    const { success: refreshed, serverError } = await tryRefresh();
     isRefreshing = false;
     onRefreshed(refreshed);
 
     if (refreshed) return request(path, opts);
 
-    // Don't hard redirect — let AuthContext handle it
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    // Only clear tokens if the refresh token itself is invalid (not a server/network error)
+    if (!serverError) {
+      clearTokens();
+    }
+
     throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
   }
 
@@ -49,27 +75,8 @@ async function request(path, opts = {}) {
   return data;
 }
 
-async function tryRefresh() {
-  const rt = localStorage.getItem("refresh_token");
-  if (!rt) return false;
-  try {
-    const res = await fetch(`${BASE}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh_token: rt }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    localStorage.setItem("access_token", data.access_token);
-    localStorage.setItem("refresh_token", data.refresh_token);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function uploadRequest(path, formData) {
-  const token = localStorage.getItem("access_token");
+  const token = getAccessToken();
   const headers = {};
   if (token) headers.Authorization = `Bearer ${token}`;
   // No Content-Type header — browser sets multipart boundary automatically
@@ -91,13 +98,15 @@ async function uploadRequest(path, formData) {
       });
     }
     isRefreshing = true;
-    const refreshed = await tryRefresh();
+    const { success: refreshed, serverError } = await tryRefresh();
     isRefreshing = false;
     onRefreshed(refreshed);
     if (refreshed) return uploadRequest(path, formData);
 
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
+    if (!serverError) {
+      clearTokens();
+    }
+
     throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
   }
 

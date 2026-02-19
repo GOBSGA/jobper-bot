@@ -287,10 +287,9 @@ export default function Settings() {
             <Input
               label="Contraseña actual"
               type={showPw ? "text" : "password"}
-              placeholder="Tu contraseña actual"
+              placeholder="Deja en blanco si usas Magic Link"
               value={pwForm.current}
               onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
-              required
             />
           </div>
           <Input

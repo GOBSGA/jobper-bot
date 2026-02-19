@@ -1,6 +1,8 @@
 import { NavLink, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../ui/Logo";
+import UserAvatar from "../ui/UserAvatar";
+import { getPlanColor } from "../../lib/planConfig";
 import {
   LayoutDashboard, Search, Heart, GitBranch, Store,
   CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap, ClipboardCheck,
@@ -17,15 +19,6 @@ const nav = [
   { to: "/support", icon: MessageCircle, label: "Soporte" },
   { to: "/settings", icon: Settings, label: "Configuracion" },
 ];
-
-const PLAN_COLORS = {
-  free: "bg-gray-100 text-gray-600",
-  trial: "bg-blue-100 text-blue-700",
-  alertas: "bg-green-100 text-green-700",
-  business: "bg-brand-100 text-brand-700",
-  enterprise: "bg-purple-100 text-purple-700",
-  expired: "bg-red-100 text-red-600",
-};
 
 const FREE_PLANS = ["free", "trial", "expired"];
 
@@ -91,6 +84,19 @@ export default function Sidebar() {
               <ClipboardCheck className="h-[18px] w-[18px]" />
               Revisar Pagos
             </NavLink>
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+                  isActive
+                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`
+              }
+            >
+              <Users className="h-[18px] w-[18px]" />
+              Usuarios
+            </NavLink>
           </>
         )}
       </nav>
@@ -111,12 +117,10 @@ export default function Sidebar() {
       {/* User */}
       <div className="border-t border-gray-100 px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-gradient-to-br from-brand-500 to-accent-500 text-white flex items-center justify-center text-sm font-semibold shadow-sm">
-            {user?.email?.[0]?.toUpperCase() || "?"}
-          </div>
+          <UserAvatar email={user?.email} size="md" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-gray-900 truncate">{user?.company_name || user?.email}</p>
-            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${PLAN_COLORS[plan] || PLAN_COLORS.free}`}>
+            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${getPlanColor(plan, "badge")}`}>
               {plan}
             </span>
           </div>
