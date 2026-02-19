@@ -13,17 +13,15 @@ from pathlib import Path
 from config import Config
 from core.cache import cache
 from core.database import Payment, Subscription, UnitOfWork, User
+from core.plans import normalize_plan, PLAN_ORDER
 from services.receipt_verification import compute_image_hash, generate_payment_reference, verify_payment_receipt
 
 logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# PLANS — Los 4 planes de Jobper
+# PAYMENT-SPECIFIC CONSTANTS
 # =============================================================================
-
-# Orden de planes (mayor índice = mejor plan)
-PLAN_ORDER = ["free", "cazador", "competidor", "dominador"]
 
 # Trust levels based on verified payments count
 TRUST_LEVELS = {
@@ -33,20 +31,6 @@ TRUST_LEVELS = {
     4: "gold",  # 4+ verified payments
     8: "platinum",  # 8+ verified payments (loyal customer)
 }
-
-# Alias para compatibilidad con código/datos anteriores
-PLAN_ALIASES = {
-    "alertas": "cazador",
-    "starter": "cazador",
-    "business": "competidor",
-    "enterprise": "dominador",
-    "trial": "free",
-}
-
-
-def normalize_plan(plan: str) -> str:
-    """Normaliza nombres de planes viejos a los nuevos."""
-    return PLAN_ALIASES.get(plan, plan) or "free"
 
 
 def get_plans() -> list[dict]:
@@ -211,7 +195,7 @@ def create_checkout(user_id: int, plan: str) -> dict:
             amount=amount,
             currency="COP",
             type="subscription",
-            wompi_ref=reference,
+            reference=reference,
             status="pending",
             metadata_json={"plan": plan, "discount": discount, "method": "manual"},
         )
@@ -302,7 +286,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
 
         # Capture values for verification
         payment_amount = payment.amount
-        payment_ref = payment.wompi_ref
+        payment_ref = payment.reference
 
         # FRAUD: Rate limit — max 3 comprobante uploads per user per 24 hours
         cutoff_24h = now - timedelta(hours=24)
@@ -333,9 +317,38 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
         confidence = verification.get("verification", {}).get("confidence", 0)
 
         if verification.get("grace_eligible"):
-            # Comprobante looks plausible (60-95% confidence) — grant 24h grace access
+            # SECURITY: Check for grace period abuse (prevent repeated fake receipts)
+            with UnitOfWork() as uow:
+                grace_abuse_window = now - timedelta(days=30)
+                recent_grace_count = (
+                    uow.session.query(Subscription)
+                    .filter(
+                        Subscription.user_id == user_id,
+                        Subscription.status.in_(["grace", "cancelled"]),
+                        Subscription.starts_at >= grace_abuse_window,
+                    )
+                    .count()
+                )
+                if recent_grace_count >= 2:
+                    logger.warning(
+                        f"FRAUD: Grace abuse detected — user={user_id} has {recent_grace_count} grace periods in 30 days"
+                    )
+                    payment = uow.payments.get(payment_id)
+                    if payment:
+                        payment.status = "review"
+                        payment.comprobante_url = comprobante_path
+                        payment.verification_status = "flagged_abuse"
+                        payment.verification_result = verification.get("verification", {})
+                        uow.commit()
+                    return {
+                        "error": "Tu pago requiere revisión manual. Te contactaremos pronto.",
+                        "requires_manual_review": True,
+                    }
+
+            # Comprobante looks plausible (72-95% confidence) — grant 12h grace access
             # Admin must confirm before grace expires; if not, access is revoked.
-            grace_until = now + timedelta(hours=24)
+            # SECURITY: Reduced from 24h to 12h to limit fraud exposure
+            grace_until = now + timedelta(hours=12)
             with UnitOfWork() as uow:
                 payment = uow.payments.get(payment_id)
                 if payment:
@@ -597,7 +610,7 @@ def create_payment_request(user_id: int, plan: str) -> dict:
             amount=amount,
             currency="COP",
             type="subscription",
-            wompi_ref=reference,
+            reference=reference,
             status="pending",
             metadata_json={"plan": plan, "discount": discount, "method": "manual"},
         )
@@ -677,7 +690,7 @@ def one_click_renewal(user_id: int, plan: str = None) -> dict:
             amount=amount,
             currency="COP",
             type="subscription",
-            wompi_ref=reference,
+            reference=reference,
             status="pending",
             metadata_json={
                 "plan": plan,
@@ -977,7 +990,7 @@ def get_payments_for_review() -> list[dict]:
                     "user_email": user.email if user else None,
                     "amount": p.amount,
                     "plan": meta.get("plan"),
-                    "reference": p.wompi_ref,
+                    "reference": p.reference,
                     "comprobante_url": p.comprobante_url,
                     "verification": p.verification_result,
                     "verification_status": p.verification_status,

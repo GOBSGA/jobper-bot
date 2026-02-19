@@ -8,7 +8,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import os
 import re
+import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
@@ -18,6 +20,21 @@ from core.cache import cache
 from core.database import Payment, UnitOfWork
 
 logger = logging.getLogger(__name__)
+
+# Runtime-generated secret for payment references (not JWT_SECRET)
+_PAYMENT_SECRET = None
+
+
+def _get_payment_secret() -> str:
+    """
+    Get or generate a runtime payment secret.
+    SECURITY: This is separate from JWT_SECRET to avoid leaking auth tokens.
+    """
+    global _PAYMENT_SECRET
+    if _PAYMENT_SECRET is None:
+        _PAYMENT_SECRET = secrets.token_hex(32)
+        logger.info("Generated runtime payment secret (set PAYMENT_SECRET env var to persist)")
+    return _PAYMENT_SECRET
 
 
 # =============================================================================
@@ -49,6 +66,8 @@ def generate_payment_reference(user_id: int, plan: str, amount: int) -> str:
     Generate a unique, verifiable reference code for payment.
     Format: JOB-{user_id}-{plan_code}-{amount_hash}-{timestamp_hash}
     Example: JOB-123-CAZ-A5B2-7X9K
+
+    SECURITY: Uses a dedicated payment secret, NOT JWT_SECRET.
     """
     plan_codes = {
         "cazador": "CAZ",
@@ -57,9 +76,13 @@ def generate_payment_reference(user_id: int, plan: str, amount: int) -> str:
     }
     plan_code = plan_codes.get(plan, "XXX")
 
+    # SECURITY: Use dedicated payment secret instead of JWT_SECRET
+    # Generate a runtime constant for payment reference hashing
+    payment_secret = os.getenv("PAYMENT_SECRET", _get_payment_secret())
+
     # Create deterministic but hard-to-guess hash
     timestamp = int(datetime.utcnow().timestamp())
-    raw = f"{user_id}-{plan}-{amount}-{timestamp}-{Config.JWT_SECRET[:8]}"
+    raw = f"{user_id}-{plan}-{amount}-{timestamp}-{payment_secret[:16]}"
     hash_bytes = hashlib.sha256(raw.encode()).digest()
 
     # Take 4 chars for amount hash, 4 for timestamp hash
@@ -411,7 +434,7 @@ def verify_payment_receipt(
             return {"valid": False, "issues": ["Este pago ya fue procesado"], "auto_approved": False}
 
         expected_amount = payment.amount
-        expected_reference = payment.wompi_ref  # We use this field for reference
+        expected_reference = payment.reference  # We use this field for reference
         plan = payment.metadata_json.get("plan")
 
     # 2. Check for duplicate receipt
@@ -485,10 +508,11 @@ def verify_payment_receipt(
         "auto_approved": verification.is_valid and confidence >= 0.95,
         "requires_review": verification.requires_manual_review
         or (verification.is_valid and confidence < 0.95),
-        # Grace eligibility: plausible receipt but not auto-approvable
+        # Grace eligibility: INCREASED threshold to 72% to prevent fraud
+        # Grace period is limited and requires admin approval within 12h
         "grace_eligible": (not verification.is_valid)
         and is_receipt
-        and confidence >= 0.60,
+        and confidence >= 0.72,  # SECURITY: Raised from 0.60 to prevent fake receipt abuse
         "issues": verification.issues,
         "verification": {
             "confidence": confidence,

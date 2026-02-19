@@ -40,19 +40,23 @@ class Config:
     # ======================================================================
     # JWT / AUTH
     # ======================================================================
-    # SECURITY: JWT_SECRET must be set in production. Generate with:
+    # SECURITY: JWT_SECRET must be set. Generate with:
     # python -c "import secrets; print(secrets.token_hex(32))"
     _jwt_secret = os.getenv("JWT_SECRET") or os.getenv("SECRET_KEY")
 
-    # In production, JWT_SECRET is REQUIRED
+    # CRITICAL: JWT_SECRET is REQUIRED in ALL environments
+    # If not set, application will NOT start
     if not _jwt_secret:
-        if IS_PRODUCTION:
-            print("FATAL ERROR: JWT_SECRET environment variable must be set in production!", file=sys.stderr)
-            print('Generate one with: python -c "import secrets; print(secrets.token_hex(32))"', file=sys.stderr)
-            sys.exit(1)
-        else:
-            # Development fallback
-            _jwt_secret = "dev-fallback-INSECURE-change-in-prod"
+        print("=" * 80, file=sys.stderr)
+        print("❌ FATAL ERROR: JWT_SECRET not configured!", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Set JWT_SECRET in your environment or .env file:", file=sys.stderr)
+        print('  JWT_SECRET="your-secret-key-here"', file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Generate a secure secret with:", file=sys.stderr)
+        print('  python -c "import secrets; print(secrets.token_hex(32))"', file=sys.stderr)
+        print("=" * 80, file=sys.stderr)
+        sys.exit(1)
 
     JWT_SECRET: str = _jwt_secret
     JWT_ACCESS_EXPIRY_MINUTES: int = 10080  # 7 days
@@ -94,14 +98,6 @@ class Config:
     BANCOLOMBIA_TYPE: str = os.getenv("BANCOLOMBIA_TYPE", "Ahorros")
     BANCOLOMBIA_HOLDER: str = os.getenv("BANCOLOMBIA_HOLDER", "")
 
-    # ======================================================================
-    # PAGOS AUTOMÁTICOS (Wompi)
-    # ======================================================================
-    # WOMPI_EVENTS_SECRET is used to verify webhook signatures
-    # Get it from Wompi dashboard: https://comercios.wompi.co/webhooks
-    WOMPI_EVENTS_SECRET: str = os.getenv("WOMPI_EVENTS_SECRET", "")
-    WOMPI_PUBLIC_KEY: str = os.getenv("WOMPI_PUBLIC_KEY", "")
-    WOMPI_PRIVATE_KEY: str = os.getenv("WOMPI_PRIVATE_KEY", "")
 
     # ======================================================================
     # WEB PUSH
@@ -165,7 +161,7 @@ class Config:
     # RATE LIMITING
     # ======================================================================
     RATE_LIMIT_GENERAL: int = 60  # req/min
-    RATE_LIMIT_AUTH: int = 5  # req/min
+    RATE_LIMIT_AUTH: int = 10  # req/min (increased from 5 to reduce UX friction)
     RATE_LIMIT_SEARCH: int = 30  # req/min
 
     # ======================================================================
@@ -670,6 +666,10 @@ class Config:
         if not cls.DATABASE_URL:
             errors.append("CRITICAL: DATABASE_URL not configured")
 
+        # SECURITY: Require ADMIN_TOKEN in production to protect admin endpoints
+        if not cls.ADMIN_TOKEN and cls.IS_PRODUCTION:
+            errors.append("CRITICAL: ADMIN_TOKEN must be set in production for admin panel access")
+
         # Important warnings (should be set but not blocking)
         if not cls.RESEND_API_KEY:
             warnings.append("WARNING: RESEND_API_KEY not set - emails will not be sent")
@@ -680,8 +680,9 @@ class Config:
         if cls.CORS_ORIGINS == ["*"] and cls.IS_PRODUCTION:
             warnings.append("WARNING: CORS is set to '*' in production - security risk")
 
-        if not cls.WOMPI_EVENTS_SECRET and cls.IS_PRODUCTION:
-            warnings.append("WARNING: WOMPI_EVENTS_SECRET not set - payment webhooks cannot be verified")
+        if not cls.ADMIN_TOKEN and not cls.IS_PRODUCTION:
+            warnings.append("WARNING: ADMIN_TOKEN not set - admin panel will be inaccessible")
+
 
         # Print all warnings
         for warning in warnings:

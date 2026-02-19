@@ -14,35 +14,9 @@ from flask import g, jsonify, request
 from config import Config
 from core.cache import cache
 from core.security import rate_limiter
+from core.plans import normalize_plan, check_plan_access, PLAN_ORDER
 
 logger = logging.getLogger(__name__)
-
-# Plan hierarchy with new names (higher = better)
-PLAN_ORDER = {
-    "free": 0,
-    "trial": 0,  # Trial = Free
-    "cazador": 1,
-    "competidor": 2,
-    "dominador": 3,
-    # Aliases for backwards compatibility
-    "alertas": 1,  # Old name for Cazador
-    "starter": 1,  # Old name for Cazador
-    "business": 2,  # Old name for Competidor
-    "enterprise": 3,  # Old name for Dominador
-}
-
-
-def normalize_plan(plan: str) -> str:
-    """Convert old plan names to new ones."""
-    aliases = {
-        "alertas": "cazador",
-        "starter": "cazador",
-        "business": "competidor",
-        "enterprise": "dominador",
-        "trial": "free",
-    }
-    return aliases.get(plan, plan)
-
 
 # =============================================================================
 # @require_auth — JWT validation, attach user to g
@@ -120,6 +94,43 @@ def require_admin(fn):
     def wrapper(*args, **kwargs):
         if not getattr(g, "is_admin", False):
             return jsonify({"error": "Acceso denegado"}), 403
+        return fn(*args, **kwargs)
+
+    return wrapper
+
+
+def require_verified(fn):
+    """
+    SECURITY: Require email verification before accessing sensitive features.
+    Prevents account takeover and ensures users own the email they registered with.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        user_id = getattr(g, "user_id", None)
+        if not user_id:
+            return jsonify({"error": "Autenticación requerida"}), 401
+
+        # Check if user is verified (query DB for current status)
+        from core.database import UnitOfWork
+
+        with UnitOfWork() as uow:
+            user = uow.users.get(user_id)
+            if not user:
+                return jsonify({"error": "Usuario no encontrado"}), 404
+
+            if not user.email_verified:
+                return (
+                    jsonify(
+                        {
+                            "error": "Email no verificado",
+                            "message": "Verifica tu email para acceder a esta funcionalidad",
+                            "email": user.email,
+                        }
+                    ),
+                    403,
+                )
+
         return fn(*args, **kwargs)
 
     return wrapper

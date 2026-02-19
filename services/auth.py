@@ -171,7 +171,7 @@ def register_with_password(email: str, password: str, referral_code: str = None)
         user = User(
             email=email,
             password_hash=_hash_password(password),
-            email_verified=True,  # Skip email verification for password auth
+            email_verified=True,  # REVERTED: Auto-verify for password auth (UX priority)
             plan="trial",
             trial_ends_at=datetime.utcnow() + timedelta(days=14),
             referral_code=user_referral_code,
@@ -179,7 +179,7 @@ def register_with_password(email: str, password: str, referral_code: str = None)
         uow.users.create(user)
         uow.commit()
 
-        # Generate JWT
+        # Generate JWT tokens
         access = _create_access_token(user)
         refresh = _create_refresh_token(user)
         user_data = _user_to_public(user)
