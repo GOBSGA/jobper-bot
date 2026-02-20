@@ -1153,6 +1153,33 @@ def health_check():
 setup_bp = Blueprint("setup", __name__, url_prefix="/api/setup")
 
 
+@setup_bp.post("/fix-schema")
+def setup_fix_schema():
+    """Fix database schema by adding missing columns (emergency fix)."""
+    data = request.get_json() or {}
+    setup_token = data.get("setup_token", "")
+    expected_token = os.getenv("SETUP_TOKEN", "")
+
+    if not expected_token or setup_token != expected_token:
+        return jsonify({"error": "Invalid or missing setup_token"}), 403
+
+    try:
+        from sqlalchemy import text
+        from core.database import engine
+
+        fixes = []
+        with engine.connect() as conn:
+            # Add missing privacy_policy_accepted_at column
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_policy_accepted_at TIMESTAMP"))
+            conn.commit()
+            fixes.append("Added privacy_policy_accepted_at to users")
+
+        return jsonify({"ok": True, "message": "Schema fixed", "fixes": fixes})
+    except Exception as e:
+        logger.error(f"Schema fix failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @setup_bp.post("/initialize")
 def setup_initialize():
     """
