@@ -7,9 +7,14 @@ Uso:
 """
 
 import sys
+import os
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Ensure we're in the right directory
+script_dir = Path(__file__).resolve().parent
+project_root = script_dir.parent
+os.chdir(project_root)
+sys.path.insert(0, str(project_root))
 
 from core.database import UnitOfWork
 
