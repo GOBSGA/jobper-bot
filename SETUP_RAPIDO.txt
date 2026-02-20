@@ -1,0 +1,45 @@
+================================================================================
+🚀 JOBPER - SETUP RÁPIDO (Copiar/Pegar Comandos)
+================================================================================
+
+PASO 1: Conectar Railway
+--------------------------------------------------------------------------------
+railway login
+railway link
+# (Selecciona proyecto jobper)
+
+PASO 2: Hacerte Admin
+--------------------------------------------------------------------------------
+railway run python scripts/make_admin.py gabriel.sanmiguel322@gmail.com
+# ⬆️ Reemplaza con TU email de registro
+
+PASO 3: Cargar Contratos (10-15 min)
+--------------------------------------------------------------------------------
+railway run python scripts/load_contracts.py --days 30 --aggressive
+# ⚠️  ESPERA - NO CANCELES - Toma tiempo
+
+PASO 4: Verificar
+--------------------------------------------------------------------------------
+railway run python scripts/diagnose.py
+
+================================================================================
+✅ ALTERNATIVA: Script Automático
+================================================================================
+./COMANDOS_RAILWAY.sh
+# Este script te guía paso a paso interactivamente
+
+================================================================================
+🔗 URLs Importantes
+================================================================================
+Admin Panel:    https://www.jobper.com.co/admin
+Contratos:      https://www.jobper.com.co/contracts  
+Login:          https://www.jobper.com.co/login
+Railway:        https://railway.app/dashboard
+
+================================================================================
+📞 Si algo falla
+================================================================================
+railway run python scripts/diagnose.py
+# Te dirá exactamente qué está mal
+
+================================================================================
