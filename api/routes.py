@@ -1165,8 +1165,9 @@ def setup_fix_schema():
 
     try:
         from sqlalchemy import text
-        from core.database import engine
+        from core.database import get_engine
 
+        engine = get_engine()
         fixes = []
         with engine.connect() as conn:
             # Add missing privacy_policy_accepted_at column
