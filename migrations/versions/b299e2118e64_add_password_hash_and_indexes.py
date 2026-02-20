@@ -34,6 +34,15 @@ def _index_exists(index_name):
     return result.fetchone() is not None
 
 
+def _table_exists(table_name):
+    bind = op.get_bind()
+    result = bind.execute(
+        text("SELECT 1 FROM information_schema.tables WHERE table_name = :name"),
+        {"name": table_name}
+    )
+    return result.fetchone() is not None
+
+
 def upgrade() -> None:
     if not _column_exists('users', 'password_hash'):
         with op.batch_alter_table('users', schema=None) as batch_op:
@@ -41,16 +50,23 @@ def upgrade() -> None:
 
     if not _index_exists('ix_users_plan'):
         op.create_index(op.f('ix_users_plan'), 'users', ['plan'], unique=False)
-    if not _index_exists('ix_contracts_created_at'):
+
+    if _table_exists('contracts') and not _index_exists('ix_contracts_created_at'):
         op.create_index(op.f('ix_contracts_created_at'), 'contracts', ['created_at'], unique=False)
-    if not _index_exists('ix_user_contracts_user_id'):
-        op.create_index(op.f('ix_user_contracts_user_id'), 'user_contracts', ['user_id'], unique=False)
-    if not _index_exists('ix_subscriptions_expires_at'):
-        op.create_index(op.f('ix_subscriptions_expires_at'), 'subscriptions', ['expires_at'], unique=False)
-    if not _index_exists('ix_subscriptions_status'):
-        op.create_index(op.f('ix_subscriptions_status'), 'subscriptions', ['status'], unique=False)
-    if not _index_exists('ix_user_contracts_user_created'):
-        op.create_index('ix_user_contracts_user_created', 'user_contracts', ['user_id', 'created_at'], unique=False)
+
+    # Only create user_contracts indexes if table exists
+    if _table_exists('user_contracts'):
+        if not _index_exists('ix_user_contracts_user_id'):
+            op.create_index(op.f('ix_user_contracts_user_id'), 'user_contracts', ['user_id'], unique=False)
+        if not _index_exists('ix_user_contracts_user_created'):
+            op.create_index('ix_user_contracts_user_created', 'user_contracts', ['user_id', 'created_at'], unique=False)
+
+    # Only create subscriptions indexes if table and columns exist
+    if _table_exists('subscriptions'):
+        if _column_exists('subscriptions', 'expires_at') and not _index_exists('ix_subscriptions_expires_at'):
+            op.create_index(op.f('ix_subscriptions_expires_at'), 'subscriptions', ['expires_at'], unique=False)
+        if _column_exists('subscriptions', 'status') and not _index_exists('ix_subscriptions_status'):
+            op.create_index(op.f('ix_subscriptions_status'), 'subscriptions', ['status'], unique=False)
 
 
 def downgrade() -> None:
