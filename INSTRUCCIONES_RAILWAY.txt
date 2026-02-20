@@ -1,0 +1,80 @@
+================================================================================
+🚨 INSTRUCCIONES URGENTES - CONFIGURAR RAILWAY AHORA
+================================================================================
+
+EL PROBLEMA: Todos los usuarios ven 401 Unauthorized en TODAS las peticiones
+porque JWT_SECRET no está configurado correctamente en Railway.
+
+================================================================================
+✅ SOLUCIÓN (5 minutos):
+================================================================================
+
+1. Ir a Railway Dashboard:
+   https://railway.app/dashboard
+
+2. Seleccionar el proyecto "jobper-backend" (o el nombre que tengas)
+
+3. Click en "Variables" (pestaña en el menú lateral)
+
+4. Click "Add Variable" o "+ New Variable"
+
+5. Agregar:
+   Variable Name:  JWT_SECRET
+   Value:          0e01634aa6982cfe2468f313059d92654b78ae94bb4e05a556f2c770dcacb789
+
+6. Click "Add" o "Save"
+
+7. Railway hará deploy automáticamente. Espera ~2-3 minutos.
+
+8. Verificar que funcionó:
+   - Ir a https://www.jobper.com.co
+   - Abrir Developer Console (F12)
+   - Registrar un usuario nuevo
+   - NO debe salir 401 en la consola
+
+9. Avisar a los 3 usuarios que deben:
+   - Cerrar sesión
+   - Volver a iniciar sesión
+   (Sus tokens antiguos quedaron inválidos)
+
+================================================================================
+⚠️ MUY IMPORTANTE:
+================================================================================
+
+NO CAMBIES el JWT_SECRET después de configurarlo. Si lo cambias, TODOS los
+usuarios pierden su sesión y deben hacer login de nuevo.
+
+Guarda una copia del JWT_SECRET en un lugar seguro (gestor de contraseñas).
+
+================================================================================
+📄 Documentación Completa:
+================================================================================
+
+Ver archivos creados para más detalles:
+- RAILWAY_SETUP.md: Guía completa de deployment
+- FIXES_APLICADOS.md: Lista de todos los fixes aplicados
+- scripts/diagnose.py: Script para verificar el sistema
+
+================================================================================
+🔍 Verificar que funcionó:
+================================================================================
+
+Después del deploy, ejecutar localmente:
+
+    python scripts/diagnose.py
+
+Debe mostrar:
+✅ PASS Configuración
+✅ PASS Base de datos
+✅ PASS Autenticación
+
+================================================================================
+🆘 Si sigue sin funcionar:
+================================================================================
+
+1. Ver logs de Railway: railway logs --tail
+2. Verificar que JWT_SECRET está en las variables
+3. Verificar que el deploy terminó exitosamente
+4. Contactar soporte: gabriel.sanmiguel322@gmail.com
+
+================================================================================

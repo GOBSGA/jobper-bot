@@ -82,7 +82,7 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-4 py-3 text-gray-600 truncate max-w-[140px]">{u.company_name || "—"}</td>
                     <td className="px-4 py-3">
-                      <Badge color={getBadgeColor(u.plan] || "gray"}>{u.plan || "free"}</Badge>
+                      <Badge color={getBadgeColor(u.plan) || "gray"}>{u.plan || "free"}</Badge>
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{u.sector || "—"}</td>
                     <td className="px-4 py-3">

@@ -191,6 +191,3 @@ export default function PaymentReview() {
     </div>
   );
 }
-    </div>
-  );
-}
