@@ -6,6 +6,7 @@ Blueprint per domain: auth, contracts, pipeline, marketplace, payments, referral
 from __future__ import annotations
 
 import logging
+import os
 
 from flask import Blueprint, g, jsonify, request
 
@@ -1147,6 +1148,116 @@ def health_check():
 
 
 # =============================================================================
+# SETUP ENDPOINT - One-time setup for Railway (make admin + load contracts)
+# =============================================================================
+setup_bp = Blueprint("setup", __name__, url_prefix="/api/setup")
+
+
+@setup_bp.post("/initialize")
+def setup_initialize():
+    """
+    One-time setup endpoint - makes user admin and loads contracts.
+
+    Security: Requires SETUP_TOKEN in request body.
+    Set SETUP_TOKEN env var in Railway to a random secret.
+
+    POST /api/setup/initialize
+    {
+      "setup_token": "<your-secret-token>",
+      "email": "user@example.com",
+      "load_contracts": true,
+      "days": 30
+    }
+    """
+    from config import Config
+
+    data = request.get_json() or {}
+
+    # Check setup token
+    setup_token = data.get("setup_token", "")
+    expected_token = os.getenv("SETUP_TOKEN", "")
+
+    if not expected_token:
+        return jsonify({
+            "error": "SETUP_TOKEN not configured in environment",
+            "debug": "Set SETUP_TOKEN env var in Railway dashboard"
+        }), 500
+
+    if setup_token != expected_token:
+        return jsonify({"error": "Invalid setup_token"}), 403
+
+    email = data.get("email", "").strip().lower()
+    load_contracts = data.get("load_contracts", True)
+    days = data.get("days", 30)
+
+    if not email:
+        return jsonify({"error": "email is required"}), 400
+
+    results = {}
+
+    # Step 1: Make user admin
+    try:
+        from core.database import UnitOfWork
+
+        with UnitOfWork() as uow:
+            user = uow.users.get_by_email(email)
+
+            if not user:
+                return jsonify({
+                    "error": f"User not found: {email}",
+                    "debug": "Register first at https://www.jobper.com.co/register"
+                }), 404
+
+            if not user.is_admin:
+                user.is_admin = True
+                uow.commit()
+                results["admin"] = {"status": "success", "message": f"{email} is now admin"}
+            else:
+                results["admin"] = {"status": "already_admin", "message": f"{email} was already admin"}
+
+    except Exception as e:
+        logger.error(f"Setup: make_admin failed: {e}")
+        return jsonify({"error": f"Failed to make admin: {str(e)}"}), 500
+
+    # Step 2: Load contracts (if requested)
+    if load_contracts:
+        try:
+            from services.ingestion import ingest_all, get_contract_count
+
+            initial_count = get_contract_count()
+            results["contracts_before"] = initial_count
+
+            logger.info(f"Setup: Loading contracts (days={days})...")
+            ingestion_results = ingest_all(days_back=days, force_aggressive=(initial_count == 0))
+
+            total_new = sum(r.get("new", 0) for r in ingestion_results.values())
+            total_errors = sum(r.get("errors", 0) for r in ingestion_results.values())
+
+            final_count = get_contract_count()
+
+            results["contracts"] = {
+                "status": "success",
+                "initial_count": initial_count,
+                "final_count": final_count,
+                "new_contracts": total_new,
+                "errors": total_errors,
+            }
+
+        except Exception as e:
+            logger.error(f"Setup: load_contracts failed: {e}")
+            results["contracts"] = {
+                "status": "error",
+                "error": str(e)
+            }
+
+    return jsonify({
+        "ok": True,
+        "message": "Setup completed successfully",
+        "results": results
+    })
+
+
+# =============================================================================
 # ALL BLUEPRINTS (for app registration)
 # =============================================================================
 
@@ -1265,6 +1376,7 @@ def telegram_webhook():
 
 ALL_BLUEPRINTS = [
     health_bp,
+    setup_bp,
     auth_bp,
     contracts_bp,
     pipeline_bp,
