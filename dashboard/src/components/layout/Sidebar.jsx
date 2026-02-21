@@ -5,7 +5,7 @@ import UserAvatar from "../ui/UserAvatar";
 import { getPlanColor } from "../../lib/planConfig";
 import {
   LayoutDashboard, Search, Heart, GitBranch, Store,
-  CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap, ClipboardCheck,
+  CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap, ClipboardCheck, Activity,
 } from "lucide-react";
 
 const nav = [

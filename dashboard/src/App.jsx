@@ -26,6 +26,8 @@ import Support from "./pages/support/Support";
 import Admin from "./pages/admin/Admin";
 import PaymentReview from "./pages/admin/PaymentReview";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminUserDetail from "./pages/admin/AdminUserDetail";
+import PrivacyAcceptance from "./pages/auth/PrivacyAcceptance";
 
 // Public
 import Landing from "./pages/public/Landing";
@@ -51,6 +53,12 @@ function PrivateRoute() {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+
+  // Privacy policy enforcement — block ALL app access until accepted
+  if (user.needs_privacy_acceptance) {
+    return <PrivacyAcceptance />;
+  }
+
   return <Layout><Outlet /></Layout>;
 }
 
@@ -103,6 +111,7 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/admin/payments" element={<PaymentReview />} />
           <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/admin/users/:id" element={<AdminUserDetail />} />
         </Route>
       </Route>
 

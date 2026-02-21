@@ -337,6 +337,7 @@ def _ensure_missing_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)",
             # From migration 0eced91c474b
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_policy_accepted_at TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS privacy_policy_version VARCHAR(20)",
             # From migration 001_add_verification_columns
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS comprobante_hash VARCHAR(64)",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",

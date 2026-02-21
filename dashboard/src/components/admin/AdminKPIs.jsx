@@ -9,6 +9,7 @@ import {
   Activity,
   UserPlus,
   XCircle,
+  Eye,
 } from "lucide-react";
 
 /**
@@ -62,8 +63,15 @@ export default function AdminKPIs({ kpis }) {
         <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-3">
           Usuarios
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <KpiCard label="Total usuarios" value={k.total_users} icon={Users} color="brand" />
+          <KpiCard
+            label="Activos hoy"
+            value={k.active_today}
+            sub="Usuarios con actividad"
+            icon={Eye}
+            color="green"
+          />
           <KpiCard
             label="Suscriptores activos"
             value={k.active_paid}

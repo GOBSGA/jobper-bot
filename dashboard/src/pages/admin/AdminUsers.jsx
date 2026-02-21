@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useApi } from "../../hooks/useApi";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -10,6 +11,7 @@ import { getBadgeColor } from "../../lib/planConfig";
 import { Users, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function AdminUsers() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -69,7 +71,7 @@ export default function AdminUsers() {
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-gray-50 transition">
+                  <tr key={u.id} className="hover:bg-gray-50 transition cursor-pointer" onClick={() => navigate(`/admin/users/${u.id}`)}>
                     <td className="px-4 py-3 text-gray-400 font-mono text-xs">#{u.id}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

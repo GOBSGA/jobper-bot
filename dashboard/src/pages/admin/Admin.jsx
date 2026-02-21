@@ -10,6 +10,7 @@ import { useToast } from "../../components/ui/Toast";
 import AdminKPIs from "../../components/admin/AdminKPIs";
 import ContractMetrics from "../../components/admin/ContractMetrics";
 import RecentActivity from "../../components/admin/RecentActivity";
+import { date } from "../../lib/format";
 import {
   Shield,
   Zap,
@@ -18,6 +19,8 @@ import {
   ClipboardCheck,
   Wifi,
   WifiOff,
+  Activity,
+  Play,
 } from "lucide-react";
 
 function ServiceDot({ ok, label }) {
@@ -41,10 +44,27 @@ export default function Admin() {
   const { data: kpis, loading, refetch: reload } = useApi("/admin/dashboard");
   const { data: health } = useApi("/admin/health");
   const { data: scrapers } = useApi("/admin/scrapers");
+  const { data: activityData } = useApi("/admin/activity?per_page=15");
+  const [triggeringScraper, setTriggeringScraper] = useState("");
 
   const k = kpis || {};
   // health returns flat dict: { database, redis, openai, celery }
   const h = health || {};
+  const activityFeed = activityData?.results || [];
+  const scraperSources = scrapers?.sources || scrapers || [];
+
+  const triggerScraper = async (sourceKey) => {
+    setTriggeringScraper(sourceKey);
+    try {
+      const res = await api.post(`/admin/scrapers/${sourceKey}/trigger`);
+      toast.success(`${sourceKey}: ${res.new} nuevos de ${res.fetched} encontrados`);
+      reload();
+    } catch (err) {
+      toast.error(err.error || `Error al ejecutar ${sourceKey}`);
+    } finally {
+      setTriggeringScraper("");
+    }
+  };
 
   const triggerIngest = async () => {
     setIngesting(true);
@@ -112,7 +132,7 @@ export default function Admin() {
       <AdminKPIs kpis={k} />
 
       {/* Plan distribution + Contracts */}
-      <ContractMetrics kpis={k} scrapers={scrapers} />
+      <ContractMetrics kpis={k} scrapers={scraperSources} />
 
       {/* System health */}       <Card>
         <CardHeader title="Estado del sistema" subtitle="Servicios críticos de infraestructura" />
@@ -135,6 +155,69 @@ export default function Admin() {
 
       {/* Recent activity */}
       <RecentActivity kpis={k} />
+
+      {/* Scrapers with trigger buttons */}
+      <Card>
+        <CardHeader title="Scrapers" subtitle="Ejecutar manualmente una fuente" />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          {scraperSources.map((s) => (
+            <button
+              key={s.key}
+              onClick={() => triggerScraper(s.key)}
+              disabled={!!triggeringScraper}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition ${
+                triggeringScraper === s.key
+                  ? "border-brand-300 bg-brand-50"
+                  : "border-gray-200 hover:border-brand-300 hover:bg-gray-50"
+              } disabled:opacity-50`}
+            >
+              {triggeringScraper === s.key ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-brand-600" />
+              ) : (
+                <Play className="h-3.5 w-3.5 text-gray-400" />
+              )}
+              <span className="truncate">{s.name || s.key}</span>
+            </button>
+          ))}
+        </div>
+      </Card>
+
+      {/* Global Activity Feed */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <CardHeader
+            title="Feed de actividad"
+            subtitle="Acciones recientes de todos los usuarios"
+            icon={<Activity className="h-5 w-5 text-purple-600" />}
+          />
+        </div>
+        {activityFeed.length === 0 ? (
+          <p className="text-sm text-gray-400">Sin actividad registrada</p>
+        ) : (
+          <div className="space-y-1.5">
+            {activityFeed.map((a) => (
+              <div
+                key={a.id}
+                className="flex items-center justify-between text-sm py-2 border-b border-gray-50 last:border-0"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs font-mono flex-shrink-0">
+                    {a.action}
+                  </span>
+                  <span className="text-gray-600 truncate max-w-[160px]">{a.user_email}</span>
+                  {a.resource && (
+                    <span className="text-gray-400 text-xs truncate">
+                      {a.resource}
+                      {a.resource_id ? ` #${a.resource_id}` : ""}
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{date(a.created_at)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
     </div>
   );
 }

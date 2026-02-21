@@ -7,7 +7,6 @@ import Input from "../../components/ui/Input";
 import Alert from "../../components/ui/Alert";
 import PasswordInput from "../../components/ui/PasswordInput";
 import AuthLayout from "../../components/auth/AuthLayout";
-import PrivacyPolicyModal from "../../components/PrivacyPolicyModal";
 import { useFormSubmit } from "../../hooks/useFormSubmit";
 import { UserPlus } from "lucide-react";
 
@@ -20,8 +19,6 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-
   const { submit, loading, error, setError } = useFormSubmit(async () => {
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
@@ -38,29 +35,11 @@ export default function Register() {
       referral_code: referralCode || undefined,
     });
     await login(res);
-    setShowPrivacyModal(true);
+    navigate("/dashboard"); // PrivateRoute privacy gate handles acceptance
   });
 
-  const handlePrivacyAccept = () => {
-    setShowPrivacyModal(false);
-    navigate("/onboarding");
-  };
-
-  const handlePrivacyReject = () => {
-    setShowPrivacyModal(false);
-    navigate("/contracts");
-  };
-
   return (
-    <>
-      {showPrivacyModal && (
-        <PrivacyPolicyModal
-          onAccept={handlePrivacyAccept}
-          onReject={handlePrivacyReject}
-        />
-      )}
-
-      <AuthLayout title="Crear cuenta" subtitle="14 días de prueba gratis">
+    <AuthLayout title="Crear cuenta" subtitle="14 dias de prueba gratis">
         {referralCode && (
           <Alert variant="info">
             Te invitó un amigo — ¡ambos ganan 7 días extra!
@@ -123,6 +102,5 @@ export default function Register() {
           Al crear tu cuenta aceptas nuestros términos y condiciones.
         </p>
       </AuthLayout>
-    </>
   );
 }

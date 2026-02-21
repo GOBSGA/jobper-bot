@@ -148,6 +148,14 @@ def get_kpis() -> dict:
             for p in recent_pmts
         ]
 
+        # Active users today (distinct users with audit logs today)
+        active_today = (
+            uow.session.query(AuditLog.user_id)
+            .filter(AuditLog.created_at >= today_start, AuditLog.user_id.isnot(None))
+            .distinct()
+            .count()
+        )
+
     return {
         "mrr": mrr,
         "arr": mrr * 12,
@@ -160,6 +168,7 @@ def get_kpis() -> dict:
         "new_today": new_today,
         "new_7d": new_7d,
         "new_30d": new_30d,
+        "active_today": active_today,
         "plan_counts": plan_counts,
         "churn_30d": churned,
         "total_contracts": total_contracts,
@@ -257,6 +266,196 @@ def moderate_contract(contract_id: int, action: str) -> dict:
         uow.commit()
 
     return {"ok": True, "action": action}
+
+
+def get_user_detail(user_id: int) -> dict:
+    """Full profile + subscriptions + payments + activity for one user."""
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        # User profile
+        profile = {
+            "id": user.id,
+            "email": user.email,
+            "company_name": user.company_name,
+            "plan": user.plan,
+            "sector": user.sector,
+            "city": user.city,
+            "keywords": user.keywords or [],
+            "budget_min": user.budget_min,
+            "budget_max": user.budget_max,
+            "trust_level": user.trust_level,
+            "trust_score": user.trust_score,
+            "verified_payments_count": user.verified_payments_count or 0,
+            "is_admin": user.is_admin,
+            "onboarding_completed": user.onboarding_completed,
+            "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
+            "privacy_policy_version": getattr(user, "privacy_policy_version", None),
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+        }
+
+        # Subscriptions
+        subs = (
+            uow.session.query(Subscription)
+            .filter(Subscription.user_id == user_id)
+            .order_by(Subscription.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        subscriptions = [
+            {
+                "id": s.id,
+                "plan": s.plan,
+                "status": s.status,
+                "amount": s.amount,
+                "starts_at": s.starts_at.isoformat() if s.starts_at else None,
+                "ends_at": s.ends_at.isoformat() if s.ends_at else None,
+                "created_at": s.created_at.isoformat() if s.created_at else None,
+            }
+            for s in subs
+        ]
+
+        # Payments
+        pmts = (
+            uow.session.query(Payment)
+            .filter(Payment.user_id == user_id)
+            .order_by(Payment.created_at.desc())
+            .limit(20)
+            .all()
+        )
+        payments = [
+            {
+                "id": p.id,
+                "amount": p.amount,
+                "status": p.status,
+                "type": p.type,
+                "reference": p.reference,
+                "plan": (p.metadata_json or {}).get("plan"),
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+            }
+            for p in pmts
+        ]
+
+        # Recent activity (last 30 audit logs)
+        logs = (
+            uow.session.query(AuditLog)
+            .filter(AuditLog.user_id == user_id)
+            .order_by(AuditLog.created_at.desc())
+            .limit(30)
+            .all()
+        )
+        activity = [
+            {
+                "action": log.action,
+                "resource": log.resource,
+                "resource_id": log.resource_id,
+                "ip": log.ip,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ]
+
+    return {
+        "profile": profile,
+        "subscriptions": subscriptions,
+        "payments": payments,
+        "activity": activity,
+    }
+
+
+def admin_change_plan(user_id: int, new_plan: str) -> dict:
+    """Change a user's plan and create a subscription record."""
+    valid_plans = ("free", "trial", "alertas", "business", "enterprise")
+    if new_plan not in valid_plans:
+        return {"error": f"Plan inválido. Opciones: {', '.join(valid_plans)}"}
+
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        old_plan = user.plan
+        user.plan = new_plan
+
+        # Create subscription for paid plans
+        if new_plan in ("alertas", "business", "enterprise"):
+            now = datetime.utcnow()
+            plan_prices = {"alertas": 49900, "business": 99900, "enterprise": 199900}
+            sub = Subscription(
+                user_id=user_id,
+                plan=new_plan,
+                status="active",
+                amount=plan_prices.get(new_plan, 0),
+                starts_at=now,
+                ends_at=now + timedelta(days=30),
+            )
+            uow.session.add(sub)
+
+        if new_plan == "trial":
+            user.trial_ends_at = datetime.utcnow() + timedelta(days=14)
+
+        uow.commit()
+
+    logger.info(f"Admin changed user {user_id} plan: {old_plan} → {new_plan}")
+    return {"ok": True, "old_plan": old_plan, "new_plan": new_plan}
+
+
+def admin_toggle_admin(user_id: int) -> dict:
+    """Toggle admin status. Protects against removing the last admin."""
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        if user.is_admin:
+            admin_count = uow.session.query(User).filter(User.is_admin == True).count()
+            if admin_count <= 1:
+                return {"error": "No puedes quitar el último administrador"}
+            user.is_admin = False
+        else:
+            user.is_admin = True
+
+        uow.commit()
+
+    return {"ok": True, "is_admin": user.is_admin}
+
+
+def get_activity_feed(page: int = 1, per_page: int = 50) -> dict:
+    """Global activity feed: audit logs with user emails."""
+    with UnitOfWork() as uow:
+        q = uow.session.query(AuditLog).order_by(AuditLog.created_at.desc())
+        total = q.count()
+        logs = q.offset((page - 1) * per_page).limit(per_page).all()
+
+        # Batch-fetch user emails
+        user_ids = {log.user_id for log in logs if log.user_id}
+        users_map = (
+            {
+                u.id: u.email
+                for u in uow.session.query(User.id, User.email).filter(User.id.in_(user_ids)).all()
+            }
+            if user_ids
+            else {}
+        )
+
+        results = [
+            {
+                "id": log.id,
+                "user_id": log.user_id,
+                "user_email": users_map.get(log.user_id, "—"),
+                "action": log.action,
+                "resource": log.resource,
+                "resource_id": log.resource_id,
+                "details": log.details,
+                "ip": log.ip,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ]
+
+    return {"results": results, "total": total, "page": page}
 
 
 def get_scraper_status() -> list[dict]:

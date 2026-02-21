@@ -965,6 +965,95 @@ def admin_health():
     return jsonify(get_system_health())
 
 
+@admin_bp.get("/users/<int:user_id>")
+@require_auth
+@require_admin
+def admin_user_detail(user_id: int):
+    from services.admin import get_user_detail
+
+    result = get_user_detail(user_id)
+    if "error" in result:
+        return jsonify(result), 404
+    return jsonify(result)
+
+
+@admin_bp.post("/users/<int:user_id>/change-plan")
+@require_auth
+@require_admin
+@audit("admin_change_plan")
+def admin_change_plan(user_id: int):
+    data = request.get_json(silent=True) or {}
+    plan = data.get("plan", "")
+    if not plan:
+        return jsonify({"error": "plan es requerido"}), 400
+
+    from services.admin import admin_change_plan as do_change
+
+    result = do_change(user_id, plan)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.post("/users/<int:user_id>/toggle-admin")
+@require_auth
+@require_admin
+@audit("admin_toggle_admin")
+def admin_toggle_admin(user_id: int):
+    from services.admin import admin_toggle_admin as do_toggle
+
+    result = do_toggle(user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.get("/activity")
+@require_auth
+@require_admin
+def admin_activity():
+    from services.admin import get_activity_feed
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 50, type=int)
+    return jsonify(get_activity_feed(page, min(per_page, 100)))
+
+
+@admin_bp.post("/scrapers/<string:source_key>/trigger")
+@require_auth
+@require_admin
+@audit("admin_trigger_scraper")
+def admin_trigger_scraper(source_key: str):
+    """Trigger a single scraper manually."""
+    try:
+        from aggregator.source_registry import SOURCE_REGISTRY
+
+        if source_key not in SOURCE_REGISTRY:
+            return jsonify({"error": f"Scraper '{source_key}' no encontrado"}), 404
+
+        scraper_class = SOURCE_REGISTRY[source_key]
+        scraper = scraper_class()
+        contracts = scraper.fetch()
+        new_count = 0
+
+        from core.database import UnitOfWork
+
+        with UnitOfWork() as uow:
+            for c in contracts:
+                existing = uow.contracts.get_by_external_id(c.get("external_id", ""))
+                if not existing:
+                    from core.database import Contract
+
+                    uow.session.add(Contract(**c))
+                    new_count += 1
+            uow.commit()
+
+        return jsonify({"ok": True, "source": source_key, "fetched": len(contracts), "new": new_count})
+    except Exception as e:
+        logger.error(f"Admin trigger scraper {source_key} failed: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
 @admin_bp.post("/ingest")
 @require_auth
 @require_admin

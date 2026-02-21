@@ -378,6 +378,16 @@ def logout(token: str):
 # =============================================================================
 
 
+def _needs_privacy_acceptance(user: User) -> bool:
+    """Check if user needs to accept (or re-accept) the privacy policy."""
+    if not user.privacy_policy_accepted_at:
+        return True
+    version = getattr(user, "privacy_policy_version", None)
+    if not version:
+        return True
+    return version != Config.PRIVACY_POLICY_VERSION
+
+
 def _user_to_public(user: User) -> dict:
     return {
         "id": user.id,
@@ -397,6 +407,7 @@ def _user_to_public(user: User) -> dict:
         "whatsapp_enabled": user.whatsapp_enabled,
         "telegram_chat_id": user.telegram_chat_id if hasattr(user, "telegram_chat_id") else None,
         "privacy_policy_accepted_at": user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None,
+        "needs_privacy_acceptance": _needs_privacy_acceptance(user),
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 
@@ -444,7 +455,7 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
 
 def accept_privacy_policy(user_id: int) -> dict:
     """
-    Mark privacy policy as accepted by user.
+    Mark privacy policy as accepted by user (with version tracking).
     Returns: {ok: True} or {error: str}
     """
     with UnitOfWork() as uow:
@@ -453,7 +464,12 @@ def accept_privacy_policy(user_id: int) -> dict:
             return {"error": "Usuario no encontrado"}
 
         user.privacy_policy_accepted_at = datetime.utcnow()
+        user.privacy_policy_version = Config.PRIVACY_POLICY_VERSION
         uow.commit()
 
-        logger.info(f"User {user_id} accepted privacy policy")
-        return {"ok": True, "accepted_at": user.privacy_policy_accepted_at.isoformat()}
+        logger.info(f"User {user_id} accepted privacy policy v{Config.PRIVACY_POLICY_VERSION}")
+        return {
+            "ok": True,
+            "accepted_at": user.privacy_policy_accepted_at.isoformat(),
+            "version": Config.PRIVACY_POLICY_VERSION,
+        }

@@ -82,6 +82,10 @@ class Config:
     ELASTICSEARCH_INDEX: str = "jobper_contracts"
 
     # ======================================================================
+    # PRIVACY POLICY
+    # ======================================================================
+    PRIVACY_POLICY_VERSION: str = "2026-02"
+
     # RESEND (Email)
     # ======================================================================
     RESEND_API_KEY: str = os.getenv("RESEND_API_KEY", "")

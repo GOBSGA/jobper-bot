@@ -76,6 +76,7 @@ class User(Base):
 
     # Privacy & Legal
     privacy_policy_accepted_at = Column(DateTime, nullable=True)
+    privacy_policy_version = Column(String(20), nullable=True)
 
     # Notifications
     notifications_enabled = Column(Boolean, default=True)
