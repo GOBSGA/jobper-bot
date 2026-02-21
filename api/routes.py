@@ -33,7 +33,8 @@ from api.schemas import (
     SearchSchema,
     VerifySchema,
 )
-from core.middleware import PLAN_ORDER, audit, rate_limit, require_admin, require_auth, require_plan, validate
+from core.middleware import audit, rate_limit, require_admin, require_auth, require_plan, validate
+from core.plans import PLAN_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -1024,7 +1025,7 @@ def admin_activity():
 @require_admin
 @audit("admin_trigger_scraper")
 def admin_trigger_scraper(source_key: str):
-    """Trigger a single scraper manually."""
+    """Trigger a single scraper manually — uses ingestion pipeline for proper dedup."""
     try:
         from aggregator.source_registry import SOURCE_REGISTRY
 
@@ -1033,22 +1034,14 @@ def admin_trigger_scraper(source_key: str):
 
         scraper_class = SOURCE_REGISTRY[source_key]
         scraper = scraper_class()
-        contracts = scraper.fetch()
-        new_count = 0
+        contracts = scraper.fetch_contracts()
 
-        from core.database import UnitOfWork
+        # Use the ingestion pipeline for proper dedup and persistence
+        from services.ingestion import _persist_contracts
 
-        with UnitOfWork() as uow:
-            for c in contracts:
-                existing = uow.contracts.get_by_external_id(c.get("external_id", ""))
-                if not existing:
-                    from core.database import Contract
+        stats = _persist_contracts(contracts, source_key)
 
-                    uow.session.add(Contract(**c))
-                    new_count += 1
-            uow.commit()
-
-        return jsonify({"ok": True, "source": source_key, "fetched": len(contracts), "new": new_count})
+        return jsonify({"ok": True, "source": source_key, "fetched": len(contracts), **stats})
     except Exception as e:
         logger.error(f"Admin trigger scraper {source_key} failed: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500

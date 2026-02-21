@@ -47,9 +47,9 @@ def check_feature_access(user_plan: str, feature: str) -> bool:
     normalized_user = normalize_plan(user_plan)
     normalized_req = normalize_plan(required_plan)
 
-    user_idx = PLAN_ORDER.index(normalized_user) if normalized_user in PLAN_ORDER else -1
-    req_idx = PLAN_ORDER.index(normalized_req) if normalized_req in PLAN_ORDER else 0
-    return user_idx >= req_idx
+    user_level = PLAN_ORDER.get(normalized_user, -1)
+    req_level = PLAN_ORDER.get(normalized_req, 0)
+    return user_level >= req_level
 
 
 # =============================================================================
@@ -713,8 +713,17 @@ def one_click_renewal(user_id: int, plan: str = None) -> dict:
         "reference": reference,
         "amount": amount,
         "amount_display": f"${amount:,.0f}".replace(",", "."),
+        "currency": "COP",
         "plan": plan,
         "message": "Transferencia lista. Sube tu comprobante para renovar tu plan.",
+        "instructions": (
+            f"1. Transfiere exactamente {f'${amount:,.0f}'.replace(',', '.')} COP\n"
+            f"2. En la descripción/concepto pon: {reference}\n"
+            f"3. Sube tu comprobante para activar tu plan"
+        ),
+        "reference_instructions": (
+            f"IMPORTANTE: Incluye este código en la descripción de tu transferencia:\n{reference}"
+        ),
         "payment_methods": _get_payment_methods(),
     }
 
@@ -1169,18 +1178,18 @@ def get_subscription(user_id: int) -> dict | None:
 
 
 def cancel_subscription(user_id: int) -> dict:
-    """Cancel active subscription (remains active until end date)."""
+    """Cancel active subscription (remains active until end date, status stays active)."""
     with UnitOfWork() as uow:
         sub = uow.subscriptions.get_active_for_user(user_id)
         if not sub:
             return {"error": "No hay suscripción activa"}
 
         sub.auto_renew = False
-        sub.status = "cancelled"
+        # Keep status="active" until ends_at passes — don't revoke paid access early
         uow.commit()
 
     cache.delete_pattern(f"user:{user_id}:*")
-    return {"ok": True, "message": "Suscripción cancelada. Acceso activo hasta fin de período."}
+    return {"ok": True, "message": "Auto-renovación desactivada. Tu acceso continúa hasta fin de período."}
 
 
 # =============================================================================

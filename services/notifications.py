@@ -473,7 +473,9 @@ def send_push(user_id: int, title: str, body: str, url: str = "") -> bool:
         from pywebpush import WebPushException, webpush
 
         with UnitOfWork() as uow:
-            subs = uow.push_subs.session.query(uow.push_subs.model).filter_by(user_id=user_id).all()
+            from core.database import PushSubscription
+
+            subs = uow.session.query(PushSubscription).filter_by(user_id=user_id).all()
 
             if not subs:
                 return False
@@ -703,7 +705,7 @@ def send_daily_digest():
     Send daily email digest to eligible users (Alertas plan and above).
     Includes top matching contracts from the last 24 hours.
     """
-    from core.middleware import PLAN_ORDER
+    from core.plans import PLAN_ORDER
     from services.matching import get_matched_contracts
 
     with UnitOfWork() as uow:
@@ -715,7 +717,7 @@ def send_daily_digest():
         for user in users:
             # Daily digest only for alertas+ plans
             user_plan_level = PLAN_ORDER.get(user.plan, 0)
-            alertas_level = PLAN_ORDER.get("alertas", 2)
+            alertas_level = PLAN_ORDER.get("alertas", 1)
 
             if user_plan_level < alertas_level:
                 skipped_count += 1

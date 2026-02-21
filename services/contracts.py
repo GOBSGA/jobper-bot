@@ -88,15 +88,46 @@ def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
 
 
 def get_matched_feed(user_id: int, page: int = 1, per_page: int = 20) -> dict:
-    """Get contracts ordered by relevance for user."""
+    """Get contracts ordered by match_score for user, with pagination."""
+    try:
+        from services.matching import get_matched_contracts
+
+        # Get a large pool of scored contracts (cached 10 min)
+        pool_size = max(200, page * per_page + per_page)
+        scored = get_matched_contracts(user_id, min_score=0, limit=pool_size, days_back=60)
+        total = len(scored)
+
+        # Paginate the scored results
+        start = (page - 1) * per_page
+        page_items = scored[start : start + per_page]
+
+        # Enrich with favorite status
+        with UnitOfWork() as uow:
+            fav_ids = _get_favorite_ids(uow, user_id)
+
+        for item in page_items:
+            item["is_favorite"] = item.get("id") in fav_ids
+
+        return {
+            "contracts": page_items,
+            "total": total,
+            "page": page,
+            "pages": (total + per_page - 1) // per_page if per_page else 0,
+        }
+    except Exception as e:
+        logger.warning(f"Matching engine failed, falling back to keyword feed: {e}")
+        return _keyword_fallback_feed(user_id, page, per_page)
+
+
+def _keyword_fallback_feed(user_id: int, page: int = 1, per_page: int = 20) -> dict:
+    """Fallback feed using keyword ILIKE when matching engine fails."""
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
         if not user:
-            return {"results": [], "total": 0, "page": 1, "pages": 0}
+            return {"contracts": [], "total": 0, "page": 1, "pages": 0}
 
         q = uow.session.query(Contract).order_by(Contract.created_at.desc())
 
-        # Filter by user keywords if available
         if user.keywords:
             from sqlalchemy import or_
 

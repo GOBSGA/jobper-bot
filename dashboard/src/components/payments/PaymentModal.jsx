@@ -71,7 +71,7 @@ export default function PaymentModal({
 
       const result = await api.upload("/payments/confirm", formData);
 
-      if (result.status === "approved" || result.ok) {
+      if (result.status === "approved") {
         toast.success(`¡Plan ${result.plan} activado! Disfruta Jobper.`);
 
         if (result.rewards && result.rewards.length > 0) {
@@ -86,6 +86,9 @@ export default function PaymentModal({
           }, 1500);
         }
 
+        onSuccess(result);
+      } else if (result.status === "grace") {
+        toast.info(`Acceso temporal activado por ${result.grace_hours || 12}h mientras verificamos tu pago.`);
         onSuccess(result);
       } else if (result.status === "review") {
         toast.info("¡Recibido! Tu pago está en revisión. Te avisamos en máximo 24 horas.");

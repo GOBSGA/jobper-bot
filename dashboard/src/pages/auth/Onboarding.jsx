@@ -84,9 +84,11 @@ export default function Onboarding() {
         budget_min: form.budget_min,
         budget_max: form.budget_max,
       });
+      await api.post("/onboarding/complete", {});
       await refresh();
       navigate("/dashboard", { replace: true });
-    } catch {
+    } catch (err) {
+      console.error("Onboarding save failed:", err);
       setLoading(false);
     }
   };

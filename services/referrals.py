@@ -67,7 +67,7 @@ def track_signup(code: str, new_user_id: int) -> dict:
         # Find most recent click with this code that hasn't been assigned
         referral = (
             uow.session.query(Referral)
-            .filter(Referral.code == code, Referral.referred_id == None)
+            .filter(Referral.code == code, Referral.referred_id.is_(None))
             .order_by(Referral.clicked_at.desc())
             .first()
         )

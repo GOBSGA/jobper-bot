@@ -65,8 +65,8 @@ def require_plan(min_plan: str):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             user_plan = getattr(g, "user_plan", "trial")
-            user_level = PLAN_ORDER.get(user_plan, 0)
-            required_level = PLAN_ORDER.get(min_plan, 0)
+            user_level = PLAN_ORDER.get(normalize_plan(user_plan), 0)
+            required_level = PLAN_ORDER.get(normalize_plan(min_plan), 0)
 
             if user_level < required_level:
                 return (

@@ -140,7 +140,7 @@ export default function Settings() {
   const currentBudgetLabel = () => {
     if (!form.budget_min && !form.budget_max) return null;
     const found = BUDGET_RANGES.find(
-      (r) => r.min == form.budget_min && r.max == form.budget_max
+      (r) => r.min === form.budget_min && r.max === form.budget_max
     );
     return found?.label || `$${(form.budget_min/1_000_000).toFixed(0)}M - $${form.budget_max ? (form.budget_max/1_000_000).toFixed(0) + "M" : "∞"}`;
   };

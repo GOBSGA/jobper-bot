@@ -309,10 +309,10 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
 
         # Check free tier limits (3 alerts/week)
         from config import Config
-        from core.middleware import PLAN_ORDER
+        from core.plans import PLAN_ORDER
 
         user_plan = user.plan or "free"
-        is_free_tier = PLAN_ORDER.get(user_plan, 0) < PLAN_ORDER.get("alertas", 2)
+        is_free_tier = PLAN_ORDER.get(user_plan, 0) < PLAN_ORDER.get("alertas", 1)
 
         if is_free_tier:
             weekly_limit = Config.PLANS.get("free", {}).get("limits", {}).get("alerts_per_week", 3)

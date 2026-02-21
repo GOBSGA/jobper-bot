@@ -408,6 +408,11 @@ def _user_to_public(user: User) -> dict:
         "telegram_chat_id": user.telegram_chat_id if hasattr(user, "telegram_chat_id") else None,
         "privacy_policy_accepted_at": user.privacy_policy_accepted_at.isoformat() if user.privacy_policy_accepted_at else None,
         "needs_privacy_acceptance": _needs_privacy_acceptance(user),
+        "onboarding_completed": user.onboarding_completed,
+        "email_verified": user.email_verified,
+        "trust_level": user.trust_level,
+        "trust_score": user.trust_score,
+        "one_click_renewal_enabled": user.one_click_renewal_enabled,
         "created_at": user.created_at.isoformat() if user.created_at else None,
     }
 

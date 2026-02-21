@@ -54,6 +54,9 @@ def add_to_pipeline(
     if stage not in STAGES:
         return {"error": f"Stage inválido. Opciones: {', '.join(STAGES)}"}
 
+    if not contract_id and not private_contract_id:
+        return {"error": "Debes indicar un contrato (contract_id o private_contract_id)"}
+
     with UnitOfWork() as uow:
         entry = PipelineEntry(
             user_id=user_id,

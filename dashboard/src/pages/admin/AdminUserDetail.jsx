@@ -19,7 +19,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
-const PLANS = ["free", "trial", "alertas", "business", "enterprise"];
+const PLANS = ["free", "trial", "cazador", "competidor", "dominador"];
 
 export default function AdminUserDetail() {
   const { id } = useParams();

@@ -7,6 +7,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta
 
+from config import Config
 from core.cache import cache
 from core.database import AuditLog, Contract, DataSource, Payment, PrivateContract, Subscription, UnitOfWork, User
 
@@ -367,7 +368,7 @@ def get_user_detail(user_id: int) -> dict:
 
 def admin_change_plan(user_id: int, new_plan: str) -> dict:
     """Change a user's plan and create a subscription record."""
-    valid_plans = ("free", "trial", "alertas", "business", "enterprise")
+    valid_plans = ("free", "trial", "cazador", "competidor", "dominador")
     if new_plan not in valid_plans:
         return {"error": f"Plan inválido. Opciones: {', '.join(valid_plans)}"}
 
@@ -379,10 +380,14 @@ def admin_change_plan(user_id: int, new_plan: str) -> dict:
         old_plan = user.plan
         user.plan = new_plan
 
-        # Create subscription for paid plans
-        if new_plan in ("alertas", "business", "enterprise"):
+        # Create subscription for paid plans (prices from Config.PLANS)
+        if new_plan in ("cazador", "competidor", "dominador"):
             now = datetime.utcnow()
-            plan_prices = {"alertas": 49900, "business": 99900, "enterprise": 199900}
+            plan_prices = {
+                "cazador": Config.PLANS["cazador"]["price"],
+                "competidor": Config.PLANS["competidor"]["price"],
+                "dominador": Config.PLANS["dominador"]["price"],
+            }
             sub = Subscription(
                 user_id=user_id,
                 plan=new_plan,

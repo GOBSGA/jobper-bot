@@ -35,7 +35,7 @@ export default function Register() {
       referral_code: referralCode || undefined,
     });
     await login(res);
-    navigate("/dashboard"); // PrivateRoute privacy gate handles acceptance
+    navigate(res.is_new ? "/onboarding" : "/dashboard");
   });
 
   return (

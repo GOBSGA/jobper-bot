@@ -51,6 +51,9 @@ def list_marketplace(
 
 def publish(user_id: int, data: dict) -> dict:
     """Publish a new private contract to marketplace."""
+    if not data.get("title"):
+        return {"error": "El título es obligatorio"}
+
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
         if not user:
