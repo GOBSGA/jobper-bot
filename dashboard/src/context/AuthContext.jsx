@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const fetchUser = useCallback(async () => {
+    const tokenBefore = getAccessToken();
     try {
       const data = await api.get("/user/profile");
       setUser(data);
@@ -29,17 +30,21 @@ export function AuthProvider({ children }) {
       fetchSubscription();
     } catch (err) {
       if (err?.status === 401) {
-        // Genuine auth failure — clear session
-        setUser(null);
-        setSubscription(null);
-        setServerError(false);
+        // Only clear session if tokens haven't been replaced by a new login
+        // (prevents race condition: old fetchUser failing after new login saved fresh tokens)
+        const currentToken = getAccessToken();
+        if (!currentToken || currentToken === tokenBefore) {
+          setUser(null);
+          setSubscription(null);
+          setServerError(false);
+        }
       } else {
         // Server/network error — don't clear existing user data, just flag it
         setServerError(true);
       }
       // Re-throw so login page can handle errors (e.g., show "wrong password")
       // BUT only for 401 — server errors on background polls should not propagate
-      if (err?.status === 401) throw err;
+      if (err?.status === 401 && !getAccessToken()) throw err;
     } finally {
       setLoading(false);
     }
@@ -97,7 +102,11 @@ export function AuthProvider({ children }) {
     if (tokens.user) {
       setUser(tokens.user);
       setLoading(false);
-      fetchSubscription(); // non-blocking, non-critical
+      // Skip subscription fetch if privacy acceptance is pending
+      // (avoids triggering API calls before user accepts)
+      if (!tokens.user.needs_privacy_acceptance) {
+        fetchSubscription();
+      }
     } else {
       setLoading(true);
       await fetchUser();

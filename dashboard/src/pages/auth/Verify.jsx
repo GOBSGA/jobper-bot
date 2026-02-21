@@ -43,9 +43,8 @@ export default function Verify() {
       .catch((err) => {
         // Remove from set so user can retry with a new link
         verifiedTokens.delete(token);
-        // Show specific error from API if available
-        const apiError = err?.response?.data?.error || err?.message;
-        setError(apiError || "Error verificando el enlace. Solicita uno nuevo.");
+        // Show specific error from API (api.js throws { status, error })
+        setError(err?.error || "Error verificando el enlace. Solicita uno nuevo.");
         setVerifying(false);
       });
   }, [params, login, navigate]);

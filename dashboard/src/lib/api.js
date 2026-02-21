@@ -49,8 +49,17 @@ async function request(path, opts = {}) {
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         refreshQueue.push((success) => {
-          if (success) resolve(request(path, opts));
-          else reject({ status: 401, error: "Sesión expirada" });
+          if (success) {
+            resolve(request(path, opts));
+          } else {
+            // A new login may have saved fresh tokens while we waited
+            const freshToken = getAccessToken();
+            if (freshToken && freshToken !== token) {
+              resolve(request(path, opts));
+            } else {
+              reject({ status: 401, error: "Sesión expirada" });
+            }
+          }
         });
       });
     }
@@ -62,7 +71,13 @@ async function request(path, opts = {}) {
 
     if (refreshed) return request(path, opts);
 
-    // Only clear tokens if the refresh token itself is invalid (not a server/network error)
+    // Only clear tokens if they haven't been replaced by a new login
+    const currentToken = getAccessToken();
+    if (currentToken && currentToken !== token) {
+      // A new login saved fresh tokens during the refresh — retry
+      return request(path, opts);
+    }
+
     if (!serverError) {
       clearTokens();
     }
@@ -92,8 +107,16 @@ async function uploadRequest(path, formData) {
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         refreshQueue.push((success) => {
-          if (success) resolve(uploadRequest(path, formData));
-          else reject({ status: 401, error: "Sesión expirada" });
+          if (success) {
+            resolve(uploadRequest(path, formData));
+          } else {
+            const freshToken = getAccessToken();
+            if (freshToken && freshToken !== token) {
+              resolve(uploadRequest(path, formData));
+            } else {
+              reject({ status: 401, error: "Sesión expirada" });
+            }
+          }
         });
       });
     }
@@ -102,6 +125,11 @@ async function uploadRequest(path, formData) {
     isRefreshing = false;
     onRefreshed(refreshed);
     if (refreshed) return uploadRequest(path, formData);
+
+    const currentToken = getAccessToken();
+    if (currentToken && currentToken !== token) {
+      return uploadRequest(path, formData);
+    }
 
     if (!serverError) {
       clearTokens();
