@@ -775,10 +775,10 @@ def _tmpl_daily_digest(data: dict) -> tuple[str, str]:
         contracts_html += f"""
 <div style="border-bottom:1px solid #e2e8f0;padding:12px 0">
   <div style="display:flex;justify-content:space-between;align-items:center">
-    <p style="margin:0;font-weight:600;color:#0f172a">{c.get('title', '')[:80]}</p>
+    <p style="margin:0;font-weight:600;color:#0f172a">{_escape(str(c.get('title', ''))[:80])}</p>
     <span style="background:{score_color};color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">{c.get('match_score', 0)}%</span>
   </div>
-  <p style="margin:4px 0 0;color:#475569;font-size:13px">{c.get('entity', '')} — {c.get('amount', 'N/A')}</p>
+  <p style="margin:4px 0 0;color:#475569;font-size:13px">{_escape(str(c.get('entity', '')))} — {_escape(str(c.get('amount', 'N/A')))}</p>
 </div>"""
 
     content = f"""

@@ -180,9 +180,9 @@ def task_run_ingestion():
     """Run contract ingestion from all SECOP sources."""
     logger.info("Starting ingestion job")
     try:
-        from services.ingestion import run_ingestion
+        from services.ingestion import ingest_all
 
-        result = run_ingestion()
+        result = ingest_all()
         logger.info(f"Ingestion completed: {result}")
         return result
     except Exception as e:

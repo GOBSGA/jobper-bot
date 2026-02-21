@@ -414,7 +414,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                 "plan": plan,
                 "grace_until": grace_until.isoformat(),
                 "message": (
-                    "Tu pago está siendo verificado. Tienes acceso al plan durante 24 horas "
+                    "Tu pago está siendo verificado. Tienes acceso al plan durante 12 horas "
                     "mientras confirmamos el pago. Te avisaremos por email."
                 ),
             }
@@ -842,12 +842,13 @@ def admin_approve_payment(payment_id: int) -> dict:
         user_id = payment.user_id
         payment_amount = payment.amount
 
-        # Approve the payment
+        # Approve the payment — check status BEFORE overwriting
+        was_grace = payment.status == "grace"
         payment.status = "approved"
         payment.confirmed_at = now
         payment.verification_status = "admin_approved"
 
-        if payment.status == "grace":
+        if was_grace:
             # Grace → extend existing grace subscription to full 30 days
             grace_sub = (
                 uow.session.query(Subscription)

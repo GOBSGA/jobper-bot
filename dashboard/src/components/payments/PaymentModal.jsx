@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Modal from "../ui/Modal";
 import Button from "../ui/Button";
 import Spinner from "../ui/Spinner";
@@ -29,6 +29,13 @@ export default function PaymentModal({
   const [comprobantePreview, setComprobantePreview] = useState(null);
   const [confirming, setConfirming] = useState(false);
 
+  // Revoke object URL on unmount or when preview changes to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (comprobantePreview) URL.revokeObjectURL(comprobantePreview);
+    };
+  }, [comprobantePreview]);
+
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
     toast.success("Copiado");
@@ -48,6 +55,7 @@ export default function PaymentModal({
       return;
     }
 
+    if (comprobantePreview) URL.revokeObjectURL(comprobantePreview);
     setComprobante(file);
     setComprobantePreview(URL.createObjectURL(file));
   };

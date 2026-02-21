@@ -341,8 +341,28 @@ def _ensure_missing_columns():
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS comprobante_hash VARCHAR(64)",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
-            # Telegram notifications
+            # Telegram / contact
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_number VARCHAR(20)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS whatsapp_enabled BOOLEAN DEFAULT false",
+            # Onboarding & profile
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT false",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS budget_min FLOAT",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS budget_max FLOAT",
+            # Alerts
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS alerts_sent_this_week INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS alerts_week_start TIMESTAMP",
+            # Referrals
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code VARCHAR(20)",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER",
+            # Embeddings & renewal
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_embedding BYTEA",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS embedding_updated_at TIMESTAMP",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_renewal_prompt TIMESTAMP",
             # Cross-source contract deduplication
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
         ]

@@ -124,6 +124,25 @@ class PrivatePortalScraper(BaseScraper):
             logger.error(f"{self.portal_name}: Error fetching contracts: {e}")
             return []
 
+    def _normalize_contract(self, raw_contract: dict) -> ContractData:
+        """
+        Not used by PrivatePortalScraper — normalization happens inside
+        _fetch_contracts_impl().  This stub satisfies BaseScraper's ABC.
+        """
+        return ContractData(
+            external_id=raw_contract.get("id", ""),
+            title=raw_contract.get("title", ""),
+            description=raw_contract.get("description", ""),
+            entity=raw_contract.get("entity", self.portal_name),
+            amount=raw_contract.get("amount"),
+            currency=raw_contract.get("currency", "USD"),
+            country=self.portal_country,
+            source=self.portal_name.lower().replace(" ", "_"),
+            source_type=self.source_type,
+            url=raw_contract.get("url", ""),
+            raw_data=raw_contract,
+        )
+
     @abstractmethod
     def _fetch_contracts_impl(
         self,

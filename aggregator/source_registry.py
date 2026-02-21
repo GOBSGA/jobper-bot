@@ -153,7 +153,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=60,
-            scraper_class="scrapers.sam.SamScraper",
+            scraper_class="scrapers.sam.SamGovScraper",
         ),
         # Multilaterales
         "worldbank": SourceConfig(
@@ -235,7 +235,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.mexico.MexicoScraper",
+            scraper_class="scrapers.latam.mexico.CompraNetScraper",
         ),
         "mercado_publico_chile": SourceConfig(
             key="mercado_publico_chile",
@@ -248,7 +248,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.chile.ChileScraper",
+            scraper_class="scrapers.latam.chile.ChileCompraScraper",
         ),
         "osce_peru": SourceConfig(
             key="osce_peru",
@@ -261,7 +261,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.NORMAL,
             update_interval_minutes=120,
-            scraper_class="scrapers.latam.peru.PeruScraper",
+            scraper_class="scrapers.latam.peru.SeaceScraper",
         ),
         "comprar_argentina": SourceConfig(
             key="comprar_argentina",
@@ -274,7 +274,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.LOW,
             update_interval_minutes=360,
-            scraper_class="scrapers.latam.argentina.ArgentinaScraper",
+            scraper_class="scrapers.latam.argentina.ComprarScraper",
         ),
         "comprasnet_brasil": SourceConfig(
             key="comprasnet_brasil",
@@ -287,7 +287,7 @@ class SourceRegistry:
             categories=["gobierno"],
             priority=SourcePriority.LOW,
             update_interval_minutes=360,
-            scraper_class="scrapers.latam.brasil.BrasilScraper",
+            scraper_class="scrapers.latam.brasil.ComprasNetScraper",
         ),
         # Europa (para expansión)
         "ted_europa": SourceConfig(
@@ -428,8 +428,10 @@ class SourceRegistry:
             module = importlib.import_module(module_path)
             scraper_class = getattr(module, class_name)
 
-            # Crear instancia
-            scraper = scraper_class(config.url)
+            # Crear instancia — each scraper handles its own URL internally,
+            # so we instantiate without arguments (scrapers define their own
+            # API URLs in __init__).
+            scraper = scraper_class()
             self._scrapers[key] = scraper
 
             logger.info(f"Scraper cargado: {key} -> {config.scraper_class}")

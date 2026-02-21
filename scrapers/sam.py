@@ -25,9 +25,11 @@ logger = logging.getLogger(__name__)
 class SamGovScraper(BaseScraper):
     """Scraper para la API de SAM.gov (Estados Unidos)."""
 
+    SAM_API_URL = "https://api.sam.gov/opportunities/v2/search"
+
     def __init__(self):
-        super().__init__(Config.SAM_API_URL)
-        self.api_key = Config.SAM_API_KEY
+        super().__init__(getattr(Config, "SAM_API_URL", self.SAM_API_URL))
+        self.api_key = getattr(Config, "SAM_API_KEY", "")
 
     def is_available(self) -> bool:
         """Verifica si la API de SAM.gov está configurada."""

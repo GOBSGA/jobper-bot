@@ -14,8 +14,8 @@ exec gunicorn \
     --bind "0.0.0.0:${PORT:-5001}" \
     --workers 1 \
     --threads 4 \
-    --timeout 30 \
-    --log-level debug \
+    --timeout 120 \
+    --log-level info \
     --access-logfile - \
     --error-logfile - \
     --capture-output \
