@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
 import { saveTokens, getAccessToken, clearTokens } from "../lib/storage";
 
@@ -11,6 +11,11 @@ export function AuthProvider({ children }) {
   // serverError: true when /user/profile returned 5xx/network — not a logout, just a server issue
   const [serverError, setServerError] = useState(false);
 
+  // Auth version counter: incremented on every login/logout.
+  // Any in-flight fetchUser that started before the version change
+  // will silently discard its results, preventing race conditions.
+  const authVersion = useRef(0);
+
   const fetchSubscription = useCallback(async () => {
     try {
       const data = await api.get("/payments/subscription");
@@ -21,40 +26,39 @@ export function AuthProvider({ children }) {
   }, []);
 
   const fetchUser = useCallback(async () => {
-    const tokenBefore = getAccessToken();
+    const myVersion = authVersion.current;
     try {
       const data = await api.get("/user/profile");
+      // Discard result if a login/logout happened while we were fetching
+      if (authVersion.current !== myVersion) return;
       setUser(data);
       setServerError(false);
-      // Also fetch subscription status
       fetchSubscription();
     } catch (err) {
+      // Discard error if a login/logout happened while we were fetching
+      if (authVersion.current !== myVersion) return;
+
       if (err?.status === 401) {
-        // Only clear session if tokens haven't been replaced by a new login
-        // (prevents race condition: old fetchUser failing after new login saved fresh tokens)
-        const currentToken = getAccessToken();
-        if (!currentToken || currentToken === tokenBefore) {
-          setUser(null);
-          setSubscription(null);
-          setServerError(false);
-        }
+        setUser(null);
+        setSubscription(null);
+        setServerError(false);
       } else {
         // Server/network error — don't clear existing user data, just flag it
         setServerError(true);
       }
-      // Re-throw so login page can handle errors (e.g., show "wrong password")
-      // BUT only for 401 — server errors on background polls should not propagate
+      // Re-throw 401 only if there's genuinely no token (not a stale-token scenario)
       if (err?.status === 401 && !getAccessToken()) throw err;
     } finally {
-      setLoading(false);
+      if (authVersion.current === myVersion) {
+        setLoading(false);
+      }
     }
   }, [fetchSubscription]);
 
+  // On mount: restore session from stored token
   useEffect(() => {
     if (getAccessToken()) {
-      fetchUser().catch(() => {
-        // Suppress unhandled rejection — non-401 errors are handled inside fetchUser
-      });
+      fetchUser().catch(() => {});
     } else {
       setLoading(false);
     }
@@ -64,7 +68,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(() => {
-      fetchUser().catch(() => {}); // Suppress background poll errors
+      fetchUser().catch(() => {});
     }, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user, fetchUser]);
@@ -82,6 +86,7 @@ export function AuthProvider({ children }) {
       if (e.key === "access_token") {
         if (!e.newValue) {
           // Token removed in another tab (logout)
+          authVersion.current += 1;
           setUser(null);
           setSubscription(null);
         } else if (e.newValue !== e.oldValue) {
@@ -95,25 +100,32 @@ export function AuthProvider({ children }) {
   }, [fetchUser]);
 
   const login = async (tokens) => {
+    // Bump version FIRST — invalidates any in-flight fetchUser so it
+    // can never overwrite or clear the fresh login state
+    authVersion.current += 1;
+
     saveTokens(tokens.access_token, tokens.refresh_token);
     setServerError(false);
-    // Login response already contains user — use it directly to avoid a second
-    // API call that could fail and make login appear broken.
+
     if (tokens.user) {
+      // Login response includes user data — use directly (no extra API call)
       setUser(tokens.user);
       setLoading(false);
       // Skip subscription fetch if privacy acceptance is pending
-      // (avoids triggering API calls before user accepts)
       if (!tokens.user.needs_privacy_acceptance) {
         fetchSubscription();
       }
     } else {
+      // Fallback: fetch user profile (e.g., token-only response)
       setLoading(true);
       await fetchUser();
     }
   };
 
   const logout = async () => {
+    // Bump version to cancel any in-flight operations
+    authVersion.current += 1;
+
     try { await api.post("/auth/logout"); } catch {}
     clearTokens();
     setUser(null);
