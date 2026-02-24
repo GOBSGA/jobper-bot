@@ -1,19 +1,36 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+/**
+ * AuthContext — event-driven auth, zero background polling.
+ *
+ * User state is set ONLY by:
+ *   1. login() — from the login API response (synchronous, no extra round-trip)
+ *   2. refresh() — explicit user-initiated refresh (e.g. after accepting privacy policy)
+ *
+ * User state is cleared ONLY by:
+ *   1. logout() — explicit logout button
+ *   2. "auth:logout" custom event — fired by api.js when refresh token is genuinely invalid
+ *   3. storage event — another tab logged out
+ *
+ * This means there is NO background fetch that can race with login and clear the user.
+ */
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { api } from "../lib/api";
 import { saveTokens, getAccessToken, saveUser, getUser, clearAll } from "../lib/storage";
 
 const AuthCtx = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Initialize synchronously from localStorage — zero loading flash when session exists
+  // Initialize synchronously — zero loading flash
   const [user, setUserState] = useState(() => (getAccessToken() ? getUser() : null));
   const [subscription, setSubscription] = useState(null);
-  // Show loading only if we have a token but no cached user (must wait for network)
-  const [loading, setLoading] = useState(() => Boolean(getAccessToken() && !getUser()));
+  const [loading] = useState(false); // never blocks rendering — no background fetch
   const [serverError, setServerError] = useState(false);
 
-  // isLoggedIn ref: set false on logout/401 so stale in-flight fetches become no-ops
-  const isLoggedIn = useRef(Boolean(getAccessToken()));
+  const doLogout = useCallback(() => {
+    clearAll();
+    setUserState(null);
+    setSubscription(null);
+    setServerError(false);
+  }, []);
 
   const fetchSubscription = useCallback(async () => {
     try {
@@ -22,93 +39,73 @@ export function AuthProvider({ children }) {
     } catch {}
   }, []);
 
-  const fetchUser = useCallback(async () => {
-    try {
-      const data = await api.get("/user/profile");
-      if (!isLoggedIn.current) return; // logged out while fetching — discard
-      saveUser(data);
-      setUserState(data);
-      setServerError(false);
-      fetchSubscription();
-    } catch (err) {
-      if (!isLoggedIn.current) return; // logged out while fetching — discard
-      if (err?.status === 401) {
-        isLoggedIn.current = false;
-        clearAll();
-        setUserState(null);
-        setSubscription(null);
-        setServerError(false);
-      } else {
-        // Network/server error — keep existing cached user, just flag it
-        setServerError(true);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchSubscription]);
-
-  // On mount: validate token in background (user is already shown from cache)
+  // api.js dispatches this when the refresh token is invalid (same-tab communication)
+  // Note: localStorage removeItem does NOT fire the storage event in the same tab,
+  // so we use a custom event instead.
   useEffect(() => {
-    if (getAccessToken()) {
-      fetchUser().catch(() => setLoading(false));
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    window.addEventListener("auth:logout", doLogout);
+    return () => window.removeEventListener("auth:logout", doLogout);
+  }, [doLogout]);
 
-  // Poll subscription status every 5 min
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(fetchSubscription, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user, fetchSubscription]);
-
-  // Sync logout/login across browser tabs
+  // Cross-tab sync: logout or login in another browser tab
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === "access_token") {
         if (!e.newValue) {
-          isLoggedIn.current = false;
-          setUserState(null);
-          setSubscription(null);
+          doLogout();
         } else if (e.newValue !== e.oldValue) {
-          isLoggedIn.current = true;
-          fetchUser().catch(() => {});
+          // Other tab logged in — pick up their cached user
+          setUserState(getUser());
         }
       }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
-  }, [fetchUser]);
+  }, [doLogout]);
+
+  // Poll subscription every 5 min while logged in
+  useEffect(() => {
+    if (!user?.id) return;
+    const interval = setInterval(fetchSubscription, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user?.id, fetchSubscription]);
 
   const login = async (tokens) => {
-    isLoggedIn.current = true;
     saveTokens(tokens.access_token, tokens.refresh_token);
     setServerError(false);
-
     if (tokens.user) {
-      // Login response always includes user — use directly, no extra API call needed
       saveUser(tokens.user);
       setUserState(tokens.user);
-      setLoading(false);
       if (!tokens.user.needs_privacy_acceptance) {
         fetchSubscription();
       }
-    } else {
-      setLoading(true);
-      await fetchUser();
     }
   };
 
   const logout = async () => {
-    isLoggedIn.current = false;
     try { await api.post("/auth/logout"); } catch {}
-    clearAll();
-    setUserState(null);
-    setSubscription(null);
-    setServerError(false);
+    doLogout();
   };
 
+  // Explicit refresh — call after accepting privacy policy or after plan change
+  const refresh = useCallback(async () => {
+    try {
+      const data = await api.get("/user/profile");
+      saveUser(data);
+      setUserState(data);
+      setServerError(false);
+      fetchSubscription();
+    } catch (err) {
+      if (err?.status === 401) {
+        doLogout();
+      } else {
+        setServerError(true);
+      }
+    }
+  }, [fetchSubscription, doLogout]);
+
   return (
-    <AuthCtx.Provider value={{ user, subscription, loading, serverError, login, logout, refresh: fetchUser }}>
+    <AuthCtx.Provider value={{ user, subscription, loading, serverError, login, logout, refresh }}>
       {children}
     </AuthCtx.Provider>
   );

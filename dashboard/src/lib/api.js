@@ -80,6 +80,8 @@ async function request(path, opts = {}) {
 
     if (!serverError) {
       clearTokens();
+      // Notify AuthContext in the same tab — storage events don't fire for same-tab removeItem
+      window.dispatchEvent(new CustomEvent("auth:logout"));
     }
 
     throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
@@ -133,6 +135,7 @@ async function uploadRequest(path, formData) {
 
     if (!serverError) {
       clearTokens();
+      window.dispatchEvent(new CustomEvent("auth:logout"));
     }
 
     throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
