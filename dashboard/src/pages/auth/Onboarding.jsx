@@ -4,6 +4,7 @@ import { useAuth } from "../../context/AuthContext";
 import { api } from "../../lib/api";
 import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
+import { useToast } from "../../components/ui/Toast";
 import { Building2, Briefcase, Tag, MapPin, DollarSign, ChevronRight, ChevronLeft, Sparkles } from "lucide-react";
 
 const SECTORS = [
@@ -46,6 +47,7 @@ const KEYWORD_SUGGESTIONS = {
 export default function Onboarding() {
   const navigate = useNavigate();
   const { refresh } = useAuth();
+  const toast = useToast();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
@@ -88,7 +90,7 @@ export default function Onboarding() {
       await refresh();
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      console.error("Onboarding save failed:", err);
+      toast.error(err.error || "Error al guardar tu perfil. Intenta de nuevo.");
       setLoading(false);
     }
   };

@@ -21,6 +21,7 @@ export default function Marketplace() {
   const [contactInfo, setContactInfo] = useState(null);
   const [form, setForm] = useState({ title: "", description: "", budget_min: "", category: "", contact_phone: "", city: "" });
   const [publishing, setPublishing] = useState(false);
+  const [revealing, setRevealing] = useState(false);
 
   const publish = async (e) => {
     e.preventDefault();
@@ -46,11 +47,15 @@ export default function Marketplace() {
   };
 
   const reveal = async (id) => {
+    if (revealing) return;
+    setRevealing(true);
     try {
       const res = await api.get(`/marketplace/${id}/contact`);
       setContactInfo(res);
     } catch (err) {
       toast.error(err.error || "Error al obtener contacto");
+    } finally {
+      setRevealing(false);
     }
   };
 
@@ -88,7 +93,7 @@ export default function Marketplace() {
               {c.budget_min && <p className="text-sm font-bold text-gray-900">{money(c.budget_min)}{c.budget_max ? ` - ${money(c.budget_max)}` : ""}</p>}
               {c.description && <p className="text-xs text-gray-600 line-clamp-3">{c.description}</p>}
               <div className="flex gap-2">
-                <Button variant="secondary" size="sm" onClick={() => reveal(c.id)}>
+                <Button variant="secondary" size="sm" onClick={() => reveal(c.id)} disabled={revealing}>
                   <Eye className="h-3 w-3" /> Contacto
                 </Button>
               </div>

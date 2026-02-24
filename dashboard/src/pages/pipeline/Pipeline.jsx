@@ -27,13 +27,18 @@ export default function Pipeline() {
   const toast = useToast();
   const [noteModal, setNoteModal] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [moving, setMoving] = useState(null); // entryId being moved
 
   const handleMove = async (entryId, stage) => {
+    if (moving) return;
+    setMoving(entryId);
     try {
       await api.put(`/pipeline/${entryId}/stage`, { stage });
       refetch();
     } catch (err) {
       toast.error(err.error || "Error al mover entrada");
+    } finally {
+      setMoving(null);
     }
   };
 
@@ -88,7 +93,8 @@ export default function Pipeline() {
                       <button
                         key={s.key}
                         onClick={() => handleMove(entry.id, s.key)}
-                        className="text-xs px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
+                        disabled={!!moving}
+                        className="text-xs px-2 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <ChevronRight className="h-3 w-3 inline" /> {s.label}
                       </button>

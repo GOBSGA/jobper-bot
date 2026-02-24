@@ -7,7 +7,12 @@ echo "DATABASE_URL set: $([ -n "$DATABASE_URL" ] && echo 'YES' || echo 'NO')"
 echo "JWT_SECRET set: $([ -n "$JWT_SECRET" ] && echo 'YES' || echo 'NO')"
 
 echo "=== Running database migrations ==="
-alembic upgrade head && echo "=== Migrations complete ===" || echo "=== Migrations failed (non-fatal) - app will apply missing columns on startup ==="
+if alembic upgrade head; then
+  echo "=== Migrations complete ==="
+else
+  MIGRATION_EXIT=$?
+  echo "=== Migrations failed (exit $MIGRATION_EXIT) — app will apply missing columns on startup ==="
+fi
 
 echo "Starting Gunicorn on port $PORT..."
 exec gunicorn \

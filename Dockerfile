@@ -49,7 +49,6 @@ RUN mkdir -p uploads/comprobantes .cache/huggingface && \
     chown -R jobper:jobper /app
 
 # Environment - set BEFORE model download so it goes to the right place
-ENV PORT=5001
 ENV PYTHONUNBUFFERED=1
 ENV HF_HOME=/app/.cache/huggingface
 ENV TRANSFORMERS_CACHE=/app/.cache/huggingface
