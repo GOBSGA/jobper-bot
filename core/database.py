@@ -427,12 +427,12 @@ _SessionFactory = None
 def get_engine():
     global _engine
     if _engine is None:
-        _engine = create_engine(
-            Config.DATABASE_URL,
-            echo=False,
-            pool_pre_ping=True,
-            pool_recycle=300,
-        )
+        db_url = Config.DATABASE_URL
+        kwargs: dict = {"echo": False, "pool_pre_ping": True, "pool_recycle": 300}
+        # SQLite doesn't support connection pool sizing; PostgreSQL does
+        if not db_url.startswith("sqlite"):
+            kwargs.update({"pool_size": 5, "max_overflow": 10})
+        _engine = create_engine(db_url, **kwargs)
     return _engine
 
 

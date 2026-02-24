@@ -10,5 +10,5 @@ dockerfilePath = "Dockerfile"
 startCommand = "./start.sh"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-healthcheckPath = "/api/health"
+healthcheckPath = "/health"
 healthcheckTimeout = 120

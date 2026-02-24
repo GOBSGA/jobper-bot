@@ -34,28 +34,20 @@ def generate_code(user_id: int) -> dict:
 
 
 def track_click(code: str) -> dict:
-    """Track referral link click (reuses unassigned referral or creates new)."""
+    """Track referral link click — always creates a new row per click."""
     with UnitOfWork() as uow:
         user = uow.users.get_by_referral_code(code)
         if not user:
             return {"error": "Código no válido"}
 
-        # Reuse existing unassigned referral or create new one
-        existing = (
-            uow.session.query(Referral)
-            .filter(Referral.code == code, Referral.referred_id.is_(None))
-            .order_by(Referral.clicked_at.desc())
-            .first()
+        # Always insert a new click row. track_signup will claim the most recent
+        # unassigned one. Avoids a check-then-insert race condition.
+        referral = Referral(
+            referrer_id=user.id,
+            code=code,
+            status="clicked",
         )
-
-        if not existing:
-            referral = Referral(
-                referrer_id=user.id,
-                code=code,
-                status="clicked",
-            )
-            uow.referrals.create(referral)
-
+        uow.referrals.create(referral)
         uow.commit()
 
         return {"ok": True}

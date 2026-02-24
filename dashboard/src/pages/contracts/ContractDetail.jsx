@@ -36,8 +36,12 @@ export default function ContractDetail() {
   };
 
   const handlePipeline = async () => {
-    await addPipeline({ contract_id: c.id, stage: "lead", value: c.amount });
-    navigate("/pipeline");
+    try {
+      await addPipeline({ contract_id: c.id, stage: "lead", value: c.amount });
+      navigate("/pipeline");
+    } catch (err) {
+      toast.error(err.error || "Error al agregar al pipeline");
+    }
   };
 
   return (

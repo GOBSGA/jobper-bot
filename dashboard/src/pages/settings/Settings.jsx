@@ -102,6 +102,14 @@ export default function Settings() {
 
   const changePassword = async (e) => {
     e.preventDefault();
+    if (!pwForm.current) {
+      toast.error("Ingresa tu contraseña actual");
+      return;
+    }
+    if (pwForm.next.length < 8) {
+      toast.error("La nueva contraseña debe tener al menos 8 caracteres");
+      return;
+    }
     if (pwForm.next !== pwForm.confirm) {
       toast.error("Las contraseñas no coinciden");
       return;

@@ -280,7 +280,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
         if payment.status not in ("pending", "review"):
             return {"error": "Este pago ya fue procesado"}
 
-        plan = payment.metadata_json.get("plan")
+        plan = (payment.metadata_json or {}).get("plan")
         if not plan or plan not in Config.PLANS:
             return {"error": "Plan inválido en el pago"}
 
@@ -844,7 +844,7 @@ def admin_approve_payment(payment_id: int) -> dict:
         if payment.status not in ("review", "grace"):
             return {"error": f"Este pago no está pendiente de aprobación (status: {payment.status})"}
 
-        plan = payment.metadata_json.get("plan")
+        plan = (payment.metadata_json or {}).get("plan")
         if not plan or plan not in Config.PLANS:
             return {"error": "Plan inválido en el pago"}
 
@@ -934,7 +934,7 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
         if payment.status not in ("pending", "review", "grace"):
             return {"error": f"Este pago no puede ser rechazado (status: {payment.status})"}
 
-        plan = payment.metadata_json.get("plan")
+        plan = (payment.metadata_json or {}).get("plan")
         user_id = payment.user_id
         was_grace = payment.status == "grace"
 

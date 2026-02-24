@@ -67,12 +67,16 @@ class _LRUCache:
 # =============================================================================
 
 
+_REDIS_RETRY_INTERVAL = 60  # seconds before attempting to reconnect after failure
+
+
 class Cache:
-    """Redis cache with automatic LRU in-memory fallback."""
+    """Redis cache with automatic LRU in-memory fallback and auto-reconnect."""
 
     def __init__(self):
         self._redis = None
         self._memory = _LRUCache()
+        self._last_failure: float = 0.0
         self._init_redis()
 
     def _init_redis(self):
@@ -88,41 +92,57 @@ class Cache:
             logger.warning(f"Cache: Redis unavailable, using in-memory: {e}")
             self._redis = None
 
+    def _get_redis(self):
+        """Return the Redis client, reconnecting if the retry interval has passed."""
+        if self._redis is not None:
+            return self._redis
+        if Config.REDIS_URL and time.time() - self._last_failure >= _REDIS_RETRY_INTERVAL:
+            self._init_redis()
+        return self._redis
+
+    def _on_failure(self):
+        self._redis = None
+        self._last_failure = time.time()
+
     def get(self, key: str) -> Optional[str]:
-        if self._redis:
+        r = self._get_redis()
+        if r:
             try:
-                return self._redis.get(key)
+                return r.get(key)
             except Exception:
-                self._redis = None
+                self._on_failure()
         return self._memory.get(key)
 
     def set(self, key: str, value: str, ttl: int = 300):
-        if self._redis:
+        r = self._get_redis()
+        if r:
             try:
-                self._redis.setex(key, ttl, value)
+                r.setex(key, ttl, value)
                 return
             except Exception:
-                self._redis = None
+                self._on_failure()
         self._memory.set(key, value, ttl)
 
     def delete(self, key: str):
-        if self._redis:
+        r = self._get_redis()
+        if r:
             try:
-                self._redis.delete(key)
+                r.delete(key)
                 return
             except Exception:
-                self._redis = None
+                self._on_failure()
         self._memory.delete(key)
 
     def delete_pattern(self, pattern: str):
-        if self._redis:
+        r = self._get_redis()
+        if r:
             try:
-                keys = self._redis.keys(pattern)
+                keys = r.keys(pattern)
                 if keys:
-                    self._redis.delete(*keys)
+                    r.delete(*keys)
                 return
             except Exception:
-                self._redis = None
+                self._on_failure()
         self._memory.delete_pattern(pattern)
 
     def get_json(self, key: str):

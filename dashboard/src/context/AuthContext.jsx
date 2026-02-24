@@ -1,96 +1,76 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../lib/api";
-import { saveTokens, getAccessToken, clearTokens } from "../lib/storage";
+import { saveTokens, getAccessToken, saveUser, getUser, clearAll } from "../lib/storage";
 
 const AuthCtx = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  // Initialize synchronously from localStorage — zero loading flash when session exists
+  const [user, setUserState] = useState(() => (getAccessToken() ? getUser() : null));
   const [subscription, setSubscription] = useState(null);
-  const [loading, setLoading] = useState(true);
-  // serverError: true when /user/profile returned 5xx/network — not a logout, just a server issue
+  // Show loading only if we have a token but no cached user (must wait for network)
+  const [loading, setLoading] = useState(() => Boolean(getAccessToken() && !getUser()));
   const [serverError, setServerError] = useState(false);
 
-  // Auth version counter: incremented on every login/logout.
-  // Any in-flight fetchUser that started before the version change
-  // will silently discard its results, preventing race conditions.
-  const authVersion = useRef(0);
+  // isLoggedIn ref: set false on logout/401 so stale in-flight fetches become no-ops
+  const isLoggedIn = useRef(Boolean(getAccessToken()));
 
   const fetchSubscription = useCallback(async () => {
     try {
       const data = await api.get("/payments/subscription");
       setSubscription(data?.subscription || null);
-    } catch {
-      // Non-critical — don't clear subscription on network errors
-    }
+    } catch {}
   }, []);
 
   const fetchUser = useCallback(async () => {
-    const myVersion = authVersion.current;
     try {
       const data = await api.get("/user/profile");
-      // Discard result if a login/logout happened while we were fetching
-      if (authVersion.current !== myVersion) return;
-      setUser(data);
+      if (!isLoggedIn.current) return; // logged out while fetching — discard
+      saveUser(data);
+      setUserState(data);
       setServerError(false);
       fetchSubscription();
     } catch (err) {
-      // Discard error if a login/logout happened while we were fetching
-      if (authVersion.current !== myVersion) return;
-
+      if (!isLoggedIn.current) return; // logged out while fetching — discard
       if (err?.status === 401) {
-        setUser(null);
+        isLoggedIn.current = false;
+        clearAll();
+        setUserState(null);
         setSubscription(null);
         setServerError(false);
       } else {
-        // Server/network error — don't clear existing user data, just flag it
+        // Network/server error — keep existing cached user, just flag it
         setServerError(true);
       }
-      // Re-throw 401 only if there's genuinely no token (not a stale-token scenario)
-      if (err?.status === 401 && !getAccessToken()) throw err;
     } finally {
-      if (authVersion.current === myVersion) {
-        setLoading(false);
-      }
+      setLoading(false);
     }
   }, [fetchSubscription]);
 
-  // On mount: restore session from stored token
+  // On mount: validate token in background (user is already shown from cache)
   useEffect(() => {
     if (getAccessToken()) {
-      fetchUser().catch(() => {});
-    } else {
-      setLoading(false);
+      fetchUser().catch(() => setLoading(false));
     }
-  }, [fetchUser]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Periodically refresh user data (every 30 min) to keep session alive
-  useEffect(() => {
-    if (!user) return;
-    const interval = setInterval(() => {
-      fetchUser().catch(() => {});
-    }, 30 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [user, fetchUser]);
-
-  // Poll subscription status every 5 min (to detect expiry/renewal reminders)
+  // Poll subscription status every 5 min
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(fetchSubscription, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [user, fetchSubscription]);
 
-  // Sync auth state across tabs (login/logout in one tab reflects in others)
+  // Sync logout/login across browser tabs
   useEffect(() => {
     const handleStorage = (e) => {
       if (e.key === "access_token") {
         if (!e.newValue) {
-          // Token removed in another tab (logout)
-          authVersion.current += 1;
-          setUser(null);
+          isLoggedIn.current = false;
+          setUserState(null);
           setSubscription(null);
         } else if (e.newValue !== e.oldValue) {
-          // Token updated in another tab (login or refresh)
+          isLoggedIn.current = true;
           fetchUser().catch(() => {});
         }
       }
@@ -100,35 +80,29 @@ export function AuthProvider({ children }) {
   }, [fetchUser]);
 
   const login = async (tokens) => {
-    // Bump version FIRST — invalidates any in-flight fetchUser so it
-    // can never overwrite or clear the fresh login state
-    authVersion.current += 1;
-
+    isLoggedIn.current = true;
     saveTokens(tokens.access_token, tokens.refresh_token);
     setServerError(false);
 
     if (tokens.user) {
-      // Login response includes user data — use directly (no extra API call)
-      setUser(tokens.user);
+      // Login response always includes user — use directly, no extra API call needed
+      saveUser(tokens.user);
+      setUserState(tokens.user);
       setLoading(false);
-      // Skip subscription fetch if privacy acceptance is pending
       if (!tokens.user.needs_privacy_acceptance) {
         fetchSubscription();
       }
     } else {
-      // Fallback: fetch user profile (e.g., token-only response)
       setLoading(true);
       await fetchUser();
     }
   };
 
   const logout = async () => {
-    // Bump version to cancel any in-flight operations
-    authVersion.current += 1;
-
+    isLoggedIn.current = false;
     try { await api.post("/auth/logout"); } catch {}
-    clearTokens();
-    setUser(null);
+    clearAll();
+    setUserState(null);
     setSubscription(null);
     setServerError(false);
   };

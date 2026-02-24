@@ -28,26 +28,33 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 _semantic_matcher = None
-_semantic_enabled = True
+_semantic_load_attempts = 0
+_MAX_LOAD_ATTEMPTS = 3
 
 
 def get_semantic_matcher():
-    """Lazy-load the semantic matcher to avoid slow startup."""
-    global _semantic_matcher, _semantic_enabled
+    """Lazy-load the semantic matcher. Retries up to 3 times before giving up."""
+    global _semantic_matcher, _semantic_load_attempts
 
-    if not _semantic_enabled:
+    if _semantic_matcher is not None:
+        return _semantic_matcher
+
+    if _semantic_load_attempts >= _MAX_LOAD_ATTEMPTS:
         return None
 
-    if _semantic_matcher is None:
-        try:
-            from nlp.semantic_search import SemanticMatcher
+    _semantic_load_attempts += 1
+    try:
+        from nlp.semantic_search import SemanticMatcher
 
-            _semantic_matcher = SemanticMatcher()
-            logger.info("Semantic matcher loaded successfully")
-        except Exception as e:
-            logger.warning(f"Could not load semantic matcher: {e}. Falling back to keyword-only matching.")
-            _semantic_enabled = False
-            return None
+        _semantic_matcher = SemanticMatcher()
+        _semantic_load_attempts = 0  # reset on success
+        logger.info("Semantic matcher loaded successfully")
+    except Exception as e:
+        logger.warning(
+            f"Could not load semantic matcher (attempt {_semantic_load_attempts}/{_MAX_LOAD_ATTEMPTS}): {e}. "
+            "Falling back to keyword-only matching."
+        )
+        return None
 
     return _semantic_matcher
 

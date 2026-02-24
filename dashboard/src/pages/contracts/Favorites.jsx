@@ -25,7 +25,7 @@ export default function Favorites() {
       {!unlimitedFavs && count >= 5 && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center justify-between">
           <p className="text-sm text-yellow-800">Llegaste al límite de 5 favoritos en el plan Free.</p>
-          <Link to="/pricing" className="text-sm font-medium text-brand-600 hover:underline whitespace-nowrap ml-3">Actualizar plan</Link>
+          <Link to="/payments" className="text-sm font-medium text-brand-600 hover:underline whitespace-nowrap ml-3">Actualizar plan</Link>
         </div>
       )}
       {!data?.contracts?.length ? (

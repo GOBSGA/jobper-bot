@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Flask, send_from_directory
+from flask import Flask, make_response, send_from_directory
 from flask_cors import CORS
 
 from config import Config
@@ -168,7 +168,12 @@ def create_app() -> Flask:
             file_path = os.path.join(frontend_dir, path)
             if path and os.path.isfile(file_path):
                 return send_from_directory(frontend_dir, path)
-            return send_from_directory(frontend_dir, "index.html")
+            # No-cache on index.html so browsers always fetch the latest JS bundle list
+            resp = make_response(send_from_directory(frontend_dir, "index.html"))
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
     else:
         # Dev mode: health endpoint only
