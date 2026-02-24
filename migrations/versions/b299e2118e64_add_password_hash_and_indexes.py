@@ -58,7 +58,8 @@ def upgrade() -> None:
     if _table_exists('user_contracts'):
         if not _index_exists('ix_user_contracts_user_id'):
             op.create_index(op.f('ix_user_contracts_user_id'), 'user_contracts', ['user_id'], unique=False)
-        if not _index_exists('ix_user_contracts_user_created'):
+        # Only create composite index if created_at column exists (legacy tables may lack it)
+        if _column_exists('user_contracts', 'created_at') and not _index_exists('ix_user_contracts_user_created'):
             op.create_index('ix_user_contracts_user_created', 'user_contracts', ['user_id', 'created_at'], unique=False)
 
     # Only create subscriptions indexes if table and columns exist

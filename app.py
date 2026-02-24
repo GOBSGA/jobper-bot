@@ -369,6 +369,10 @@ def _ensure_missing_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_embedding BYTEA",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS embedding_updated_at TIMESTAMP",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_renewal_prompt TIMESTAMP",
+            # Subscriptions — columns added after initial schema
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS reference VARCHAR(100)",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS auto_renew BOOLEAN DEFAULT true",
+            "ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS renewal_reminded_at TIMESTAMP",
             # Cross-source contract deduplication
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
             # Indexes for FK columns (missing from original schema — prevent full table scans)
