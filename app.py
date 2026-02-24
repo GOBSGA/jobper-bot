@@ -371,6 +371,15 @@ def _ensure_missing_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_renewal_prompt TIMESTAMP",
             # Cross-source contract deduplication
             "ALTER TABLE contracts ADD COLUMN IF NOT EXISTS content_hash VARCHAR(64)",
+            # Indexes for FK columns (missing from original schema — prevent full table scans)
+            "CREATE INDEX IF NOT EXISTS idx_fav_user ON favorites(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_fav_contract ON favorites(contract_id)",
+            "CREATE INDEX IF NOT EXISTS idx_pc_publisher ON private_contracts(publisher_id)",
+            "CREATE INDEX IF NOT EXISTS idx_app_contract ON contract_applications(contract_id)",
+            "CREATE INDEX IF NOT EXISTS idx_app_applicant ON contract_applications(applicant_id)",
+            "CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_id)",
+            "CREATE INDEX IF NOT EXISTS idx_ref_referred ON referrals(referred_id)",
         ]
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.

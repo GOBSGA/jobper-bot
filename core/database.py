@@ -83,7 +83,7 @@ class User(Base):
 
     # Referrals
     referral_code = Column(String(20), unique=True, nullable=True, index=True)
-    referred_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    referred_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Alert limits (for free tier)
     alerts_sent_this_week = Column(Integer, default=0)
@@ -181,21 +181,25 @@ class Favorite(Base):
     __tablename__ = "favorites"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="CASCADE"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="favorites")
     contract = relationship("Contract", back_populates="favorites")
 
-    __table_args__ = (UniqueConstraint("user_id", "contract_id", name="uq_favorite"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "contract_id", name="uq_favorite"),
+        Index("idx_fav_user", "user_id"),
+        Index("idx_fav_contract", "contract_id"),
+    )
 
 
 class PrivateContract(Base):
     __tablename__ = "private_contracts"
 
     id = Column(Integer, primary_key=True)
-    publisher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    publisher_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
@@ -232,6 +236,7 @@ class PrivateContract(Base):
     __table_args__ = (
         Index("idx_pc_status", "status"),
         Index("idx_pc_category", "category"),
+        Index("idx_pc_publisher", "publisher_id"),
     )
 
 
@@ -239,8 +244,8 @@ class ContractApplication(Base):
     __tablename__ = "contract_applications"
 
     id = Column(Integer, primary_key=True)
-    contract_id = Column(Integer, ForeignKey("private_contracts.id"), nullable=False)
-    applicant_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    contract_id = Column(Integer, ForeignKey("private_contracts.id", ondelete="CASCADE"), nullable=False)
+    applicant_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     proposed_amount = Column(Float, nullable=True)
     message = Column(Text, nullable=True)
@@ -254,7 +259,11 @@ class ContractApplication(Base):
     contract = relationship("PrivateContract", back_populates="applications")
     applicant = relationship("User")
 
-    __table_args__ = (UniqueConstraint("contract_id", "applicant_id", name="uq_application"),)
+    __table_args__ = (
+        UniqueConstraint("contract_id", "applicant_id", name="uq_application"),
+        Index("idx_app_contract", "contract_id"),
+        Index("idx_app_applicant", "applicant_id"),
+    )
 
 
 class DataSource(Base):
@@ -290,7 +299,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     plan = Column(String(20), nullable=False)  # starter, business, enterprise
     status = Column(String(20), default="active")  # active, cancelled, expired
     reference = Column(String(100), nullable=True)
@@ -310,7 +319,7 @@ class Payment(Base):
     __tablename__ = "payments"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     amount = Column(Integer, nullable=False)
     currency = Column(String(10), default="COP")
     type = Column(String(20), nullable=False)  # subscription, feature, pack
@@ -350,9 +359,9 @@ class PipelineEntry(Base):
     __tablename__ = "pipeline_entries"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=True)
-    private_contract_id = Column(Integer, ForeignKey("private_contracts.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    contract_id = Column(Integer, ForeignKey("contracts.id", ondelete="SET NULL"), nullable=True)
+    private_contract_id = Column(Integer, ForeignKey("private_contracts.id", ondelete="SET NULL"), nullable=True)
 
     stage = Column(String(20), default="lead")  # lead, proposal, submitted, won, lost
     notes = Column(JSONType, default=list)  # [{text, created_at}]
@@ -371,8 +380,8 @@ class Referral(Base):
     __tablename__ = "referrals"
 
     id = Column(Integer, primary_key=True)
-    referrer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    referred_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    referred_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     code = Column(String(20), nullable=False, index=True)
     status = Column(String(20), default="clicked")  # clicked, registered, subscribed
     clicked_at = Column(DateTime, default=datetime.utcnow)
@@ -382,18 +391,25 @@ class Referral(Base):
     referrer = relationship("User", foreign_keys=[referrer_id])
     referred = relationship("User", foreign_keys=[referred_id])
 
+    __table_args__ = (
+        Index("idx_ref_referrer", "referrer_id"),
+        Index("idx_ref_referred", "referred_id"),
+    )
+
 
 class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
     id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     endpoint = Column(Text, nullable=False)
     p256dh = Column(String(255), nullable=False)
     auth = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="push_subscriptions")
+
+    __table_args__ = (Index("idx_push_user", "user_id"),)
 
 
 class AuditLog(Base):

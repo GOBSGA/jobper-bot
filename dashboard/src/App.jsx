@@ -1,7 +1,38 @@
+import React from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Spinner from "./components/ui/Spinner";
 import Layout from "./components/layout/Layout";
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.error("ErrorBoundary caught:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-4">
+          <p className="text-gray-700 font-medium">Algo salió mal.</p>
+          <p className="text-sm text-gray-500">Recarga la página para continuar.</p>
+          <button
+            onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+            className="px-5 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition"
+          >
+            Recargar
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -70,13 +101,14 @@ function AdminRoute() {
 
 function PublicOnly() {
   const { user, loading } = useAuth();
-  if (loading) return null;
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner className="h-8 w-8" /></div>;
   if (user) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <Routes>
       {/* Public */}
       <Route element={<PublicOnly />}>
@@ -118,5 +150,6 @@ export default function App() {
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }

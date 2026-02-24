@@ -139,9 +139,17 @@ def feature(contract_id: int, user_id: int) -> dict:
         }
 
 
+_MARKETPLACE_PLANS = {"competidor", "dominador", "business", "enterprise"}
+
+
 def get_contact(contract_id: int, user_id: int) -> dict:
-    """Reveal publisher contact info (audit logged)."""
+    """Reveal publisher contact info (audit logged). Requires marketplace plan."""
     with UnitOfWork() as uow:
+        # Verify requesting user has marketplace access
+        user = uow.users.get(user_id)
+        if not user or user.plan not in _MARKETPLACE_PLANS:
+            return {"error": "Tu plan no incluye acceso al Marketplace. Actualiza a Competidor.", "upgrade": True}
+
         pc = uow.private_contracts.get(contract_id)
         if not pc:
             return {"error": "Contrato no encontrado"}

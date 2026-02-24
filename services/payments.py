@@ -10,6 +10,8 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import text as _sa_text
+
 from config import Config
 from core.cache import cache
 from core.database import Payment, Subscription, UnitOfWork, User
@@ -360,6 +362,12 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                     meta["grace_until"] = grace_until.isoformat()
                     payment.metadata_json = meta
                     uow.commit()
+
+                # Advisory lock: prevent duplicate grace subs from concurrent uploads
+                try:
+                    uow.session.execute(_sa_text("SELECT pg_advisory_xact_lock(:uid)"), {"uid": user_id})
+                except Exception:
+                    pass  # SQLite / non-PG fallback: no lock but rare race is acceptable
 
                 # Only create grace sub if user has no active subscription already
                 existing_active = uow.subscriptions.get_active_for_user(user_id)

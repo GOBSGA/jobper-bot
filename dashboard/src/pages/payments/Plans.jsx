@@ -121,7 +121,7 @@ const PLANS = [
 
 export default function Plans() {
   const { user, refresh } = useAuth();
-  const { data: sub, loading } = useApi("/payments/subscription");
+  const { data: sub, loading, error: subError, refetch: refetchSub } = useApi("/payments/subscription");
   const { data: trustInfo, loading: loadingTrust, refetch: refreshTrust } = useApi("/payments/trust");
   const { data: paymentStatus } = useApi("/payments/status");
   const toast = useToast();
@@ -214,6 +214,16 @@ export default function Plans() {
           Desbloquea todo el poder de Jobper para encontrar y ganar contratos
         </p>
       </div>
+
+      {/* Subscription load error */}
+      {subError && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-800 flex items-center justify-between gap-3">
+          <span>No se pudo cargar tu suscripción actual.</span>
+          <button onClick={refetchSub} className="px-3 py-1 rounded-md bg-yellow-100 hover:bg-yellow-200 text-yellow-800 font-medium text-xs transition">
+            Reintentar
+          </button>
+        </div>
+      )}
 
       {/* Current subscription banner */}
       {sub?.subscription && (

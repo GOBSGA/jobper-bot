@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 from flask import Blueprint, g, jsonify, request
 
@@ -150,8 +151,8 @@ def forgot_password():
     """Send a password reset link by email. Never reveals if email exists."""
     data = request.get_json() or {}
     email = data.get("email", "").strip()
-    if not email:
-        return jsonify({"error": "Email requerido"}), 400
+    if not email or not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email) or len(email) > 254:
+        return jsonify({"error": "Email inválido"}), 400
     try:
         from services.auth import send_password_reset
         result = send_password_reset(email, ip=request.remote_addr)
@@ -268,7 +269,7 @@ def list_favorites():
 def contract_alerts():
     from services.matching import get_alerts
 
-    hours = request.args.get("hours", 24, type=int)
+    hours = min(max(1, request.args.get("hours", 24, type=int)), 720)
     result = get_alerts(g.user_id, hours=hours)
     return jsonify(result)
 
@@ -278,8 +279,8 @@ def contract_alerts():
 def matched_contracts():
     from services.matching import get_matched_contracts
 
-    limit = request.args.get("limit", 50, type=int)
-    min_score = request.args.get("min_score", 0, type=int)
+    limit = min(max(1, request.args.get("limit", 50, type=int)), 200)
+    min_score = max(0, min(request.args.get("min_score", 0, type=int), 100))
     result = get_matched_contracts(g.user_id, min_score=min_score, limit=limit)
     return jsonify({"contracts": result, "count": len(result)})
 
@@ -431,7 +432,7 @@ def get_contact_mkt(contract_id: int):
 
     result = get_contact(contract_id, g.user_id)
     if "error" in result:
-        return jsonify(result), 404
+        return jsonify(result), 403 if result.get("upgrade") else 404
     return jsonify(result)
 
 
@@ -782,7 +783,8 @@ def confirm_payment():
         return jsonify({"error": "Solo se aceptan imágenes válidas (JPG, PNG, WebP)"}), 400
 
     # Save file with detected extension (not user-provided)
-    upload_dir = os.path.join("uploads", "comprobantes", str(g.user_id))
+    from config import Config as _Cfg
+    upload_dir = os.path.join(str(_Cfg.BASE_DIR), "uploads", "comprobantes", str(g.user_id))
     os.makedirs(upload_dir, exist_ok=True)
     filename = secure_filename(f"{payment_id_int}.{detected_ext}")
     filepath = os.path.join(upload_dir, filename)

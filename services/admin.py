@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 
 from config import Config
 from core.cache import cache
+from sqlalchemy import func as sa_func
+
 from core.database import AuditLog, Contract, DataSource, Payment, PrivateContract, Subscription, UnitOfWork, User
 
 logger = logging.getLogger(__name__)
@@ -73,16 +75,12 @@ def get_kpis() -> dict:
         contracts_7d = uow.session.query(Contract).filter(Contract.created_at >= seven_ago).count()
         total_contracts = uow.contracts.count()
 
-        # Revenue last 30d (approved payments)
-        approved_payments_30d = (
-            uow.session.query(Payment)
-            .filter(
-                Payment.status == "approved",
-                Payment.created_at >= thirty_ago,
-            )
-            .all()
+        # Revenue last 30d (approved payments) — use DB-side SUM to avoid loading all rows
+        revenue_30d = (
+            uow.session.query(sa_func.sum(Payment.amount))
+            .filter(Payment.status == "approved", Payment.created_at >= thirty_ago)
+            .scalar() or 0
         )
-        revenue_30d = sum(p.amount for p in approved_payments_30d)
 
         # Pending payments (need review)
         pending_payments = (

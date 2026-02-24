@@ -19,7 +19,12 @@ export default function ContractDetail() {
   const descGate = useGate("full_description");
 
   if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
-  if (!c) return null;
+  if (!c) return (
+    <div className="max-w-3xl mx-auto py-12 text-center space-y-4">
+      <p className="text-gray-600">No se pudo cargar el contrato.</p>
+      <Button onClick={refetch} variant="secondary">Reintentar</Button>
+    </div>
+  );
 
   const handleFav = async () => {
     try {

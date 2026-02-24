@@ -100,8 +100,14 @@ export default function ContractSearch() {
 
       {/* Error banner */}
       {searchError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
-          {searchError}
+        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+          <span>{searchError}</span>
+          <button
+            onClick={() => tab === "para_ti" ? loadMatched() : searchAll()}
+            className="px-3 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700 font-medium text-xs whitespace-nowrap transition"
+          >
+            Reintentar
+          </button>
         </div>
       )}
 

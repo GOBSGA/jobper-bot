@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -461,10 +461,19 @@ class UniversalAggregator:
             if not scraper:
                 raise ValueError(f"Scraper no disponible para {config.key}")
 
-            # Ejecutar fetch
-            raw_contracts = scraper.fetch_contracts(
-                keywords=keywords, min_amount=min_amount, max_amount=max_amount, days_back=days_back
-            )
+            # Ejecutar fetch con timeout para evitar que bloquee el scheduler
+            _SCRAPER_TIMEOUT = 60  # segundos
+            with ThreadPoolExecutor(max_workers=1) as _ex:
+                _fut = _ex.submit(
+                    scraper.fetch_contracts,
+                    keywords=keywords, min_amount=min_amount, max_amount=max_amount, days_back=days_back,
+                )
+                try:
+                    raw_contracts = _fut.result(timeout=_SCRAPER_TIMEOUT)
+                except FuturesTimeoutError:
+                    logger.error(f"Scraper {config.key} timeout after {_SCRAPER_TIMEOUT}s — skipping")
+                    self.registry.update_status(config.key, SourceStatus.ERROR, f"Timeout >{_SCRAPER_TIMEOUT}s")
+                    return [], 0, TimeoutError(f"Scraper {config.key} timeout")
 
             # Normalizar
             if raw_contracts:
