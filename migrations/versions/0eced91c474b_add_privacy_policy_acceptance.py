@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 
 
 # revision identifiers
@@ -17,11 +18,18 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table_name, column_name):
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    columns = [col['name'] for col in inspector.get_columns(table_name)]
+    return column_name in columns
+
+
 def upgrade() -> None:
-    # Add privacy_policy_accepted_at column to users table
-    op.add_column('users', sa.Column('privacy_policy_accepted_at', sa.DateTime(), nullable=True))
+    if not _column_exists('users', 'privacy_policy_accepted_at'):
+        op.add_column('users', sa.Column('privacy_policy_accepted_at', sa.DateTime(), nullable=True))
 
 
 def downgrade() -> None:
-    # Remove privacy_policy_accepted_at column from users table
-    op.drop_column('users', 'privacy_policy_accepted_at')
+    if _column_exists('users', 'privacy_policy_accepted_at'):
+        op.drop_column('users', 'privacy_policy_accepted_at')
