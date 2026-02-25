@@ -11,11 +11,14 @@ function onRefreshed(success) {
 }
 
 // Returns { success, serverError }
-// serverError=true → network/server down OR server 5xx → keep tokens, don't log user out
-// serverError=false + success=false → token genuinely invalid (4xx) → clear tokens
+// serverError=true → network/server issue → keep tokens, don't log user out
+// serverError=false + success=false → refresh token 401 = genuinely invalid → clear tokens
 async function tryRefresh() {
   const rt = getRefreshToken();
-  if (!rt) return { success: false, serverError: false };
+  if (!rt) {
+    console.warn("[auth] tryRefresh: no refresh token in localStorage → logout");
+    return { success: false, serverError: false };
+  }
   try {
     const res = await fetch(`${BASE}/auth/refresh`, {
       method: "POST",
@@ -27,12 +30,17 @@ async function tryRefresh() {
       saveTokens(data.access_token, data.refresh_token);
       return { success: true, serverError: false };
     }
-    // 5xx = server crash — keep tokens so user stays logged in
-    if (res.status >= 500) return { success: false, serverError: true };
-    // 4xx = token genuinely invalid/expired
-    return { success: false, serverError: false };
-  } catch {
-    // Network error — keep tokens so user stays logged in when server recovers
+    // Only 401 = refresh token genuinely invalid/expired → logout user
+    // Everything else (429 rate-limit, 400 bad request, 5xx crash) = keep session
+    if (res.status === 401) {
+      const errData = await res.json().catch(() => ({}));
+      console.warn("[auth] tryRefresh: 401 from /auth/refresh →", errData?.error, "→ logout");
+      return { success: false, serverError: false };
+    }
+    console.warn("[auth] tryRefresh: non-401 error", res.status, "→ keep session");
+    return { success: false, serverError: true };
+  } catch (err) {
+    console.warn("[auth] tryRefresh: network error →", err, "→ keep session");
     return { success: false, serverError: true };
   }
 }
@@ -50,6 +58,7 @@ async function request(path, opts = {}) {
   }
 
   if (res.status === 401) {
+    console.warn("[auth] 401 from", path, "→ attempting token refresh");
     // If already refreshing, wait for the result
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -84,9 +93,12 @@ async function request(path, opts = {}) {
     }
 
     if (!serverError) {
+      console.error("[auth] Refresh failed with 401 → dispatching auth:logout for path:", path);
       clearTokens();
       // Notify AuthContext in the same tab — storage events don't fire for same-tab removeItem
       window.dispatchEvent(new CustomEvent("auth:logout"));
+    } else {
+      console.warn("[auth] Refresh failed with server error → keeping session for path:", path);
     }
 
     throw { status: 401, error: "Sesión expirada. Inicia sesión de nuevo." };
@@ -111,6 +123,7 @@ async function uploadRequest(path, formData) {
   }
 
   if (res.status === 401) {
+    console.warn("[auth] 401 from upload", path, "→ attempting token refresh");
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
         refreshQueue.push((success) => {
@@ -139,6 +152,7 @@ async function uploadRequest(path, formData) {
     }
 
     if (!serverError) {
+      console.error("[auth] Upload refresh failed → dispatching auth:logout for path:", path);
       clearTokens();
       window.dispatchEvent(new CustomEvent("auth:logout"));
     }

@@ -28,6 +28,7 @@ export function AuthProvider({ children }) {
   const [serverError, setServerError] = useState(false);
 
   const doLogout = useCallback(() => {
+    console.warn("[auth] doLogout() called — trace:", new Error().stack?.split("\n").slice(1, 4).join(" | "));
     clearAll();
     setUserState(null);
     setSubscription(null);
