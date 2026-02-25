@@ -13,12 +13,35 @@ function onRefreshed(success) {
 // Returns { success, serverError }
 // serverError=true → network/server issue → keep tokens, don't log user out
 // serverError=false + success=false → refresh token 401 = genuinely invalid → clear tokens
+function _decodeTokenPayload(token) {
+  try {
+    const [, b64] = token.split(".");
+    return JSON.parse(atob(b64.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch { return null; }
+}
+
 async function tryRefresh() {
   const rt = getRefreshToken();
   if (!rt) {
     console.warn("[auth] tryRefresh: no refresh token in localStorage → logout");
     return { success: false, serverError: false };
   }
+
+  // Decode without verifying signature to expose what's inside the token
+  const rtPayload = _decodeTokenPayload(rt);
+  console.info("[auth] tryRefresh: token payload =", rtPayload);
+  if (rtPayload) {
+    const exp = rtPayload.exp ? new Date(rtPayload.exp * 1000).toISOString() : "?";
+    const type = rtPayload.type || "?";
+    const sub = rtPayload.sub || "?";
+    console.info(`[auth] tryRefresh: type=${type} sub=${sub} exp=${exp}`);
+    if (type !== "refresh") {
+      console.error("[auth] tryRefresh: WRONG TOKEN TYPE in refresh_token slot! Expected 'refresh', got:", type);
+    }
+  } else {
+    console.error("[auth] tryRefresh: refresh token is NOT a valid JWT (malformed base64)");
+  }
+
   try {
     const res = await fetch(`${BASE}/auth/refresh`, {
       method: "POST",
@@ -34,7 +57,7 @@ async function tryRefresh() {
     // Everything else (429 rate-limit, 400 bad request, 5xx crash) = keep session
     if (res.status === 401) {
       const errData = await res.json().catch(() => ({}));
-      console.warn("[auth] tryRefresh: 401 from /auth/refresh →", errData?.error, "→ logout");
+      console.warn("[auth] tryRefresh: 401 from /auth/refresh →", errData?.error, "→ soft-expire");
       return { success: false, serverError: false };
     }
     console.warn("[auth] tryRefresh: non-401 error", res.status, "→ keep session");

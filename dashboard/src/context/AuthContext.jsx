@@ -86,6 +86,17 @@ export function AuthProvider({ children }) {
   }, [user?.id, fetchSubscription]);
 
   const login = async (tokens) => {
+    // Diagnostic: decode token payloads without verifying signature
+    try {
+      const [, accessB64] = (tokens.access_token || "").split(".");
+      const [, refreshB64] = (tokens.refresh_token || "").split(".");
+      const accessP = JSON.parse(atob((accessB64 || "").replace(/-/g, "+").replace(/_/g, "/")));
+      const refreshP = JSON.parse(atob((refreshB64 || "").replace(/-/g, "+").replace(/_/g, "/")));
+      console.info("[auth] login: access token payload =", { type: accessP.type, sub: accessP.sub, exp: new Date(accessP.exp * 1000).toISOString() });
+      console.info("[auth] login: refresh token payload =", { type: refreshP.type, sub: refreshP.sub, exp: new Date(refreshP.exp * 1000).toISOString() });
+    } catch (e) {
+      console.error("[auth] login: could not decode token payloads →", e);
+    }
     saveTokens(tokens.access_token, tokens.refresh_token);
     setServerError(false);
     if (tokens.user) {
