@@ -82,6 +82,12 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Optimistic local update — use after accepting privacy policy to avoid logout risk
+  const setUser = useCallback((updatedUser) => {
+    saveUser(updatedUser);
+    setUserState(updatedUser);
+  }, []);
+
   const logout = async () => {
     try { await api.post("/auth/logout"); } catch {}
     doLogout();
@@ -105,7 +111,7 @@ export function AuthProvider({ children }) {
   }, [fetchSubscription, doLogout]);
 
   return (
-    <AuthCtx.Provider value={{ user, subscription, loading, serverError, login, logout, refresh }}>
+    <AuthCtx.Provider value={{ user, subscription, loading, serverError, login, logout, refresh, setUser }}>
       {children}
     </AuthCtx.Provider>
   );

@@ -92,6 +92,8 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
                 plan="trial",
                 trial_ends_at=datetime.utcnow() + timedelta(days=14),
                 referral_code=user_referral_code,
+                privacy_policy_accepted_at=datetime.utcnow(),
+                privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
             )
             uow.users.create(user)
         else:
@@ -166,7 +168,7 @@ def register_with_password(email: str, password: str, referral_code: str = None)
         if existing:
             return {"error": "Ya existe una cuenta con este correo"}
 
-        # Create user
+        # Create user — auto-accept privacy policy at registration (user clicked "Crear cuenta")
         user_referral_code = f"JOB-{secrets.token_hex(4).upper()}"
         user = User(
             email=email,
@@ -175,6 +177,8 @@ def register_with_password(email: str, password: str, referral_code: str = None)
             plan="trial",
             trial_ends_at=datetime.utcnow() + timedelta(days=14),
             referral_code=user_referral_code,
+            privacy_policy_accepted_at=datetime.utcnow(),
+            privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
         )
         uow.users.create(user)
         uow.commit()

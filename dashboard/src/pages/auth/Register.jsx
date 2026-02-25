@@ -19,7 +19,12 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const { submit, loading, error, setError } = useFormSubmit(async () => {
+    if (!acceptedTerms) {
+      setError("Debes aceptar los términos y la política de privacidad para continuar");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Las contraseñas no coinciden");
       return;
@@ -80,7 +85,25 @@ export default function Register() {
             autoComplete="new-password"
             required
           />
-          <Button type="submit" className="w-full" disabled={loading}>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 flex-shrink-0"
+            />
+            <span className="text-sm text-gray-600">
+              He leído y acepto los{" "}
+              <Link to="/terms" target="_blank" className="text-brand-600 hover:underline font-medium">
+                Términos y Condiciones
+              </Link>{" "}
+              y la{" "}
+              <Link to="/privacy" target="_blank" className="text-brand-600 hover:underline font-medium">
+                Política de Privacidad
+              </Link>
+            </span>
+          </label>
+          <Button type="submit" className="w-full" disabled={loading || !acceptedTerms}>
             {loading ? (
               "Creando cuenta..."
             ) : (
@@ -97,10 +120,6 @@ export default function Register() {
             </Link>
           </p>
         </form>
-
-        <p className="text-center mt-4 text-xs text-gray-400">
-          Al crear tu cuenta aceptas nuestros términos y condiciones.
-        </p>
       </AuthLayout>
   );
 }

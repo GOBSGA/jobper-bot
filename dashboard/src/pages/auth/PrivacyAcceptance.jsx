@@ -9,7 +9,7 @@ import { ShieldCheck, LogOut } from "lucide-react";
  * the current privacy policy version. Cannot be dismissed.
  */
 export default function PrivacyAcceptance() {
-  const { logout, refresh } = useAuth();
+  const { user, logout, setUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -18,7 +18,9 @@ export default function PrivacyAcceptance() {
     setError("");
     try {
       await api.post("/user/accept-privacy-policy", {});
-      await refresh();
+      // Optimistic update: mark as accepted locally so PrivateRoute re-renders immediately.
+      // Do NOT call refresh() here — it can trigger doLogout() on 401 and eject the user.
+      setUser({ ...user, needs_privacy_acceptance: false });
     } catch (err) {
       setError(err.error || "Error al aceptar. Intenta de nuevo.");
     } finally {
