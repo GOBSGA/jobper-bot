@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "../../lib/api";
+import { getAccessToken } from "../../lib/storage";
 import { useAuth } from "../../context/AuthContext";
 import { ShieldCheck, LogOut } from "lucide-react";
 
@@ -7,6 +7,12 @@ import { ShieldCheck, LogOut } from "lucide-react";
  * Mandatory privacy policy acceptance page.
  * Shown full-screen (no sidebar/nav) when user hasn't accepted
  * the current privacy policy version. Cannot be dismissed.
+ *
+ * IMPORTANT: Uses raw fetch (not api.js) to avoid the auth:logout dispatch
+ * that api.js triggers on 401, which would eject the user back to /login.
+ * The acceptance is applied optimistically in local state first; the server
+ * sync happens in the background and failures are non-fatal (user just sees
+ * the wall again on next login if the server didn't persist it).
  */
 export default function PrivacyAcceptance() {
   const { user, logout, setUser } = useAuth();
@@ -16,16 +22,26 @@ export default function PrivacyAcceptance() {
   const handleAccept = async () => {
     setLoading(true);
     setError("");
-    try {
-      await api.post("/user/accept-privacy-policy", {});
-      // Optimistic update: mark as accepted locally so PrivateRoute re-renders immediately.
-      // Do NOT call refresh() here — it can trigger doLogout() on 401 and eject the user.
-      setUser({ ...user, needs_privacy_acceptance: false });
-    } catch (err) {
-      setError(err.error || "Error al aceptar. Intenta de nuevo.");
-    } finally {
-      setLoading(false);
-    }
+
+    // Step 1: Update local state immediately — user enters the app right away.
+    setUser({ ...user, needs_privacy_acceptance: false });
+
+    // Step 2: Sync with server in the background using raw fetch (bypasses api.js
+    // auth interceptor so a server error never triggers a global logout).
+    const token = getAccessToken();
+    fetch("/api/user/accept-privacy-policy", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({}),
+    }).catch(() => {
+      // Network failure is non-fatal; user will be asked again on next login
+      // if the server didn't persist the acceptance.
+    });
+
+    setLoading(false);
   };
 
   return (
