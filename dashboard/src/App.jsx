@@ -68,17 +68,19 @@ import Privacy from "./pages/public/Privacy";
 function PrivateRoute() {
   const { user, loading, serverError, refresh } = useAuth();
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Spinner className="h-8 w-8" /></div>;
-  // Server error (5xx / network) while holding a valid token — show retry instead of login redirect
-  if (!user && serverError) {
+  // Session issue or server error — show retry screen instead of silently kicking to /login.
+  // This handles both transient 401s (server glitch, rate limit) and genuine expiry.
+  // If refresh() also fails with 401 → doLogout() is called → redirect to /login happens.
+  if (serverError) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-center px-4">
-        <p className="text-gray-700 font-medium">No se pudo conectar con el servidor.</p>
-        <p className="text-sm text-gray-500">Tu sesión sigue activa. Verifica tu conexión e intenta de nuevo.</p>
+        <p className="text-gray-700 font-medium">Tu sesión se interrumpió.</p>
+        <p className="text-sm text-gray-500">Haz clic para reconectarte. Si el problema persiste, cierra sesión.</p>
         <button
           onClick={() => refresh().catch(() => {})}
           className="px-5 py-2 rounded-lg bg-brand-600 text-white text-sm font-medium hover:bg-brand-700 transition"
         >
-          Reintentar
+          Reconectarme
         </button>
       </div>
     );

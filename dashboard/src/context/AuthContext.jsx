@@ -50,13 +50,17 @@ export function AuthProvider({ children }) {
     } catch {}
   }, []);
 
-  // api.js dispatches this when the refresh token is invalid (same-tab communication)
-  // Note: localStorage removeItem does NOT fire the storage event in the same tab,
-  // so we use a custom event instead.
+  // api.js dispatches this when a refresh attempt returns 401.
+  // Instead of immediately logging out (which was causing false-positive kicks),
+  // we set serverError=true to show a retry screen.
+  // If the user clicks "Reconectarme", refresh() is called.
+  // If refresh() also fails with 401 → doLogout() is called (confirmed logout).
+  // If refresh() succeeds (the original 401 was transient) → user stays logged in.
   useEffect(() => {
-    window.addEventListener("auth:logout", doLogout);
-    return () => window.removeEventListener("auth:logout", doLogout);
-  }, [doLogout]);
+    const handleSessionExpired = () => setServerError(true);
+    window.addEventListener("auth:logout", handleSessionExpired);
+    return () => window.removeEventListener("auth:logout", handleSessionExpired);
+  }, []);
 
   // Cross-tab sync: logout or login in another browser tab
   useEffect(() => {

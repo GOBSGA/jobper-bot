@@ -93,9 +93,9 @@ async function request(path, opts = {}) {
     }
 
     if (!serverError) {
-      console.error("[auth] Refresh failed with 401 → dispatching auth:logout for path:", path);
-      clearTokens();
-      // Notify AuthContext in the same tab — storage events don't fire for same-tab removeItem
+      console.warn("[auth] Refresh failed with 401 → soft-expire (retry screen) for path:", path);
+      // Don't clear tokens here — AuthContext.refresh() will do a confirmed hard-logout
+      // if the tokens are genuinely invalid after the user clicks "Reconectarme".
       window.dispatchEvent(new CustomEvent("auth:logout"));
     } else {
       console.warn("[auth] Refresh failed with server error → keeping session for path:", path);
@@ -152,8 +152,7 @@ async function uploadRequest(path, formData) {
     }
 
     if (!serverError) {
-      console.error("[auth] Upload refresh failed → dispatching auth:logout for path:", path);
-      clearTokens();
+      console.warn("[auth] Upload refresh failed → soft-expire for path:", path);
       window.dispatchEvent(new CustomEvent("auth:logout"));
     }
 
