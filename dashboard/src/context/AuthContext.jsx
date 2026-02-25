@@ -16,6 +16,8 @@ import { createContext, useContext, useState, useEffect, useCallback } from "rea
 import { api } from "../lib/api";
 import { saveTokens, getAccessToken, saveUser, getUser, clearAll } from "../lib/storage";
 
+const BASE = import.meta.env.VITE_API_URL || "/api";
+
 const AuthCtx = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -32,9 +34,17 @@ export function AuthProvider({ children }) {
     setServerError(false);
   }, []);
 
+  // Uses raw fetch (NOT api.js) so a subscription endpoint failure can never
+  // trigger auth:logout and expel the user. Errors are silently ignored.
   const fetchSubscription = useCallback(async () => {
+    const token = getAccessToken();
+    if (!token) return;
     try {
-      const data = await api.get("/payments/subscription");
+      const res = await fetch(`${BASE}/payments/subscription`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json().catch(() => null);
       setSubscription(data?.subscription || null);
     } catch {}
   }, []);

@@ -11,8 +11,8 @@ function onRefreshed(success) {
 }
 
 // Returns { success, serverError }
-// serverError=true → network/server down → keep tokens, don't log user out
-// serverError=false + success=false → token genuinely invalid → clear tokens
+// serverError=true → network/server down OR server 5xx → keep tokens, don't log user out
+// serverError=false + success=false → token genuinely invalid (4xx) → clear tokens
 async function tryRefresh() {
   const rt = getRefreshToken();
   if (!rt) return { success: false, serverError: false };
@@ -22,12 +22,17 @@ async function tryRefresh() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: rt }),
     });
-    if (!res.ok) return { success: false, serverError: false }; // Token invalid/expired
-    const data = await res.json();
-    saveTokens(data.access_token, data.refresh_token);
-    return { success: true, serverError: false };
+    if (res.ok) {
+      const data = await res.json();
+      saveTokens(data.access_token, data.refresh_token);
+      return { success: true, serverError: false };
+    }
+    // 5xx = server crash — keep tokens so user stays logged in
+    if (res.status >= 500) return { success: false, serverError: true };
+    // 4xx = token genuinely invalid/expired
+    return { success: false, serverError: false };
   } catch {
-    // Network/server down — keep tokens so user stays logged in when server recovers
+    // Network error — keep tokens so user stays logged in when server recovers
     return { success: false, serverError: true };
   }
 }
