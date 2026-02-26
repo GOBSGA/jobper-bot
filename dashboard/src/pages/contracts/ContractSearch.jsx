@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
+import { getAccessToken } from "../../lib/storage";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
@@ -20,6 +21,7 @@ import {
   Sparkles,
   Eye,
   Star,
+  Download,
 } from "lucide-react";
 
 export default function ContractSearch() {
@@ -34,7 +36,32 @@ export default function ContractSearch() {
 
   const { isFreeTier, limits } = usePlanLimits();
   const scoreGate = useGate("match_scores");
+  const exportGate = useGate("export");
   const navigate = useNavigate();
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ query, limit: "200" });
+      const BASE = import.meta.env.VITE_API_URL || "/api";
+      const res = await fetch(`${BASE}/contracts/export?${params}`, {
+        headers: { Authorization: `Bearer ${getAccessToken()}` },
+      });
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "contratos_jobper.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      // silent — user sees nothing downloaded
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const searchAll = async (p = 1) => {
     setLoading(true);
@@ -121,6 +148,20 @@ export default function ContractSearch() {
         <Button type="submit" disabled={loading}>
           <Search className="h-4 w-4" /> Buscar
         </Button>
+        {exportGate.allowed ? (
+          <Button type="button" variant="secondary" onClick={handleExport} disabled={exporting} title="Exportar a Excel">
+            {exporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+          </Button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => navigate("/payments?feature=export")}
+            title="Exportar a Excel (requiere plan Cazador)"
+            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition text-sm"
+          >
+            <Lock className="h-3.5 w-3.5" /> <Download className="h-4 w-4" />
+          </button>
+        )}
       </form>
 
       {/* Tabs */}

@@ -9,7 +9,9 @@ import logging
 import os
 import re
 
-from flask import Blueprint, g, jsonify, request
+import io
+
+from flask import Blueprint, g, jsonify, request, send_file
 
 from api.schemas import (
     AdminListSchema,
@@ -232,6 +234,56 @@ def contract_analysis(contract_id: int):
     if not result:
         return jsonify({"error": "Analisis no disponible"}), 404
     return jsonify(result)
+
+
+@contracts_bp.get("/export")
+@require_auth
+@require_plan("cazador")
+@rate_limit(10)
+def export_contracts():
+    """Export contracts to Excel. Reuses search filters."""
+    import openpyxl
+
+    query = request.args.get("query", "")
+    limit = min(max(1, int(request.args.get("limit", 200))), 200)
+
+    from services.contracts import search_contracts as svc
+
+    data = svc(query, g.user_id, page=1, per_page=limit)
+    contracts = data.get("contracts", [])
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Contratos Jobper"
+
+    headers = ["Título", "Entidad", "Ciudad", "Presupuesto (COP)", "Fecha límite", "Fuente", "Match %", "URL"]
+    ws.append(headers)
+
+    for h in ws[1]:
+        h.font = openpyxl.styles.Font(bold=True)
+
+    for c in contracts:
+        ws.append([
+            c.get("title", ""),
+            c.get("entity", ""),
+            c.get("city", ""),
+            c.get("amount") or "",
+            c.get("deadline", ""),
+            c.get("source", ""),
+            c.get("match_score") or "",
+            c.get("url", ""),
+        ])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    return send_file(
+        buf,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        as_attachment=True,
+        download_name="contratos_jobper.xlsx",
+    )
 
 
 @contracts_bp.post("/favorite")
