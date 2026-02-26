@@ -8,11 +8,11 @@ import Spinner from "../../components/ui/Spinner";
 import { useGate } from "../../hooks/useGate";
 import { money, date, truncate } from "../../lib/format";
 import { Heart, GitBranch, ExternalLink, ArrowLeft, Lock, Zap } from "lucide-react";
+import { useToast } from "../../components/ui/Toast";
 
 function stripHtml(html) {
   return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
-import { useToast } from "../../components/ui/Toast";
 
 export default function ContractDetail() {
   const { id } = useParams();
