@@ -48,6 +48,10 @@ def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
     with UnitOfWork() as uow:
         q = uow.session.query(Contract)
 
+        # Always exclude expired contracts from search results
+        now = datetime.utcnow()
+        q = q.filter((Contract.deadline.is_(None)) | (Contract.deadline >= now))
+
         if query:
             if use_fts:
                 # PostgreSQL FTS with Spanish stemmer — uses GIN index if created

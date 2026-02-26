@@ -60,7 +60,7 @@ export default function Onboarding() {
   });
 
   const steps = [
-    { title: "¿Cómo se llama tu empresa?", subtitle: "Esto personaliza tu experiencia", icon: Building2 },
+    { title: "¿Cómo te identificas?", subtitle: "Puede ser tu nombre, empresa o razón social", icon: Building2 },
     { title: "¿En qué sector trabajas?", subtitle: "Te mostraremos contratos relevantes a tu industria", icon: Briefcase },
     { title: "¿Qué servicios ofreces?", subtitle: "Selecciona o escribe palabras clave de lo que vendes", icon: Tag },
     { title: "¿En qué rango de presupuesto licitas?", subtitle: "Filtramos contratos a tu medida", icon: DollarSign },
@@ -138,7 +138,7 @@ export default function Onboarding() {
             <Input
               value={form.company_name}
               onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-              placeholder="Mi Empresa SAS"
+              placeholder="Mi empresa o nombre"
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && canNext() && next()}
             />

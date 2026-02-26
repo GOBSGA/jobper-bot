@@ -15,12 +15,18 @@ const FEATURES = [
 ];
 
 const SOURCES = [
-  { name: "SECOP I & II", desc: "Gobierno", logo: "/logos/secop.png" },
-  { name: "BID", desc: "Multilateral", logo: "/logos/bid.svg" },
-  { name: "Banco Mundial", desc: "Multilateral", logo: "/logos/worldbank.svg" },
-  { name: "Ecopetrol", desc: "Privado", logo: "/logos/ecopetrol.svg" },
-  { name: "EPM", desc: "Privado", logo: "/logos/epm.svg" },
-  { name: "ONU (UNGM)", desc: "Multilateral", logo: "/logos/ungm.png" },
+  { name: "SECOP I & II", desc: "Gobierno" },
+  { name: "BID", desc: "Multilateral" },
+  { name: "Banco Mundial", desc: "Multilateral" },
+  { name: "Ecopetrol", desc: "Privado" },
+  { name: "EPM", desc: "Privado" },
+  { name: "ONU (UNGM)", desc: "Multilateral" },
+  { name: "Colombia Compra", desc: "Gobierno" },
+  { name: "Contratación en Línea", desc: "Gobierno" },
+  { name: "SICE", desc: "Gobierno" },
+  { name: "Bolsa Mercantil", desc: "Privado" },
+  { name: "ISA", desc: "Privado" },
+  { name: "Acueducto Bogotá", desc: "Público" },
 ];
 
 const PLANS = [
@@ -127,16 +133,18 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Data sources */}
-      <section id="sources" className="border-y border-gray-100 bg-white py-16">
-        <div className="max-w-5xl mx-auto px-6">
-          <p className="text-center text-sm font-semibold text-gray-400 uppercase tracking-wider mb-8">Fuentes que monitoreamos para ti</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
-            {SOURCES.map((s) => (
-              <div key={s.name} className="text-center p-5 rounded-xl border border-gray-100 hover:border-brand-200 hover:bg-brand-50/50 transition">
-                <img src={s.logo} alt={s.name} className="h-10 mx-auto mb-2 object-contain" />
-                <p className="text-sm font-semibold text-gray-900">{s.name}</p>
-                <p className="text-xs text-gray-400 mt-1">{s.desc}</p>
+      {/* Data sources — scrolling marquee */}
+      <section id="sources" className="border-y border-gray-100 bg-white py-12 overflow-hidden">
+        <p className="text-center text-sm font-semibold text-gray-400 uppercase tracking-wider mb-8">Fuentes que monitoreamos para ti</p>
+        <div className="relative">
+          {/* fade edges */}
+          <div className="absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+          <div className="flex animate-marquee whitespace-nowrap select-none" aria-hidden>
+            {[...SOURCES, ...SOURCES].map((s, i) => (
+              <div key={i} className="inline-flex flex-col items-center mx-8 min-w-max">
+                <span className="text-base font-semibold text-gray-800">{s.name}</span>
+                <span className="text-xs text-gray-400 mt-0.5">{s.desc}</span>
               </div>
             ))}
           </div>

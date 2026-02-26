@@ -123,7 +123,7 @@ def calculate_match_score(
     - Recency bonus: 10 points max
     """
     if not user.keywords and not user.sector:
-        return 50  # No profile = neutral score
+        return 0  # No profile configured → no match
 
     score = 0.0
     now = datetime.utcnow()
@@ -240,6 +240,10 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
         if not user:
+            return []
+
+        # Skip matching entirely if user has no profile configured
+        if not user.keywords and not user.sector:
             return []
 
         now = datetime.utcnow()
