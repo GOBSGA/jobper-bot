@@ -317,7 +317,7 @@ def _create_access_token(user: User) -> str:
     # Admins always get top-tier plan so they can test every feature freely
     effective_plan = "dominador" if user.is_admin else user.plan
     payload = {
-        "sub": user.id,
+        "sub": str(user.id),  # PyJWT 2.4+ requires sub to be a string (RFC 7519)
         "email": user.email,
         "plan": effective_plan,
         "admin": user.is_admin,
@@ -330,7 +330,7 @@ def _create_access_token(user: User) -> str:
 
 def _create_refresh_token(user: User) -> str:
     payload = {
-        "sub": user.id,
+        "sub": str(user.id),  # PyJWT 2.4+ requires sub to be a string (RFC 7519)
         "type": "refresh",
         "exp": datetime.utcnow() + timedelta(days=Config.JWT_REFRESH_EXPIRY_DAYS),
         "iat": datetime.utcnow(),
@@ -359,7 +359,7 @@ def refresh_access_token(refresh_token: str) -> dict:
     # logout blacklists tokens.
 
     with UnitOfWork() as uow:
-        user = uow.users.get(payload["sub"])
+        user = uow.users.get(int(payload["sub"]))  # sub is string, DB needs int
         if not user:
             return {"error": "Usuario no encontrado"}
 

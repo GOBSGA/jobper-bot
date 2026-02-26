@@ -50,7 +50,7 @@ def require_auth(fn):
             )
             return jsonify({"error": "Token inválido"}), 401
 
-        g.user_id = payload["sub"]
+        g.user_id = int(payload["sub"])  # sub is string (RFC 7519), DB needs int
         g.user_email = payload.get("email", "")
         g.user_plan = payload.get("plan", "trial")
         g.is_admin = payload.get("admin", False)
