@@ -25,6 +25,7 @@ export default function ContractDetail() {
   const { mutate: addPipeline } = useMutation("post", "/pipeline");
   const descGate = useGate("full_description");
   const analysisGate = useGate("ai_analysis");
+  const pipelineGate = useGate("pipeline");
 
   const [analysis, setAnalysis] = useState(null);
   const [analyzingAI, setAnalyzingAI] = useState(false);
@@ -90,9 +91,17 @@ export default function ContractDetail() {
               <Button variant="ghost" size="sm" onClick={handleFav} disabled={favLoading}>
                 <Heart className={`h-4 w-4 ${c.is_favorited ? "fill-red-500 text-red-500" : ""}`} />
               </Button>
-              <Button variant="secondary" size="sm" onClick={handlePipeline}>
-                <GitBranch className="h-4 w-4" /> Pipeline
-              </Button>
+              {pipelineGate.allowed ? (
+                <Button variant="secondary" size="sm" onClick={handlePipeline}>
+                  <GitBranch className="h-4 w-4" /> Pipeline
+                </Button>
+              ) : (
+                <Link to={pipelineGate.upgradeUrl}>
+                  <Button variant="ghost" size="sm" title="Requiere plan Competidor">
+                    <Lock className="h-4 w-4 text-gray-400" />
+                  </Button>
+                </Link>
+              )}
             </div>
           </div>
 

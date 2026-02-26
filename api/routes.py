@@ -439,6 +439,7 @@ def list_mkt():
 
 @marketplace_bp.post("/")
 @require_auth
+@require_plan("competidor")
 @rate_limit(10)
 @validate(PublishContractSchema)
 def publish_mkt():
@@ -1249,12 +1250,16 @@ support_bp = Blueprint("support", __name__, url_prefix="/api/support")
 
 @support_bp.post("/chat")
 @require_auth
-@rate_limit(20)
+@rate_limit(60)  # per-IP limit; chatbot enforces per-user daily limit internally
 @validate(ChatbotSchema)
 def chatbot_endpoint():
     from support.chatbot import find_answer
 
-    result = find_answer(g.validated.question)
+    result = find_answer(
+        g.validated.question,
+        user_id=g.user_id,
+        user_plan=getattr(g, "user_plan", "free"),
+    )
     return jsonify(result)
 
 
