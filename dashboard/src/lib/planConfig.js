@@ -8,12 +8,13 @@ export const PLAN_ORDER = {
   trial: 0,
   cazador: 1,
   competidor: 2,
-  dominador: 3,
+  estratega: 3,
+  dominador: 4,
   // Legacy aliases
   alertas: 1,
   starter: 1,
   business: 2,
-  enterprise: 3,
+  enterprise: 4,
 };
 
 export const PLAN_ALIASES = {
@@ -55,6 +56,13 @@ export const PLAN_COLORS = {
     light: "bg-brand-50",
     badge: "bg-brand-100 text-brand-700",
   },
+  estratega: {
+    bg: "bg-orange-100",
+    text: "text-orange-700",
+    border: "border-orange-300",
+    light: "bg-orange-50",
+    badge: "bg-orange-100 text-orange-700",
+  },
   dominador: {
     bg: "bg-purple-100",
     text: "text-purple-700",
@@ -90,12 +98,19 @@ export const PLAN_BENEFITS = {
     "Tags personalizados",
     "Exportar a Excel",
   ],
-  dominador: [
+  estratega: [
     "Todo de Competidor +",
-    "Marketplace de contratos",
-    "Análisis predictivo IA",
-    "Soporte prioritario",
-    "Múltiples usuarios",
+    "2 usuarios en equipo",
+    "Historial 2 años",
+    "Reportes automáticos",
+    "Soporte email prioritario",
+  ],
+  dominador: [
+    "Todo de Estratega +",
+    "Inteligencia competitiva",
+    "5 usuarios en equipo",
+    "Auto-propuestas con IA",
+    "Consultoría mensual",
   ],
 };
 
@@ -111,6 +126,7 @@ export const BADGE_COLORS = {
   trial: "blue",
   cazador: "green",
   competidor: "purple",
+  estratega: "orange",
   dominador: "yellow",
   // Legacy aliases
   alertas: "green",

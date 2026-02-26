@@ -1,4 +1,5 @@
 import { useParams, useNavigate, Link } from "react-router-dom";
+import DOMPurify from "dompurify";
 import { useApi, useMutation } from "../../hooks/useApi";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
@@ -7,6 +8,10 @@ import Spinner from "../../components/ui/Spinner";
 import { useGate } from "../../hooks/useGate";
 import { money, date, truncate } from "../../lib/format";
 import { Heart, GitBranch, ExternalLink, ArrowLeft, Lock, Zap } from "lucide-react";
+
+function stripHtml(html) {
+  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
 import { useToast } from "../../components/ui/Toast";
 
 export default function ContractDetail() {
@@ -94,10 +99,17 @@ export default function ContractDetail() {
         <Card>
           <h2 className="font-semibold text-gray-900 mb-2">Descripción</h2>
           {descGate.allowed ? (
-            <p className="text-sm text-gray-700 whitespace-pre-wrap">{c.description}</p>
+            /<[a-z][\s\S]*>/i.test(c.description) ? (
+              <div
+                className="text-sm text-gray-700 [&_p]:mb-2 [&_strong]:font-semibold [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-gray-200 [&_td]:p-1 [&_th]:border [&_th]:border-gray-200 [&_th]:p-1 [&_th]:bg-gray-50 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(c.description) }}
+              />
+            ) : (
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{c.description}</p>
+            )
           ) : (
             <div>
-              <p className="text-sm text-gray-700">{truncate(c.description, 150)}</p>
+              <p className="text-sm text-gray-700">{truncate(stripHtml(c.description), 150)}</p>
               <div className="mt-4 bg-gradient-to-b from-transparent to-gray-50 border border-gray-200 rounded-xl p-4 text-center">
                 <Lock className="h-5 w-5 text-gray-400 mx-auto mb-2" />
                 <p className="text-sm font-medium text-gray-700">Descripción completa disponible en plan Alertas</p>

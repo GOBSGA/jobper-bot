@@ -15,7 +15,9 @@ export default function PlanCard({ plan, currentPlan, onSelect, isDowngrade }) {
     <Card
       className={`relative flex flex-col ${
         plan.popular ? "ring-2 ring-purple-500 shadow-lg" : ""
-      } ${plan.color === "amber" ? "bg-gradient-to-b from-amber-50 to-white" : ""}`}
+      } ${plan.color === "amber" ? "bg-gradient-to-b from-amber-50 to-white" : ""} ${
+        plan.color === "orange" ? "bg-gradient-to-b from-orange-50 to-white" : ""
+      }`}
     >
       {/* Popular badge */}
       {plan.popular && (
@@ -34,14 +36,16 @@ export default function PlanCard({ plan, currentPlan, onSelect, isDowngrade }) {
               plan.color === "gray" ? "bg-gray-100" : ""
             } ${plan.color === "blue" ? "bg-blue-100" : ""} ${
               plan.color === "purple" ? "bg-purple-100" : ""
-            } ${plan.color === "amber" ? "bg-amber-100" : ""}`}
+            } ${plan.color === "amber" ? "bg-amber-100" : ""} ${
+              plan.color === "orange" ? "bg-orange-100" : ""
+            }`}
           >
             <Icon
               className={`h-6 w-6 ${plan.color === "gray" ? "text-gray-600" : ""} ${
                 plan.color === "blue" ? "text-blue-600" : ""
               } ${plan.color === "purple" ? "text-purple-600" : ""} ${
                 plan.color === "amber" ? "text-amber-600" : ""
-              }`}
+              } ${plan.color === "orange" ? "text-orange-600" : ""}`}
             />
           </div>
           <div className="flex items-center justify-center gap-2">
@@ -108,7 +112,9 @@ export default function PlanCard({ plan, currentPlan, onSelect, isDowngrade }) {
           <Button
             className={`w-full ${plan.color === "blue" ? "bg-blue-600 hover:bg-blue-700" : ""} ${
               plan.color === "purple" ? "bg-purple-600 hover:bg-purple-700" : ""
-            } ${plan.color === "amber" ? "bg-amber-600 hover:bg-amber-700" : ""}`}
+            } ${plan.color === "amber" ? "bg-amber-600 hover:bg-amber-700" : ""} ${
+              plan.color === "orange" ? "bg-orange-600 hover:bg-orange-700" : ""
+            }`}
             onClick={() => onSelect(plan)}
           >
             Activar {plan.displayName}

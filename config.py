@@ -531,6 +531,51 @@ class Config:
             "blocked_message": "Activa Dominador para inteligencia competitiva",
         },
         # ----------------------------------------------------------------
+        # ESTRATEGA — $299,900/mes
+        # Competidor+ con multi-usuario y reportes automáticos
+        # ----------------------------------------------------------------
+        "estratega": {
+            "name": "Estratega",
+            "display_name": "Estratega",
+            "price": 299_900,
+            "tagline": "Escala tu equipo",
+            "features": [
+                "search",
+                "contracts_unlimited",
+                "alerts_email",
+                "alerts_push",
+                "favorites_unlimited",
+                "match",
+                "email_digest",
+                "full_description",
+                "match_scores",
+                "advanced_filters",
+                "export_unlimited",
+                "show_amount",
+                "private_contracts",
+                "ai_analysis",
+                "pipeline",
+                "documents",
+                "instant_alerts",
+                "webinars",
+                "team_small",
+                "auto_reports",
+                "priority_email_support",
+            ],
+            "limits": {
+                "alerts_per_week": None,
+                "favorites_max": None,
+                "searches_per_day": None,
+                "show_full_description": True,
+                "show_match_score": True,
+                "show_amount": True,
+                "export_per_month": None,
+                "history_days": 730,  # 2 años
+                "team_members": 2,
+            },
+            "blocked_message": "Activa Dominador para inteligencia competitiva y 5 usuarios",
+        },
+        # ----------------------------------------------------------------
         # DOMINADOR — $599,900/mes
         # Todo + inteligencia competitiva + multi-usuario + auto-propuestas
         # ----------------------------------------------------------------
@@ -593,7 +638,7 @@ class Config:
     }
 
     # Plan hierarchy for comparison (higher index = higher plan)
-    PLAN_HIERARCHY: list = ["free", "trial", "cazador", "competidor", "dominador"]
+    PLAN_HIERARCHY: list = ["free", "trial", "cazador", "competidor", "estratega", "dominador"]
 
     # Feature → minimum plan required (FOMO gates)
     FEATURE_GATES: dict = {
@@ -614,6 +659,10 @@ class Config:
         "instant_alerts": "competidor",
         "documents": "competidor",
         "webinars": "competidor",
+        # === ESTRATEGA ($300K) ===
+        "team_small": "estratega",
+        "auto_reports": "estratega",
+        "priority_email_support": "estratega",
         # === DOMINADOR ($600K) ===
         "competitive_intelligence": "dominador",
         "team": "dominador",

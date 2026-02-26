@@ -9,12 +9,13 @@ PLAN_ORDER = {
     "trial": 0,
     "cazador": 1,
     "competidor": 2,
-    "dominador": 3,
+    "estratega": 3,
+    "dominador": 4,
     # Legacy aliases (same levels as their canonical equivalents)
     "alertas": 1,
     "starter": 1,
     "business": 2,
-    "enterprise": 3,
+    "enterprise": 4,
 }
 
 PLAN_ALIASES = {

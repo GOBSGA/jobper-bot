@@ -96,6 +96,26 @@ const PLANS = [
     ],
   },
   {
+    key: "estratega",
+    name: "Estratega",
+    displayName: "Estratega",
+    price: 299900,
+    emoji: "🚀",
+    icon: Zap,
+    color: "orange",
+    tagline: "Escala tu equipo",
+    features: [
+      { text: "Todo de Competidor +", included: true },
+      { text: "2 usuarios en equipo", included: true, highlight: true },
+      { text: "Historial 2 años", included: true, highlight: true },
+      { text: "Reportes automáticos mensuales", included: true, highlight: true },
+      { text: "Exportar ilimitado", included: true },
+      { text: "Soporte email prioritario 12h", included: true },
+      { text: "Inteligencia competitiva", included: false },
+      { text: "Auto-propuestas IA", included: false },
+    ],
+  },
+  {
     key: "dominador",
     name: "Dominador",
     displayName: "Dominador",
@@ -105,7 +125,7 @@ const PLANS = [
     color: "amber",
     tagline: "Domina tu sector",
     features: [
-      { text: "Todo de Competidor +", included: true },
+      { text: "Todo de Estratega +", included: true },
       { text: "Inteligencia competitiva", included: true, highlight: true },
       { text: "5 usuarios incluidos", included: true, highlight: true },
       { text: "Auto-propuestas con IA", included: true, highlight: true },
@@ -313,7 +333,7 @@ export default function Plans() {
       )}
 
       {/* Plans grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
         {PLANS.map((plan) => {
           const isDowngrade =
             PLANS.findIndex((p) => p.key === userPlan) > PLANS.findIndex((p) => p.key === plan.key);
@@ -374,21 +394,23 @@ export default function Plans() {
 // =============================================================================
 function ComparisonTable({ plans, currentPlan }) {
   const features = [
-    { key: "searches", label: "Búsquedas/día", values: ["10", "∞", "∞", "∞"] },
-    { key: "favorites", label: "Favoritos", values: ["10", "100", "∞", "∞"] },
-    { key: "alerts", label: "Alertas/semana", values: ["—", "50", "∞", "∞"] },
-    { key: "description", label: "Descripción completa", values: [false, true, true, true] },
-    { key: "score", label: "Match score", values: [false, true, true, true] },
-    { key: "amount", label: "Ver montos", values: [false, true, true, true] },
-    { key: "export", label: "Exportar/mes", values: ["—", "50", "500", "∞"] },
-    { key: "private", label: "Contratos privados", values: [false, false, true, true] },
-    { key: "ai", label: "Análisis IA", values: [false, false, true, true] },
-    { key: "pipeline", label: "Pipeline CRM", values: [false, false, true, true] },
-    { key: "push", label: "Alertas push", values: [false, false, true, true] },
-    { key: "intel", label: "Inteligencia competitiva", values: [false, false, false, true] },
-    { key: "team", label: "Multi-usuario", values: ["1", "1", "1", "5"] },
-    { key: "api", label: "API access", values: [false, false, false, true] },
-    { key: "support", label: "Soporte", values: ["—", "Email 48h", "Email 24h", "WhatsApp 4h"] },
+    { key: "searches", label: "Búsquedas/día", values: ["10", "∞", "∞", "∞", "∞"] },
+    { key: "favorites", label: "Favoritos", values: ["10", "100", "∞", "∞", "∞"] },
+    { key: "alerts", label: "Alertas/semana", values: ["—", "50", "∞", "∞", "∞"] },
+    { key: "description", label: "Descripción completa", values: [false, true, true, true, true] },
+    { key: "score", label: "Match score", values: [false, true, true, true, true] },
+    { key: "amount", label: "Ver montos", values: [false, true, true, true, true] },
+    { key: "export", label: "Exportar/mes", values: ["—", "50", "500", "∞", "∞"] },
+    { key: "private", label: "Contratos privados", values: [false, false, true, true, true] },
+    { key: "ai", label: "Análisis IA", values: [false, false, true, true, true] },
+    { key: "pipeline", label: "Pipeline CRM", values: [false, false, true, true, true] },
+    { key: "push", label: "Alertas push", values: [false, false, true, true, true] },
+    { key: "history", label: "Historial", values: ["7 días", "30 días", "1 año", "2 años", "Todo"] },
+    { key: "team", label: "Multi-usuario", values: ["1", "1", "1", "2", "5"] },
+    { key: "reports", label: "Reportes automáticos", values: [false, false, false, true, true] },
+    { key: "intel", label: "Inteligencia competitiva", values: [false, false, false, false, true] },
+    { key: "api", label: "API access", values: [false, false, false, false, true] },
+    { key: "support", label: "Soporte", values: ["—", "Email 48h", "Email 24h", "Email 12h", "WhatsApp 4h"] },
   ];
 
   return (
