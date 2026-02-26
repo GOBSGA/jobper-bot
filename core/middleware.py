@@ -39,8 +39,15 @@ def require_auth(fn):
         try:
             payload = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
+            logger.warning(f"[auth] Token expirado en {request.endpoint}")
             return jsonify({"error": "Token expirado"}), 401
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as jwt_err:
+            # Log token prefix (first 40 chars = header only, no payload/signature data)
+            logger.error(
+                f"[auth] Token inválido en {request.endpoint}: {jwt_err} | "
+                f"token_prefix={token[:40]}... | "
+                f"secret_prefix={Config.JWT_SECRET[:8]}..."
+            )
             return jsonify({"error": "Token inválido"}), 401
 
         g.user_id = payload["sub"]
@@ -59,11 +66,15 @@ def require_auth(fn):
 
 
 def require_plan(min_plan: str):
-    """Block access if user's plan is below min_plan."""
+    """Block access if user's plan is below min_plan. Admins bypass all plan gates."""
 
     def decorator(fn):
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
+            # Admins have unrestricted access to every feature
+            if getattr(g, "is_admin", False):
+                return fn(*args, **kwargs)
+
             user_plan = getattr(g, "user_plan", "trial")
             user_level = PLAN_ORDER.get(normalize_plan(user_plan), 0)
             required_level = PLAN_ORDER.get(normalize_plan(min_plan), 0)

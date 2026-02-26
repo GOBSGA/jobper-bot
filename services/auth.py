@@ -314,10 +314,12 @@ def login_with_password(email: str, password: str) -> dict:
 
 
 def _create_access_token(user: User) -> str:
+    # Admins always get top-tier plan so they can test every feature freely
+    effective_plan = "dominador" if user.is_admin else user.plan
     payload = {
         "sub": user.id,
         "email": user.email,
-        "plan": user.plan,
+        "plan": effective_plan,
         "admin": user.is_admin,
         "type": "access",
         "exp": datetime.utcnow() + timedelta(minutes=Config.JWT_ACCESS_EXPIRY_MINUTES),
@@ -393,6 +395,8 @@ def _needs_privacy_acceptance(user: User) -> bool:
 
 
 def _user_to_public(user: User) -> dict:
+    # Admins always see top-tier plan so every feature gate opens in the UI
+    effective_plan = "dominador" if user.is_admin else user.plan
     return {
         "id": user.id,
         "email": user.email,
@@ -402,7 +406,7 @@ def _user_to_public(user: User) -> dict:
         "city": user.city,
         "budget_min": user.budget_min,
         "budget_max": user.budget_max,
-        "plan": user.plan,
+        "plan": effective_plan,
         "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
         "is_admin": user.is_admin,
         "referral_code": user.referral_code,
