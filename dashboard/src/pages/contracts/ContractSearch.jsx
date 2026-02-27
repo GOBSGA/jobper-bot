@@ -6,23 +6,24 @@ import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import Card from "../../components/ui/Card";
 import Badge from "../../components/ui/Badge";
-import Spinner from "../../components/ui/Spinner";
+import { SkeletonContractCard } from "../../components/ui/Skeleton";
 import EmptyState from "../../components/ui/EmptyState";
 import { useGate, usePlanLimits } from "../../hooks/useGate";
 import { FomoBanner, LockedInline } from "../../components/ui/LockedContent";
 import { money, date, relative, truncate } from "../../lib/format";
 import {
-  Search,
+  MagnifyingGlass,
   FileText,
-  Zap,
+  Lightning,
   List,
   Lock,
-  TrendingUp,
-  Sparkles,
+  TrendUp,
+  Sparkle,
   Eye,
   Star,
-  Download,
-} from "lucide-react";
+  DownloadSimple,
+  Spinner as PhosphorSpinner,
+} from "@phosphor-icons/react";
 
 export default function ContractSearch() {
   const [tab, setTab] = useState("para_ti"); // "para_ti" | "todos"
@@ -112,7 +113,7 @@ export default function ContractSearch() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Contratos</h1>
+      <h1 className="text-2xl font-bold text-ink-900">Contratos</h1>
 
       {/* FOMO Banner para usuarios Free */}
       {isFreeTier && showFomoBanner && highMatchCount > 0 && (
@@ -127,11 +128,11 @@ export default function ContractSearch() {
 
       {/* Error banner */}
       {searchError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 flex items-center justify-between gap-3">
           <span>{searchError}</span>
           <button
             onClick={() => tab === "para_ti" ? loadMatched() : searchAll()}
-            className="px-3 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-700 font-medium text-xs whitespace-nowrap transition"
+            className="px-3 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-medium text-xs whitespace-nowrap transition"
           >
             Reintentar
           </button>
@@ -146,35 +147,35 @@ export default function ContractSearch() {
           onChange={(e) => setQuery(e.target.value)}
         />
         <Button type="submit" disabled={loading}>
-          <Search className="h-4 w-4" /> Buscar
+          <MagnifyingGlass size={16} /> Buscar
         </Button>
         {exportGate.allowed ? (
           <Button type="button" variant="secondary" onClick={handleExport} disabled={exporting} title="Exportar a Excel">
-            {exporting ? <Spinner className="h-4 w-4" /> : <Download className="h-4 w-4" />}
+            {exporting ? <PhosphorSpinner size={16} className="animate-spin" /> : <DownloadSimple size={16} />}
           </Button>
         ) : (
           <button
             type="button"
             onClick={() => navigate("/payments?feature=export")}
             title="Exportar a Excel (requiere plan Cazador)"
-            className="flex items-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-gray-400 hover:border-gray-300 transition text-sm"
+            className="flex items-center gap-1 px-3 py-2 rounded-xl border border-surface-border text-ink-400 hover:border-surface-border hover:bg-surface-hover transition text-sm"
           >
-            <Lock className="h-3.5 w-3.5" /> <Download className="h-4 w-4" />
+            <Lock size={14} /> <DownloadSimple size={16} />
           </button>
         )}
       </form>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+      <div className="flex gap-1 bg-surface-hover rounded-2xl p-1">
         <button
           onClick={() => setTab("para_ti")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
             tab === "para_ti"
-              ? "bg-white text-brand-700 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
+              ? "bg-white text-brand-600 shadow-sm"
+              : "text-ink-400 hover:text-ink-600"
           }`}
         >
-          <Zap className="h-4 w-4" /> Para ti
+          <Lightning size={16} weight={tab === "para_ti" ? "duotone" : "regular"} /> Para ti
           {totalMatched > 0 && (
             <span className="ml-1 px-1.5 py-0.5 text-xs bg-brand-100 text-brand-700 rounded-full">
               {totalMatched}
@@ -183,19 +184,22 @@ export default function ContractSearch() {
         </button>
         <button
           onClick={() => setTab("todos")}
-          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition ${
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition ${
             tab === "todos"
-              ? "bg-white text-brand-700 shadow-sm"
-              : "text-gray-500 hover:text-gray-700"
+              ? "bg-white text-brand-600 shadow-sm"
+              : "text-ink-400 hover:text-ink-600"
           }`}
         >
-          <List className="h-4 w-4" /> Todos
+          <List size={16} weight={tab === "todos" ? "duotone" : "regular"} /> Todos
         </button>
       </div>
 
+      {/* Skeleton loading state */}
       {loading && (
-        <div className="flex justify-center py-12">
-          <Spinner />
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonContractCard key={i} />
+          ))}
         </div>
       )}
 
@@ -205,15 +209,15 @@ export default function ContractSearch() {
           {matched?.contracts?.length > 0 ? (
             <>
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-ink-400">
                   {matched.contracts.length} contratos recomendados según tu perfil
                 </p>
                 {isFreeTier && (
                   <button
                     onClick={() => navigate("/payments?plan=cazador")}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                    className="text-xs text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
                   >
-                    <Sparkles className="h-3 w-3" />
+                    <Sparkle size={12} />
                     Ver match scores reales
                   </button>
                 )}
@@ -222,42 +226,42 @@ export default function ContractSearch() {
               {/* Stats cards for FOMO */}
               {isFreeTier && (
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-3 text-center border border-green-200">
-                    <div className="flex items-center justify-center gap-1 text-green-700">
-                      <TrendingUp className="h-4 w-4" />
+                  <div className="bg-accent-50 border border-accent-100 rounded-xl p-3 text-center">
+                    <div className="flex items-center justify-center gap-1 text-accent-700">
+                      <TrendUp size={16} weight="duotone" />
                       <span className="text-lg font-bold">
                         {scoreGate.allowed ? (
                           matched.contracts.filter((c) => c.match_score >= 85).length
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <Lock className="h-3 w-3" />?
+                            <Lock size={12} />?
                           </span>
                         )}
                       </span>
                     </div>
-                    <p className="text-xs text-green-600 mt-1">85%+ match</p>
+                    <p className="text-xs text-accent-600 mt-1">85%+ match</p>
                   </div>
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-3 text-center border border-blue-200">
-                    <div className="flex items-center justify-center gap-1 text-blue-700">
-                      <Eye className="h-4 w-4" />
+                  <div className="bg-brand-50 border border-brand-100 rounded-xl p-3 text-center">
+                    <div className="flex items-center justify-center gap-1 text-brand-700">
+                      <Eye size={16} weight="duotone" />
                       <span className="text-lg font-bold">
                         {scoreGate.allowed ? (
                           matched.contracts.filter((c) => c.match_score >= 70).length
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <Lock className="h-3 w-3" />?
+                            <Lock size={12} />?
                           </span>
                         )}
                       </span>
                     </div>
-                    <p className="text-xs text-blue-600 mt-1">70%+ match</p>
+                    <p className="text-xs text-brand-600 mt-1">70%+ match</p>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-3 text-center border border-purple-200">
-                    <div className="flex items-center justify-center gap-1 text-purple-700">
-                      <Star className="h-4 w-4" />
+                  <div className="bg-surface-hover border border-surface-border rounded-xl p-3 text-center">
+                    <div className="flex items-center justify-center gap-1 text-ink-600">
+                      <Star size={16} weight="duotone" />
                       <span className="text-lg font-bold">{matched.contracts.length}</span>
                     </div>
-                    <p className="text-xs text-purple-600 mt-1">Total</p>
+                    <p className="text-xs text-ink-400 mt-1">Total</p>
                   </div>
                 </div>
               )}
@@ -270,7 +274,7 @@ export default function ContractSearch() {
             </>
           ) : (
             <EmptyState
-              icon={Zap}
+              icon={Lightning}
               title="Configura tu perfil para ver recomendaciones"
               description="Ve a Configuración y agrega tu sector, palabras clave y ciudad. Jobper encontrará los contratos perfectos para ti."
             />
@@ -281,7 +285,7 @@ export default function ContractSearch() {
       {/* Todos tab */}
       {tab === "todos" && !loading && results && (
         <>
-          <p className="text-sm text-gray-500">{results.total} contratos</p>
+          <p className="text-sm text-ink-400">{results.total} contratos</p>
           {results.contracts?.length === 0 ? (
             <EmptyState
               icon={FileText}
@@ -306,7 +310,7 @@ export default function ContractSearch() {
               >
                 Anterior
               </Button>
-              <span className="text-sm text-gray-500 py-1.5">
+              <span className="text-sm text-ink-400 py-1.5">
                 Página {page} de {results.pages}
               </span>
               <Button
@@ -347,7 +351,7 @@ function ContractCard({ c, showScore }) {
           <div className="min-w-0 flex-1">
             {/* Title + Score */}
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold text-gray-900 truncate max-w-md">
+              <h3 className="text-sm font-semibold text-ink-900 truncate max-w-md">
                 {c.title}
               </h3>
               {showScore && c.match_score >= 50 && (
@@ -356,12 +360,12 @@ function ContractCard({ c, showScore }) {
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
                         c.match_score >= 90
-                          ? "bg-green-100 text-green-800"
+                          ? "bg-accent-50 text-accent-700"
                           : c.match_score >= 80
-                          ? "bg-blue-100 text-blue-800"
+                          ? "bg-brand-50 text-brand-600"
                           : c.match_score >= 70
-                          ? "bg-yellow-100 text-yellow-800"
-                          : "bg-gray-100 text-gray-700"
+                          ? "bg-amber-50 text-amber-700"
+                          : "bg-surface-hover text-ink-600"
                       }`}
                     >
                       {c.match_score}% match
@@ -369,12 +373,12 @@ function ContractCard({ c, showScore }) {
                   ) : (
                     <button
                       onClick={(e) => handleLockedClick(e, "match_scores", "cazador")}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-600 hover:bg-blue-100 transition flex-shrink-0 border border-blue-200"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-600 hover:bg-brand-100 transition flex-shrink-0 border border-brand-200"
                       title="Desbloquea para ver tu % de compatibilidad"
                     >
-                      <Lock className="h-3 w-3" />
+                      <Lock size={11} />
                       <span className="animate-pulse">??%</span>
-                      <Sparkles className="h-3 w-3" />
+                      <Sparkle size={11} />
                     </button>
                   )}
                 </>
@@ -382,7 +386,7 @@ function ContractCard({ c, showScore }) {
             </div>
 
             {/* Entity + Source */}
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-ink-400 mt-1">
               {c.entity} · {c.source}
             </p>
 
@@ -390,10 +394,10 @@ function ContractCard({ c, showScore }) {
             {c.description && (
               <div className="mt-2">
                 {descGate.allowed ? (
-                  <p className="text-sm text-gray-600 line-clamp-2">{c.description}</p>
+                  <p className="text-sm text-ink-600 line-clamp-2">{c.description}</p>
                 ) : (
                   <div className="relative">
-                    <p className="text-sm text-gray-600 line-clamp-2">
+                    <p className="text-sm text-ink-600 line-clamp-2">
                       {truncate(c.description, 120)}
                     </p>
                     {c.description.length > 120 && (
@@ -408,9 +412,9 @@ function ContractCard({ c, showScore }) {
             {c.description && !descGate.allowed && c.description.length > 120 && (
               <button
                 onClick={(e) => handleLockedClick(e, "full_description", "cazador")}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1 font-medium"
+                className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 mt-1 font-medium"
               >
-                <Lock className="h-3 w-3" />
+                <Lock size={11} />
                 Ver descripción completa
               </button>
             )}
@@ -421,14 +425,14 @@ function ContractCard({ c, showScore }) {
             {/* Amount with FOMO */}
             {c.amount ? (
               amountGate.allowed ? (
-                <p className="text-sm font-bold text-gray-900">{money(c.amount)}</p>
+                <p className="text-sm font-bold text-ink-900">{money(c.amount)}</p>
               ) : (
                 <button
                   onClick={(e) => handleLockedClick(e, "show_amount", "cazador")}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 transition text-gray-500 text-sm font-medium"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-surface-hover hover:bg-surface-border transition text-ink-400 text-sm font-medium"
                   title="Desbloquea para ver el monto"
                 >
-                  <Lock className="h-3 w-3" />
+                  <Lock size={11} />
                   $•••••
                 </button>
               )
@@ -437,17 +441,17 @@ function ContractCard({ c, showScore }) {
             <Badge color={c.source?.includes("SECOP") ? "blue" : "purple"}>{c.source}</Badge>
 
             {c.deadline && (
-              <p className="text-xs text-gray-500">{relative(c.deadline)}</p>
+              <p className="text-xs text-ink-400">{relative(c.deadline)}</p>
             )}
           </div>
         </div>
 
         {/* Hover hint for Free users */}
         {(!scoreGate.allowed || !descGate.allowed || !amountGate.allowed) && (
-          <div className="mt-3 pt-3 border-t border-gray-100 opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-blue-500" />
-              Activa <span className="font-semibold text-blue-600">Cazador</span> para ver
+          <div className="mt-3 pt-3 border-t border-surface-border opacity-0 group-hover:opacity-100 transition-opacity">
+            <p className="text-xs text-ink-400 flex items-center gap-1">
+              <Sparkle size={12} className="text-brand-500" />
+              Activa <span className="font-semibold text-brand-600">Cazador</span> para ver
               todos los detalles
             </p>
           </div>
