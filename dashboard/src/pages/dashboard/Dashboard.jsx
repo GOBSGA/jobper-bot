@@ -13,7 +13,7 @@ export default function Dashboard() {
   const { data: alerts, loading: alertsLoading } = useApi("/contracts/alerts?hours=24");
   const { data: matched, loading: matchedLoading } = useApi("/contracts/matched?limit=10&min_score=30");
   const { data: marketStats } = useApi("/contracts/market-stats");
-  const isBusiness = ["competidor", "dominador", "business", "enterprise"].includes(user?.plan);
+  const isBusiness = ["competidor", "estratega", "dominador", "business", "enterprise"].includes(user?.plan);
   const isPaid = user?.plan && user.plan !== "free" && user.plan !== "trial";
   const { data: pipelineStats } = useApi(isBusiness ? "/pipeline/stats" : null);
   const { data: recs, loading: recsLoading } = useApi(isPaid ? "/contracts/recommendations" : null);

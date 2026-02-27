@@ -386,6 +386,8 @@ def _ensure_missing_columns():
             "CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_id)",
             "CREATE INDEX IF NOT EXISTS idx_ref_referred ON referrals(referred_id)",
             "CREATE INDEX IF NOT EXISTS idx_pipe_user_stage ON pipeline_entries(user_id, stage)",
+            "CREATE INDEX IF NOT EXISTS idx_mkt_msg_contract ON marketplace_messages(contract_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mkt_msg_receiver ON marketplace_messages(receiver_id)",
         ]
         # Safety net: create pipeline_entries table if Base.metadata.create_all missed it
         create_pipeline_table = """
@@ -402,7 +404,18 @@ def _ensure_missing_columns():
             updated_at TIMESTAMP DEFAULT NOW()
         )
         """
-        ddl_statements = [create_pipeline_table] + ddl_statements
+        create_mkt_messages_table = """
+        CREATE TABLE IF NOT EXISTS marketplace_messages (
+            id SERIAL PRIMARY KEY,
+            sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            receiver_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            contract_id INTEGER NOT NULL REFERENCES private_contracts(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            read_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+        ddl_statements = [create_pipeline_table, create_mkt_messages_table] + ddl_statements
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.
         for stmt in ddl_statements:

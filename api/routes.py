@@ -8,10 +8,11 @@ from __future__ import annotations
 import logging
 import os
 import re
-
 import io
+from datetime import datetime
 
 from flask import Blueprint, g, jsonify, request, send_file
+from sqlalchemy import text
 
 from api.schemas import (
     AdminListSchema,
@@ -503,6 +504,167 @@ def get_contact_mkt(contract_id: int):
     return jsonify(result)
 
 
+@marketplace_bp.get("/<int:contract_id>/messages")
+@require_auth
+@rate_limit(60)
+def get_mkt_messages(contract_id: int):
+    """Get chat messages for a marketplace contract (polling-friendly)."""
+    from core.database import UnitOfWork, MarketplaceMessage
+
+    with UnitOfWork() as uow:
+        # Verify user has access (either publisher or someone who messaged)
+        contract = uow.session.execute(
+            text("SELECT publisher_id FROM private_contracts WHERE id = :id"),
+            {"id": contract_id},
+        ).fetchone()
+        if not contract:
+            return jsonify({"error": "Contrato no encontrado"}), 404
+
+        msgs = (
+            uow.session.query(MarketplaceMessage)
+            .filter(
+                MarketplaceMessage.contract_id == contract_id,
+                (MarketplaceMessage.sender_id == g.user_id)
+                | (MarketplaceMessage.receiver_id == g.user_id),
+            )
+            .order_by(MarketplaceMessage.created_at.asc())
+            .limit(200)
+            .all()
+        )
+        # Mark incoming messages as read
+        uow.session.query(MarketplaceMessage).filter(
+            MarketplaceMessage.contract_id == contract_id,
+            MarketplaceMessage.receiver_id == g.user_id,
+            MarketplaceMessage.read_at == None,  # noqa: E711
+        ).update({"read_at": datetime.utcnow()}, synchronize_session=False)
+        uow.commit()
+
+        publisher_id = contract[0]
+        return jsonify(
+            {
+                "messages": [
+                    {
+                        "id": m.id,
+                        "sender_id": m.sender_id,
+                        "is_mine": m.sender_id == g.user_id,
+                        "content": m.content,
+                        "read_at": m.read_at.isoformat() if m.read_at else None,
+                        "created_at": m.created_at.isoformat(),
+                    }
+                    for m in msgs
+                ],
+                "contract_id": contract_id,
+                "publisher_id": publisher_id,
+            }
+        )
+
+
+@marketplace_bp.post("/<int:contract_id>/messages")
+@require_auth
+@rate_limit(30)
+def send_mkt_message(contract_id: int):
+    """Send a chat message about a marketplace contract."""
+    from core.database import UnitOfWork, MarketplaceMessage
+
+    body = request.get_json(silent=True) or {}
+    content = (body.get("content") or "").strip()
+    if not content:
+        return jsonify({"error": "Mensaje vacío"}), 400
+    if len(content) > 2000:
+        return jsonify({"error": "Mensaje demasiado largo (máx 2000 chars)"}), 400
+
+    with UnitOfWork() as uow:
+        row = uow.session.execute(
+            text("SELECT publisher_id FROM private_contracts WHERE id = :id"),
+            {"id": contract_id},
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "Contrato no encontrado"}), 404
+
+        publisher_id = row[0]
+        # Determine receiver: if sender is publisher → reply to last sender; else → publisher
+        if g.user_id == publisher_id:
+            last = (
+                uow.session.query(MarketplaceMessage)
+                .filter(
+                    MarketplaceMessage.contract_id == contract_id,
+                    MarketplaceMessage.sender_id != publisher_id,
+                )
+                .order_by(MarketplaceMessage.created_at.desc())
+                .first()
+            )
+            if not last:
+                return jsonify({"error": "No hay conversación activa"}), 400
+            receiver_id = last.sender_id
+        else:
+            receiver_id = publisher_id
+
+        msg = MarketplaceMessage(
+            sender_id=g.user_id,
+            receiver_id=receiver_id,
+            contract_id=contract_id,
+            content=content,
+        )
+        uow.session.add(msg)
+        uow.commit()
+        return jsonify(
+            {
+                "id": msg.id,
+                "sender_id": msg.sender_id,
+                "is_mine": True,
+                "content": msg.content,
+                "created_at": msg.created_at.isoformat(),
+            }
+        ), 201
+
+
+@marketplace_bp.get("/inbox")
+@require_auth
+@rate_limit(30)
+def mkt_inbox():
+    """List all marketplace conversations with unread counts."""
+    from core.database import UnitOfWork, MarketplaceMessage
+    from sqlalchemy import func
+
+    with UnitOfWork() as uow:
+        # Find all contracts where user has messages (as sender or receiver)
+        rows = uow.session.execute(
+            text("""
+                SELECT
+                    mm.contract_id,
+                    pc.title,
+                    COUNT(CASE WHEN mm.receiver_id = :uid AND mm.read_at IS NULL THEN 1 END) AS unread,
+                    MAX(mm.created_at) AS last_at,
+                    (SELECT content FROM marketplace_messages
+                     WHERE contract_id = mm.contract_id
+                     ORDER BY created_at DESC LIMIT 1) AS last_msg
+                FROM marketplace_messages mm
+                JOIN private_contracts pc ON pc.id = mm.contract_id
+                WHERE mm.sender_id = :uid OR mm.receiver_id = :uid
+                GROUP BY mm.contract_id, pc.title
+                ORDER BY last_at DESC
+                LIMIT 50
+            """),
+            {"uid": g.user_id},
+        ).fetchall()
+
+        return jsonify(
+            {
+                "conversations": [
+                    {
+                        "contract_id": r[0],
+                        "title": r[1],
+                        "unread": r[2],
+                        "last_at": r[3].isoformat() if r[3] else None,
+                        "last_msg": r[4],
+                    }
+                    for r in rows
+                ],
+                "total_unread": sum(r[2] for r in rows),
+            }
+        )
+
+
 # =============================================================================
 # USER (4 endpoints)
 # =============================================================================
@@ -548,6 +710,28 @@ def accept_privacy_policy():
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)
+
+
+@user_bp.delete("/account")
+@require_auth
+@audit("delete_account")
+def delete_account():
+    """Permanently delete user account and all associated data."""
+    from core.database import UnitOfWork
+
+    try:
+        with UnitOfWork() as uow:
+            user = uow.users.get(g.user_id)
+            if not user:
+                return jsonify({"error": "Usuario no encontrado"}), 404
+            if user.is_admin:
+                return jsonify({"error": "Las cuentas de administrador no se pueden eliminar por esta vía"}), 403
+            uow.session.delete(user)
+            uow.commit()
+        return jsonify({"ok": True})
+    except Exception as e:
+        logger.error(f"delete_account failed for user {g.user_id}: {e}")
+        return jsonify({"error": "Error eliminando cuenta. Escríbenos a soporte@jobper.co"}), 500
 
 
 @user_bp.get("/stats")

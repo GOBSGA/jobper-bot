@@ -97,7 +97,7 @@ export default function ContractDetail() {
                 </Button>
               ) : (
                 <Link to={pipelineGate.upgradeUrl}>
-                  <Button variant="ghost" size="sm" title="Requiere plan Competidor">
+                  <Button variant="ghost" size="sm" title={pipelineGate.fomoMessage || "Requiere plan Competidor"}>
                     <Lock className="h-4 w-4 text-gray-400" />
                   </Button>
                 </Link>
@@ -174,8 +174,8 @@ export default function ContractDetail() {
         {!analysisGate.allowed ? (
           <div className="text-center py-4">
             <Lock className="h-5 w-5 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">Análisis IA disponible en plan Competidor</p>
-            <Link to="/payments" className="inline-flex items-center gap-1 mt-2 text-xs text-brand-600 hover:underline">
+            <p className="text-sm text-gray-500">{analysisGate.fomoMessage || "Análisis IA disponible en plan Competidor"}</p>
+            <Link to={analysisGate.upgradeUrl || "/payments"} className="inline-flex items-center gap-1 mt-2 text-xs text-brand-600 hover:underline">
               <Zap className="h-3 w-3" /> Ver planes
             </Link>
           </div>

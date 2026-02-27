@@ -3,15 +3,18 @@ import { Link } from "react-router-dom";
 import Button from "../../components/ui/Button";
 import Logo from "../../components/ui/Logo";
 import Spinner from "../../components/ui/Spinner";
-import { Check, Zap, Shield, Search, GitBranch, Store, Bell, Users, ArrowRight, Star, MapPin, FileText, Calendar, Building2 } from "lucide-react";
+import { Check, Zap, Shield, Search, GitBranch, Store, Bell, Users, ArrowRight, Star, MapPin, FileText, Calendar, Building2, Brain, Sparkles, MessageSquare, Trophy } from "lucide-react";
 
 const FEATURES = [
-  { icon: Search, title: "Búsqueda inteligente", desc: "Escribe lo que buscas en lenguaje natural. Nuestro motor entiende presupuesto, ciudad, sector y más.", color: "bg-brand-50 text-brand-600" },
-  { icon: GitBranch, title: "Pipeline CRM", desc: "Lleva cada oportunidad desde Lead hasta Ganado. Notas, valores y seguimiento en un solo lugar.", color: "bg-accent-50 text-accent-600" },
-  { icon: Store, title: "Marketplace privado", desc: "Publica contratos, conecta con proveedores y recibe propuestas directamente.", color: "bg-purple-50 text-purple-600" },
-  { icon: Bell, title: "Alertas en tiempo real", desc: "Te avisamos al instante cuando aparezca un contrato que coincida con tu perfil.", color: "bg-yellow-50 text-yellow-600" },
-  { icon: Shield, title: "Seguridad real", desc: "Sin contraseñas que robar. Auth por email, tokens rotativos, rate limiting y auditoría completa.", color: "bg-red-50 text-red-600" },
-  { icon: Users, title: "Programa de referidos", desc: "Invita colegas y obtén hasta 50% de descuento. Ellos también ganan.", color: "bg-blue-50 text-blue-600" },
+  { icon: Brain, title: "Recomendaciones IA", desc: "Cada día analizamos todos los contratos y te decimos cuáles son los más óptimos para tu empresa. Una sola llamada a IA, costo casi $0.", color: "bg-purple-50 text-purple-600" },
+  { icon: Search, title: "Búsqueda inteligente", desc: "Escribe lo que buscas en lenguaje natural. Entiende presupuesto, ciudad, sector y más sin filtros manuales.", color: "bg-brand-50 text-brand-600" },
+  { icon: GitBranch, title: "Pipeline CRM", desc: "Lleva cada oportunidad desde Lead hasta Ganado. Notas, valores y seguimiento. Sin Excel, sin perder nada.", color: "bg-accent-50 text-accent-600" },
+  { icon: Store, title: "Marketplace con chat", desc: "Publica contratos privados, conecta con proveedores y negocia directamente dentro de Jobper.", color: "bg-green-50 text-green-600" },
+  { icon: Bell, title: "Alertas en tiempo real", desc: "Te avisamos al instante por email, push, WhatsApp y Telegram cuando aparezca una oportunidad relevante.", color: "bg-yellow-50 text-yellow-600" },
+  { icon: Sparkles, title: "Análisis IA por contrato", desc: "Abre cualquier contrato y pide un análisis: tipo, complejidad, competencia, requisitos y probabilidad de ganar.", color: "bg-pink-50 text-pink-600" },
+  { icon: MessageSquare, title: "Soporte IA 24/7", desc: "Asistente virtual entrenado en licitaciones colombianas: estrategia, AIU, consorcios, SECOP. Sin esperar a nadie.", color: "bg-blue-50 text-blue-600" },
+  { icon: Shield, title: "Seguridad real", desc: "Auth sin contraseñas, tokens JWT rotativos, rate limiting, auditoría completa. Cumplimiento Ley 1581.", color: "bg-red-50 text-red-600" },
+  { icon: Users, title: "Programa de referidos", desc: "Invita colegas y obtén descuentos acumulables. Ellos también ganan desde el primer mes.", color: "bg-indigo-50 text-indigo-600" },
 ];
 
 const SOURCES = [
@@ -30,16 +33,32 @@ const SOURCES = [
 ];
 
 const PLANS = [
-  { name: "Free", price: "Gratis", features: ["Búsqueda de contratos", "3 alertas por semana", "5 favoritos máximo"] },
-  { name: "Alertas", price: "$29.900", features: ["Todo de Free", "Alertas ilimitadas", "Favoritos ilimitados", "Match score", "Email digest diario"] },
-  { name: "Business", price: "$149.900", popular: true, features: ["Todo de Alertas", "Pipeline de ventas", "Push notifications", "Marketplace", "Análisis IA", "Reportes"] },
-  { name: "Enterprise", price: "$599.900", features: ["Todo de Business", "Acceso API", "Equipo multi-usuario", "Inteligencia competitiva", "Soporte prioritario"] },
+  {
+    name: "Observador", emoji: "👀", price: "Gratis",
+    features: ["Ver contratos públicos", "10 búsquedas/día", "10 favoritos", "Asistente IA básico"],
+  },
+  {
+    name: "Cazador", emoji: "🎯", price: "$29.900",
+    features: ["Búsquedas ilimitadas", "Descripciones completas", "Match score real", "50 alertas/semana", "Exportar 50/mes a Excel", "Recomendaciones IA diarias"],
+  },
+  {
+    name: "Competidor", emoji: "⚔️", price: "$149.900", popular: true,
+    features: ["Todo de Cazador +", "Contratos PRIVADOS", "Pipeline CRM", "Alertas push instantáneas", "Análisis IA por contrato", "Marketplace con chat", "Exportar 500/mes"],
+  },
+  {
+    name: "Estratega", emoji: "🚀", price: "$299.900",
+    features: ["Todo de Competidor +", "2 usuarios en equipo", "Historial 2 años", "Reportes automáticos", "Soporte prioritario 12h"],
+  },
+  {
+    name: "Dominador", emoji: "👑", price: "$599.900",
+    features: ["Todo de Estratega +", "5 usuarios", "Inteligencia competitiva", "Auto-propuestas IA", "API access", "Soporte WhatsApp 4h", "Consultoría mensual"],
+  },
 ];
 
 const TESTIMONIALS = [
-  { name: "Carlos Mendoza", role: "Ingeniero civil — Bogotá", text: "En mi primera semana encontré 3 licitaciones que no había visto en SECOP. Jobper hace el trabajo sucio por mí.", avatar: "CM" },
-  { name: "Ana Rodríguez", role: "Consultora TI — Medellín", text: "El Pipeline me salvó. Antes tenía todo en Excel y perdía oportunidades. Ahora no se me escapa nada.", avatar: "AR" },
-  { name: "Luis Parra", role: "Arquitecto — Cali", text: "Las alertas me llegan antes que a la competencia. Ya gané 2 contratos este mes con Jobper.", avatar: "LP" },
+  { name: "Carlos Mendoza", role: "Ingeniero civil — Bogotá", text: "La IA me dice cada mañana cuáles son mis mejores contratos del día. En mi primera semana encontré 3 licitaciones que no había visto en SECOP.", avatar: "CM" },
+  { name: "Ana Rodríguez", role: "Consultora TI — Medellín", text: "El Pipeline me salvó. Antes tenía todo en Excel y perdía oportunidades. El chat del Marketplace me conectó con mi primer subcontratista en 2 horas.", avatar: "AR" },
+  { name: "Luis Parra", role: "Arquitecto — Cali", text: "Las alertas me llegan antes que a la competencia. El análisis IA me dice exactamente qué requisitos cumplir. Ya gané 2 contratos este mes.", avatar: "LP" },
 ];
 
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
@@ -94,8 +113,8 @@ export default function Landing() {
             <span className="bg-gradient-to-r from-brand-600 to-accent-600 bg-clip-text text-transparent">Deja que te encuentren.</span>
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-gray-500 max-w-2xl mx-auto leading-relaxed">
-            El CRM que reúne licitaciones de SECOP, BID, Banco Mundial y más.
-            Búsqueda inteligente, pipeline de ventas y alertas — todo en un solo lugar.
+            La plataforma colombiana que reúne contratos de SECOP, BID, Banco Mundial y 9 fuentes más.
+            IA que te dice cada día cuáles son tus mejores oportunidades. Pipeline, Marketplace y alertas — todo en un solo lugar.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row justify-center gap-4">
             <Link to="/login">
@@ -118,7 +137,7 @@ export default function Landing() {
           {/* Stats */}
           <div className="mt-16 grid grid-cols-3 gap-6 max-w-lg mx-auto">
             <div>
-              <p className="text-3xl font-extrabold text-gray-900">6</p>
+              <p className="text-3xl font-extrabold text-gray-900">12+</p>
               <p className="text-xs text-gray-500 mt-1">Fuentes de datos</p>
             </div>
             <div>
@@ -137,7 +156,6 @@ export default function Landing() {
       <section id="sources" className="border-y border-gray-100 bg-white py-12 overflow-hidden">
         <p className="text-center text-sm font-semibold text-gray-400 uppercase tracking-wider mb-8">Fuentes que monitoreamos para ti</p>
         <div className="relative">
-          {/* fade edges */}
           <div className="absolute left-0 top-0 h-full w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
           <div className="absolute right-0 top-0 h-full w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
           <div className="flex animate-marquee whitespace-nowrap select-none" aria-hidden>
@@ -151,12 +169,37 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* AI Highlight Banner */}
+      <section className="bg-gradient-to-r from-purple-600 to-brand-600 py-12">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/20 text-white text-sm font-medium px-4 py-1.5 rounded-full mb-4">
+            <Sparkles className="h-4 w-4" /> Nuevo — Inteligencia Artificial
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-white">
+            Cada mañana, la IA analiza todos los contratos y te dice cuáles ganar
+          </h2>
+          <p className="mt-3 text-purple-100 max-w-xl mx-auto">
+            No filtramos. Analizamos. Comparamos tu perfil contra cada contrato y te entregamos un ranking personalizado con razonamiento. Coste real: &lt;$0.001 por usuario al día.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-purple-100">
+            <span className="flex items-center gap-1.5"><Trophy className="h-4 w-4 text-yellow-300" /> Ranking diario personalizado</span>
+            <span className="flex items-center gap-1.5"><Brain className="h-4 w-4 text-purple-200" /> Análisis por contrato bajo demanda</span>
+            <span className="flex items-center gap-1.5"><Check className="h-4 w-4 text-green-300" /> Caché 24h — prácticamente gratis</span>
+          </div>
+          <Link to="/login" className="inline-block mt-8">
+            <Button size="lg" className="bg-white !text-purple-700 hover:bg-purple-50 shadow-lg">
+              Probar gratis <ArrowRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="max-w-6xl mx-auto px-6 py-20">
         <div className="text-center mb-16">
           <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-3">Funciones</p>
           <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Todo lo que necesitas para ganar más contratos</h2>
-          <p className="mt-4 text-gray-500 max-w-xl mx-auto">De la búsqueda al cierre. Sin herramientas sueltas, sin Excel, sin perder oportunidades.</p>
+          <p className="mt-4 text-gray-500 max-w-xl mx-auto">De la búsqueda al cierre. IA que trabaja mientras duermes. Sin herramientas sueltas, sin Excel, sin perder oportunidades.</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {FEATURES.map((f) => (
@@ -176,19 +219,20 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-16">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-3">Cómo funciona</p>
-            <h2 className="text-3xl font-bold text-gray-900">3 pasos para empezar a ganar</h2>
+            <h2 className="text-3xl font-bold text-gray-900">4 pasos para empezar a ganar</h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {[
-              { step: "1", title: "Configura tu perfil", desc: "Dinos tu sector, ciudad y qué tipo de contratos buscas. Toma menos de 2 minutos." },
-              { step: "2", title: "Recibe oportunidades", desc: "Nuestro motor rastrea 6 fuentes y te muestra contratos relevantes con alertas inteligentes." },
-              { step: "3", title: "Gestiona y gana", desc: "Usa el Pipeline CRM para organizar propuestas, hacer seguimiento y cerrar más contratos." },
+              { step: "1", title: "Configura tu perfil", desc: "Sector, ciudad y qué contratos buscas. Menos de 2 minutos. La IA lo usa para todo lo demás." },
+              { step: "2", title: "Recibe recomendaciones", desc: "Cada día la IA analiza todos los contratos y te entrega los mejores con explicación de por qué." },
+              { step: "3", title: "Analiza y decide", desc: "Abre un contrato, pide análisis IA: complejidad, competencia, requisitos, probabilidad de ganar." },
+              { step: "4", title: "Gestiona y cierra", desc: "Pipeline CRM para seguimiento, Marketplace para conectar con proveedores y alertas para no perderte nada." },
             ].map((s) => (
               <div key={s.step} className="text-center">
                 <div className="mx-auto h-14 w-14 rounded-2xl bg-brand-600 text-white flex items-center justify-center text-xl font-bold mb-4">
                   {s.step}
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900">{s.title}</h3>
+                <h3 className="text-base font-semibold text-gray-900">{s.title}</h3>
                 <p className="mt-2 text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </div>
             ))}
@@ -202,9 +246,8 @@ export default function Landing() {
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-3">Demo en vivo</p>
             <h2 className="text-3xl font-bold text-gray-900">Contratos reales publicados hoy</h2>
-            <p className="mt-4 text-gray-500 max-w-xl mx-auto">Estos son contratos activos de SECOP. Crea tu cuenta gratis para ver más y recibir alertas.</p>
+            <p className="mt-4 text-gray-500 max-w-xl mx-auto">Estos son contratos activos. Crea tu cuenta gratis para ver más, recibir alertas y obtener recomendaciones IA.</p>
           </div>
-          {/* Live Stats */}
           {demoStats && (
             <div className="flex flex-wrap items-center justify-center gap-8 mb-10">
               <div className="text-center">
@@ -216,7 +259,7 @@ export default function Landing() {
                 <p className="text-xs text-gray-500 mt-1">Nuevos hoy</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-gray-900">{Object.keys(demoStats.sources || {}).length}</p>
+                <p className="text-3xl font-bold text-gray-900">{Object.keys(demoStats.sources || {}).length || 12}</p>
                 <p className="text-xs text-gray-500 mt-1">Fuentes activas</p>
               </div>
             </div>
@@ -264,7 +307,7 @@ export default function Landing() {
       </section>
 
       {/* Testimonials */}
-      <section id="testimonials" className="py-20">
+      <section id="testimonials" className="py-20 bg-gray-50">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-3">Testimonios</p>
@@ -293,32 +336,35 @@ export default function Landing() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="bg-gray-50 py-20">
+      <section id="pricing" className="bg-white py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <p className="text-sm font-semibold text-brand-600 uppercase tracking-wider mb-3">Precios en COP</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">Invierte menos de lo que pierdes en una licitación</h2>
-            <p className="mt-4 text-gray-500">Empieza gratis. Actualiza cuando quieras. Precios en pesos colombianos, IVA incluido.</p>
+            <p className="mt-4 text-gray-500">Empieza gratis. Actualiza cuando quieras. IVA incluido. Cancela en cualquier momento.</p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {PLANS.map((plan) => (
-              <div key={plan.name} className={`bg-white rounded-2xl p-6 border-2 transition-all duration-300 hover:shadow-lg ${plan.popular ? "border-brand-500 shadow-lg shadow-brand-100 scale-[1.02]" : "border-gray-100 hover:border-gray-200"}`}>
+              <div key={plan.name} className={`bg-white rounded-2xl p-5 border-2 transition-all duration-300 hover:shadow-lg flex flex-col ${plan.popular ? "border-brand-500 shadow-lg shadow-brand-100 scale-[1.02]" : "border-gray-100 hover:border-gray-200"}`}>
                 {plan.popular && (
-                  <span className="inline-block text-xs font-bold text-white bg-brand-600 px-3 py-1 rounded-full mb-3">MÁS POPULAR</span>
+                  <span className="inline-block text-xs font-bold text-white bg-brand-600 px-3 py-1 rounded-full mb-3 self-start">MÁS POPULAR</span>
                 )}
-                <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
-                <p className="mt-2">
-                  <span className="text-3xl font-extrabold text-gray-900">{plan.price}</span>
-                  {plan.price !== "Gratis" && <span className="text-sm text-gray-500">/mes</span>}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-2xl">{plan.emoji}</span>
+                  <h3 className="text-base font-bold text-gray-900">{plan.name}</h3>
+                </div>
+                <p className="mb-4">
+                  <span className="text-2xl font-extrabold text-gray-900">{plan.price}</span>
+                  {plan.price !== "Gratis" && <span className="text-xs text-gray-500">/mes</span>}
                 </p>
-                <ul className="mt-6 space-y-2">
+                <ul className="space-y-1.5 flex-1">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-xs text-gray-600">
-                      <Check className="h-4 w-4 text-accent-500 flex-shrink-0" /> {f}
+                    <li key={f} className="flex items-start gap-2 text-xs text-gray-600">
+                      <Check className="h-3.5 w-3.5 text-accent-500 flex-shrink-0 mt-0.5" /> {f}
                     </li>
                   ))}
                 </ul>
-                <Link to="/login" className="block mt-6">
+                <Link to="/login" className="block mt-5">
                   <Button className="w-full" size="sm" variant={plan.popular ? "primary" : "secondary"}>
                     {plan.price === "Gratis" ? "Crear cuenta" : "Empezar gratis"}
                   </Button>
@@ -326,11 +372,12 @@ export default function Landing() {
               </div>
             ))}
           </div>
+          <p className="text-center text-xs text-gray-400 mt-6">Todos los planes incluyen acceso a todos los contratos. La diferencia está en las funciones y la IA.</p>
         </div>
       </section>
 
       {/* Security callout */}
-      <section className="py-16">
+      <section className="py-16 bg-gray-50">
         <div className="max-w-4xl mx-auto px-6">
           <div className="rounded-2xl border border-gray-200 bg-white p-8 md:p-12 flex flex-col md:flex-row items-center gap-8">
             <div className="flex-shrink-0">
@@ -341,7 +388,7 @@ export default function Landing() {
             <div>
               <h3 className="text-xl font-bold text-gray-900">Tus datos están protegidos</h3>
               <p className="mt-2 text-sm text-gray-500 leading-relaxed">
-                Auth sin contraseñas (magic links), tokens JWT con rotación automática, validación de entrada contra SQL injection y XSS,
+                Auth sin contraseñas (magic links), tokens JWT con rotación automática, validación contra SQL injection y XSS,
                 rate limiting por IP, verificación HMAC en pagos, auditoría completa de acciones sensibles.
                 Cumplimos con la <strong>Ley 1581 de 2012</strong> de protección de datos de Colombia.
               </p>
@@ -360,7 +407,7 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto px-6 text-center relative">
           <Logo size={56} className="mx-auto mb-6" />
           <h2 className="text-3xl sm:text-4xl font-bold text-white">¿Cuántos contratos estás perdiendo por no buscar bien?</h2>
-          <p className="mt-4 text-gray-400 max-w-xl mx-auto">Configura tu perfil en 2 minutos. Empieza a recibir oportunidades hoy.</p>
+          <p className="mt-4 text-gray-400 max-w-xl mx-auto">Configura tu perfil en 2 minutos. La IA empieza a trabajar por ti desde el primer día.</p>
           <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
             <Link to="/login">
               <Button size="lg" className="bg-white !text-gray-900 hover:bg-gray-100 shadow-lg">

@@ -432,6 +432,27 @@ class AuditLog(Base):
     )
 
 
+class MarketplaceMessage(Base):
+    """Chat messages between users about a private contract listing."""
+    __tablename__ = "marketplace_messages"
+
+    id = Column(Integer, primary_key=True)
+    sender_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    receiver_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    contract_id = Column(Integer, ForeignKey("private_contracts.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    read_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+
+    __table_args__ = (
+        Index("idx_mkt_msg_contract", "contract_id"),
+        Index("idx_mkt_msg_receiver", "receiver_id"),
+    )
+
+
 # =============================================================================
 # ENGINE + SESSION FACTORY
 # =============================================================================
@@ -499,6 +520,7 @@ class UnitOfWork:
         self.referrals = ReferralRepo(self.session)
         self.push_subs = BaseRepository(PushSubscription, self.session)
         self.audit = BaseRepository(AuditLog, self.session)
+        self.mkt_messages = BaseRepository(MarketplaceMessage, self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

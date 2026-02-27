@@ -510,20 +510,28 @@ export default function Settings() {
                 <Trash2 className="h-4 w-4" /> Eliminar cuenta
               </p>
               <p className="text-xs text-red-600 mb-3">
-                Irreversible. Elimina todos tus datos, favoritos, pipeline y suscripción activa.
+                Irreversible. Elimina todos tus datos, favoritos, pipeline y suscripción activa. No se puede deshacer.
               </p>
               <Button
                 variant="secondary"
                 size="sm"
-                className="border-red-200 text-red-600 hover:bg-red-50"
-                onClick={() => {
-                  window.open(
-                    `mailto:soporte@jobper.co?subject=Solicitud%20eliminación%20de%20cuenta&body=Hola%2C%20solicito%20la%20eliminación%20permanente%20de%20mi%20cuenta%20(${encodeURIComponent(user?.email || "")}).%0A%0AEntiendo%20que%20es%20irreversible.`,
-                    "_blank"
+                className="border-red-200 text-red-600 hover:bg-red-100"
+                onClick={async () => {
+                  const confirmed = window.confirm(
+                    `¿Eliminar permanentemente la cuenta de ${user?.email}?\n\nSe borrarán todos tus datos, favoritos, pipeline y suscripción. Esta acción es IRREVERSIBLE.`
                   );
+                  if (!confirmed) return;
+                  const reconfirmed = window.confirm("Última confirmación: ¿seguro que quieres eliminar tu cuenta para siempre?");
+                  if (!reconfirmed) return;
+                  try {
+                    await api.del("/user/account");
+                    window.location.href = "/";
+                  } catch (err) {
+                    toast.error(err.error || "Error eliminando cuenta. Escríbenos a soporte@jobper.co");
+                  }
                 }}
               >
-                Solicitar eliminación
+                <Trash2 className="h-4 w-4" /> Eliminar permanentemente
               </Button>
             </div>
           </div>
