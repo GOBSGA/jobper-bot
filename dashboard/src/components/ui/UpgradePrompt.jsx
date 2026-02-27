@@ -1,66 +1,34 @@
 import { Link } from "react-router-dom";
-import { Lock, Sparkles } from "lucide-react";
+import { Lock, Sparkle } from "@phosphor-icons/react";
 import { PLAN_INFO } from "../../hooks/useGate";
 
-/**
- * UpgradePrompt — Overlay de bloqueo con CTA de upgrade
- * Versión actualizada para los 4 nuevos planes
- */
 export default function UpgradePrompt({ feature, requiredPlan, children, message }) {
-  // Normalizar plan names (compatibilidad con código viejo)
   const normalizedPlan = {
-    alertas: "cazador",
-    starter: "cazador",
-    business: "competidor",
-    enterprise: "dominador",
+    alertas: "cazador", starter: "cazador",
+    business: "competidor", enterprise: "dominador",
   }[requiredPlan] || requiredPlan || "cazador";
 
   const planInfo = PLAN_INFO[normalizedPlan] || PLAN_INFO.cazador;
 
   return (
     <div className="relative">
-      {/* Contenido con opacity reducida y blur */}
-      <div className="opacity-40 pointer-events-none select-none blur-[1px]">
+      <div className="opacity-30 pointer-events-none select-none blur-[2px]">
         {children}
       </div>
-
-      {/* Overlay de upgrade */}
-      <div className="absolute inset-0 flex items-center justify-center bg-white/60 backdrop-blur-[2px] rounded-lg">
-        <div className="text-center px-4 py-3">
-          <div
-            className={`
-              inline-flex items-center justify-center w-10 h-10 rounded-full mb-2
-              ${normalizedPlan === "dominador" ? "bg-amber-100" : ""}
-              ${normalizedPlan === "competidor" ? "bg-purple-100" : ""}
-              ${normalizedPlan === "cazador" ? "bg-blue-100" : "bg-gray-100"}
-            `}
-          >
-            <Lock
-              className={`
-                h-5 w-5
-                ${normalizedPlan === "dominador" ? "text-amber-600" : ""}
-                ${normalizedPlan === "competidor" ? "text-purple-600" : ""}
-                ${normalizedPlan === "cazador" ? "text-blue-600" : "text-gray-400"}
-              `}
-            />
+      <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-white/80 backdrop-blur-[3px]">
+        <div className="text-center px-6">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-2xl bg-surface-hover mb-3">
+            <Lock size={18} className="text-ink-400" weight="light" />
           </div>
-
-          <p className="text-sm font-semibold text-gray-700 mb-1">
+          <p className="text-sm font-semibold text-ink-900 mb-1">
             {message || `Disponible en ${planInfo.emoji} ${planInfo.displayName}`}
           </p>
-          <p className="text-xs text-gray-500 mb-2">{planInfo.priceText}</p>
-
+          <p className="text-xs text-ink-400 mb-3">{planInfo.priceText}</p>
           <Link
             to={`/payments?plan=${normalizedPlan}${feature ? `&feature=${feature}` : ""}`}
-            className={`
-              inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium
-              text-white transition-all duration-200 hover:scale-105
-              ${normalizedPlan === "dominador" ? "bg-amber-500 hover:bg-amber-600" : ""}
-              ${normalizedPlan === "competidor" ? "bg-purple-500 hover:bg-purple-600" : ""}
-              ${normalizedPlan === "cazador" ? "bg-blue-500 hover:bg-blue-600" : "bg-brand-600 hover:bg-brand-700"}
-            `}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium bg-brand-500 text-white hover:bg-brand-600 transition-colors"
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkle size={13} weight="fill" />
             Actualizar plan
           </Link>
         </div>

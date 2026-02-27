@@ -4,23 +4,43 @@ import Logo from "../ui/Logo";
 import UserAvatar from "../ui/UserAvatar";
 import { getPlanColor } from "../../lib/planConfig";
 import {
-  LayoutDashboard, Search, Heart, GitBranch, Store,
-  CreditCard, Settings, Shield, MessageCircle, Users, LogOut, Zap, ClipboardCheck, Activity,
-} from "lucide-react";
+  SquaresFour,
+  MagnifyingGlass,
+  BookmarkSimple,
+  Kanban,
+  Storefront,
+  Users,
+  CreditCard,
+  ChatCircle,
+  GearSix,
+  ShieldCheck,
+  ClipboardText,
+  SignOut,
+  ArrowRight,
+} from "@phosphor-icons/react";
 
 const nav = [
-  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/contracts", icon: Search, label: "Contratos" },
-  { to: "/favorites", icon: Heart, label: "Favoritos" },
-  { to: "/pipeline", icon: GitBranch, label: "Pipeline CRM" },
-  { to: "/marketplace", icon: Store, label: "Marketplace" },
-  { to: "/referrals", icon: Users, label: "Referidos" },
-  { to: "/payments", icon: CreditCard, label: "Plan" },
-  { to: "/support", icon: MessageCircle, label: "Soporte" },
-  { to: "/settings", icon: Settings, label: "Configuracion" },
+  { to: "/dashboard",   icon: SquaresFour,    label: "Dashboard" },
+  { to: "/contracts",   icon: MagnifyingGlass, label: "Contratos" },
+  { to: "/favorites",   icon: BookmarkSimple,  label: "Favoritos" },
+  { to: "/pipeline",    icon: Kanban,          label: "Pipeline CRM" },
+  { to: "/marketplace", icon: Storefront,      label: "Marketplace" },
+  { to: "/referrals",   icon: Users,           label: "Referidos" },
+  { to: "/payments",    icon: CreditCard,      label: "Plan" },
+  { to: "/support",     icon: ChatCircle,      label: "Soporte" },
+  { to: "/settings",    icon: GearSix,         label: "Configuración" },
 ];
 
 const FREE_PLANS = ["free", "trial", "expired"];
+
+const PLAN_LABELS = {
+  free:        "Observador",
+  trial:       "Trial",
+  cazador:     "Cazador",
+  competidor:  "Competidor",
+  estratega:   "Estratega",
+  dominador:   "Dominador",
+};
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
@@ -28,104 +48,100 @@ export default function Sidebar() {
   const showUpgrade = FREE_PLANS.includes(plan);
 
   return (
-    <aside className="hidden lg:flex lg:flex-col lg:w-64 bg-white border-r border-gray-200/80 h-screen sticky top-0">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-100">
-        <Logo size={34} />
-        <span className="text-lg font-bold tracking-tight text-gray-900">Jobper</span>
+    <aside className="hidden lg:flex lg:flex-col lg:w-60 bg-white border-r border-surface-border h-screen sticky top-0">
+      {/* Wordmark */}
+      <div className="flex items-center gap-2.5 px-5 py-5">
+        <Logo size={30} />
+        <span className="text-sm font-bold tracking-tighter text-ink-900">Jobper</span>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-px">
         {nav.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
+              `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors duration-100 ${
                 isActive
-                  ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
-                  : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                  ? "bg-brand-50 text-brand-600"
+                  : "text-ink-600 hover:text-ink-900 hover:bg-surface-hover"
               }`
             }
           >
-            <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
-            {item.label}
+            {({ isActive }) => (
+              <>
+                <item.icon
+                  size={17}
+                  weight={isActive ? "duotone" : "regular"}
+                  className="flex-shrink-0"
+                />
+                {item.label}
+              </>
+            )}
           </NavLink>
         ))}
+
         {user?.is_admin && (
           <>
-            <div className="pt-3 pb-1 px-3">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Admin</p>
+            <div className="pt-4 pb-1 px-3">
+              <p className="text-2xs font-semibold text-ink-400 uppercase tracking-wider">Admin</p>
             </div>
-            <NavLink
-              to="/admin"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`
-              }
-            >
-              <Shield className="h-[18px] w-[18px]" />
-              Dashboard
-            </NavLink>
-            <NavLink
-              to="/admin/payments"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`
-              }
-            >
-              <ClipboardCheck className="h-[18px] w-[18px]" />
-              Revisar Pagos
-            </NavLink>
-            <NavLink
-              to="/admin/users"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  isActive
-                    ? "bg-brand-50 text-brand-700 shadow-sm shadow-brand-100/50"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`
-              }
-            >
-              <Users className="h-[18px] w-[18px]" />
-              Usuarios
-            </NavLink>
+            {[
+              { to: "/admin",          icon: ShieldCheck,   label: "Dashboard" },
+              { to: "/admin/payments", icon: ClipboardText, label: "Revisar Pagos" },
+              { to: "/admin/users",    icon: Users,         label: "Usuarios" },
+            ].map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-brand-50 text-brand-600"
+                      : "text-ink-600 hover:text-ink-900 hover:bg-surface-hover"
+                  }`
+                }
+              >
+                <item.icon size={17} weight="regular" className="flex-shrink-0" />
+                {item.label}
+              </NavLink>
+            ))}
           </>
         )}
       </nav>
 
-      {/* Upgrade CTA */}
+      {/* Upgrade CTA — flat, not gradient */}
       {showUpgrade && (
-        <div className="px-3 pb-2">
+        <div className="px-3 pb-3">
           <Link
             to="/payments"
-            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-brand-600 to-purple-600 text-white rounded-xl text-sm font-medium hover:from-brand-700 hover:to-purple-700 transition shadow-sm"
+            className="flex items-center justify-between px-4 py-3 bg-ink-900 text-white rounded-xl text-xs font-medium hover:bg-ink-600 transition-colors group"
           >
-            <Zap className="h-4 w-4" />
             <span>Desbloquear todo</span>
+            <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
       )}
 
-      {/* User */}
-      <div className="border-t border-gray-100 px-4 py-4">
-        <div className="flex items-center gap-3">
+      {/* User footer */}
+      <div className="border-t border-surface-border px-4 py-4">
+        <div className="flex items-center gap-2.5">
           <UserAvatar email={user?.email} size="md" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 truncate">{user?.company_name || user?.email}</p>
-            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${getPlanColor(plan, "badge")}`}>
-              {plan}
-            </span>
+            <p className="text-xs font-semibold text-ink-900 truncate">
+              {user?.company_name || user?.email}
+            </p>
+            <p className="text-2xs text-ink-400 capitalize mt-px">
+              {PLAN_LABELS[plan] || plan}
+            </p>
           </div>
-          <button onClick={logout} className="p-1.5 rounded-lg hover:bg-gray-100 transition" title="Cerrar sesion">
-            <LogOut className="h-4 w-4 text-gray-400" />
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-lg hover:bg-surface-hover transition-colors"
+            title="Cerrar sesión"
+          >
+            <SignOut size={15} className="text-ink-400" />
           </button>
         </div>
       </div>

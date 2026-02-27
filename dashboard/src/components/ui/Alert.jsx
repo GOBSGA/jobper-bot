@@ -1,14 +1,18 @@
+/**
+ * Alert — minimal, no filled backgrounds that blare.
+ * Left border accent carries the semantic weight quietly.
+ */
 export default function Alert({ variant = "error", children }) {
   const styles = {
-    error: "bg-red-50 border-red-200 text-red-800",
-    success: "bg-green-50 border-green-200 text-green-800",
-    warning: "bg-yellow-50 border-yellow-200 text-yellow-800",
-    info: "bg-blue-50 border-blue-200 text-blue-800",
+    error:   "border-l-2 border-red-400   bg-red-50/60   text-red-800",
+    success: "border-l-2 border-accent-400 bg-accent-50/60 text-accent-800",
+    warning: "border-l-2 border-amber-400 bg-amber-50/60 text-amber-800",
+    info:    "border-l-2 border-brand-400  bg-brand-50/60 text-ink-700",
   };
 
   return (
-    <div className={`rounded-lg border p-4 ${styles[variant]}`}>
-      <p className="text-sm">{children}</p>
+    <div className={`rounded-xl border border-surface-border p-4 ${styles[variant]}`}>
+      <p className="text-sm leading-relaxed">{children}</p>
     </div>
   );
 }

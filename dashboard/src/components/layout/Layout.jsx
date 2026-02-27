@@ -13,14 +13,17 @@ export default function Layout({ children }) {
   const showBanner = isPaid && daysLeft !== null && daysLeft <= 3 && daysLeft > 0;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-surface-bg">
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar />
         {showBanner && (
           <RenewalBanner daysLeft={daysLeft} onRenew={() => setShowRenewal(true)} />
         )}
-        <main className="flex-1 p-4 lg:p-8">{children}</main>
+        {/* Main: generous padding, pale uninterrupted expanse */}
+        <main className="flex-1 px-5 py-6 lg:px-8 lg:py-8 max-w-5xl mx-auto w-full">
+          {children}
+        </main>
       </div>
       {showRenewal && <RenewalModal onClose={() => setShowRenewal(false)} />}
     </div>

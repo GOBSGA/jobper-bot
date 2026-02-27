@@ -1,8 +1,18 @@
 import { clsx } from "clsx";
 
+/**
+ * Immaculate surface — zero shadow, single hairline border.
+ * Content breathes; container recedes into background.
+ */
 export default function Card({ className, children, ...props }) {
   return (
-    <div className={clsx("rounded-xl border border-gray-200 bg-white p-6 shadow-sm", className)} {...props}>
+    <div
+      className={clsx(
+        "rounded-2xl border border-surface-border bg-white",
+        className
+      )}
+      {...props}
+    >
       {children}
     </div>
   );
@@ -10,8 +20,8 @@ export default function Card({ className, children, ...props }) {
 
 export function CardHeader({ title, action, children }) {
   return (
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+    <div className="flex items-center justify-between mb-5">
+      <h3 className="text-sm font-semibold text-ink-900 tracking-snug">{title}</h3>
       {action}
       {children}
     </div>

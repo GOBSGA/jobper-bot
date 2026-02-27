@@ -3,13 +3,18 @@
 @tailwind utilities;
 
 @layer base {
+  /* Pale uninterrupted foundation — maximally low cognitive load */
   body {
-    @apply min-h-screen bg-gray-50 text-gray-900 antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    @apply min-h-screen antialiased;
+    background-color: #F5F6FA;
+    color: #0D0E14;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
   }
 
   ::selection {
-    @apply bg-brand-100 text-brand-900;
+    background-color: #DADDFD;
+    color: #1A2478;
   }
 
   html {
@@ -17,63 +22,73 @@
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand-500;
+    outline: 2px solid #4A58EE;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Scrollbar — very subtle, doesn't interrupt */
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #C9CAD8;
+    border-radius: 99px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #9394A5;
   }
 }
 
 @layer components {
+  /* Serene header gradient — barely perceptible warmth */
   .hero-gradient {
-    background: linear-gradient(135deg, #fdf4f0 0%, #f0fdf6 50%, #fdf4f0 100%);
+    background: linear-gradient(160deg, #F0F1FA 0%, #F7F8FD 50%, #F0F4FA 100%);
   }
 
-  .glass {
-    @apply bg-white/70 backdrop-blur-xl border-b border-gray-200/50;
-  }
-
+  /* No card hover bounce — static, not distracting */
   .card-hover {
-    @apply transition-all duration-200;
+    @apply transition-colors duration-150;
   }
   .card-hover:hover {
-    @apply shadow-md -translate-y-0.5;
+    background-color: #F8F9FB;
   }
 }
 
+/* Slide up — shorter, subtler */
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 .animate-slide-up {
-  animation: slide-up 0.25s ease-out;
+  animation: slide-up 0.2s ease-out both;
 }
 
+/* Marquee (landing) */
 @keyframes marquee {
   from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+  to   { transform: translateX(-50%); }
 }
-
 .animate-marquee {
-  animation: marquee 28s linear infinite;
+  animation: marquee 32s linear infinite;
   will-change: transform;
 }
-
 .animate-marquee:hover {
   animation-play-state: paused;
 }
 
+/* Fade in — gentle */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-
 .animate-fadeIn {
-  animation: fadeIn 0.4s ease-out;
+  animation: fadeIn 0.35s ease-out both;
 }
 
-.delay-100 {
-  animation-delay: 100ms;
-}
-
-.delay-200 {
-  animation-delay: 200ms;
-}
+.delay-100 { animation-delay: 80ms; }
+.delay-200 { animation-delay: 160ms; }
