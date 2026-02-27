@@ -113,6 +113,7 @@ def create_app() -> Flask:
         raise RuntimeError("Configuration validation failed. Check logs for details.")
 
     app = Flask(__name__)
+    app.url_map.strict_slashes = False  # Accept /foo and /foo/ interchangeably
     app.config["SECRET_KEY"] = Config.JWT_SECRET
     logger.info("create_app: Flask app created")
 
@@ -384,7 +385,24 @@ def _ensure_missing_columns():
             "CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)",
             "CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_id)",
             "CREATE INDEX IF NOT EXISTS idx_ref_referred ON referrals(referred_id)",
+            "CREATE INDEX IF NOT EXISTS idx_pipe_user_stage ON pipeline_entries(user_id, stage)",
         ]
+        # Safety net: create pipeline_entries table if Base.metadata.create_all missed it
+        create_pipeline_table = """
+        CREATE TABLE IF NOT EXISTS pipeline_entries (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            contract_id INTEGER REFERENCES contracts(id) ON DELETE SET NULL,
+            private_contract_id INTEGER REFERENCES private_contracts(id) ON DELETE SET NULL,
+            stage VARCHAR(20) DEFAULT 'lead',
+            notes JSON DEFAULT '[]',
+            follow_up_date TIMESTAMP,
+            value FLOAT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+        ddl_statements = [create_pipeline_table] + ddl_statements
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.
         for stmt in ddl_statements:
