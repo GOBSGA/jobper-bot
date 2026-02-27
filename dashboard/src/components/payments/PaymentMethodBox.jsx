@@ -1,17 +1,10 @@
-import { Copy } from "lucide-react";
+import { Copy } from "@phosphor-icons/react";
 
 /**
  * Reusable payment method box
- * @param {string} color - Color theme (green, purple, yellow)
- * @param {string} title - Payment method title
- * @param {string} subtitle - Optional subtitle/type
- * @param {string} value - Account number/handle to display
- * @param {string} footer - Optional footer text
- * @param {boolean} recommended - Show recommended badge
- * @param {function} onCopy - Callback when copy button clicked
  */
 export default function PaymentMethodBox({
-  color = "green",
+  color = "brand",
   title,
   subtitle,
   value,
@@ -20,50 +13,50 @@ export default function PaymentMethodBox({
   onCopy,
 }) {
   const colorClasses = {
-    green: {
-      bg: "bg-green-50",
-      border: "border-green-400",
-      borderLight: "border-green-200",
-      text: "text-green-700",
-      textDark: "text-green-900",
-      textLight: "text-green-700",
-      badge: "bg-green-200 text-green-800",
-      hoverBg: "hover:bg-green-100",
+    brand: {
+      bg: "bg-brand-50",
+      border: "border-brand-300",
+      borderLight: "border-brand-200",
+      text: "text-brand-600",
+      textDark: "text-brand-900",
+      textLight: "text-brand-600",
+      badge: "bg-brand-100 text-brand-700",
+      hoverBg: "hover:bg-brand-100",
     },
-    purple: {
-      bg: "bg-purple-50",
-      border: "border-purple-200",
-      borderLight: "border-purple-200",
-      text: "text-purple-600",
-      textDark: "text-purple-800",
-      textLight: "text-purple-700",
-      badge: "bg-purple-200 text-purple-800",
-      hoverBg: "hover:bg-purple-100",
+    accent: {
+      bg: "bg-accent-50",
+      border: "border-accent-300",
+      borderLight: "border-accent-200",
+      text: "text-accent-700",
+      textDark: "text-accent-900",
+      textLight: "text-accent-700",
+      badge: "bg-accent-100 text-accent-700",
+      hoverBg: "hover:bg-accent-100",
     },
-    yellow: {
-      bg: "bg-yellow-50",
-      border: "border-yellow-200",
-      borderLight: "border-yellow-200",
-      text: "text-yellow-600",
-      textDark: "text-yellow-800",
-      textLight: "text-yellow-700",
-      badge: "bg-yellow-200 text-yellow-800",
-      hoverBg: "hover:bg-yellow-100",
+    amber: {
+      bg: "bg-amber-50",
+      border: "border-amber-300",
+      borderLight: "border-amber-200",
+      text: "text-amber-700",
+      textDark: "text-amber-900",
+      textLight: "text-amber-700",
+      badge: "bg-amber-100 text-amber-700",
+      hoverBg: "hover:bg-amber-100",
     },
   };
 
-  const c = colorClasses[color];
+  const c = colorClasses[color] || colorClasses.brand;
 
   return (
     <div
-      className={`${c.bg} ${recommended ? `border-2 ${c.border}` : `border ${c.borderLight}`} rounded-lg p-4`}
+      className={`${c.bg} ${recommended ? `border-2 ${c.border}` : `border ${c.borderLight}`} rounded-2xl p-4`}
     >
       <div className="flex items-center justify-between">
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <span className={`text-xs font-bold ${c.text} uppercase tracking-wide`}>{title}</span>
             {recommended && (
-              <span className={`${c.badge} text-xs px-2 py-0.5 rounded-full font-medium`}>
+              <span className={`${c.badge} text-2xs px-2 py-0.5 rounded-full font-semibold`}>
                 Recomendado
               </span>
             )}
@@ -74,10 +67,10 @@ export default function PaymentMethodBox({
         </div>
         <button
           onClick={() => onCopy(value)}
-          className={`p-2 ${c.hoverBg} rounded-lg transition flex-shrink-0`}
+          className={`p-2 ${c.hoverBg} rounded-xl transition flex-shrink-0 ml-3`}
           title="Copiar"
         >
-          <Copy className={`h-4 w-4 ${c.text}`} />
+          <Copy size={15} className={c.text} />
         </button>
       </div>
     </div>

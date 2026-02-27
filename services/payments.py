@@ -191,6 +191,12 @@ def create_checkout(user_id: int, plan: str) -> dict:
     reference = generate_payment_reference(user_id, plan, amount)
 
     with UnitOfWork() as uow:
+        # Cancel any existing pending payments for this user (keep admin panel clean)
+        uow.session.query(Payment).filter(
+            Payment.user_id == user_id,
+            Payment.status == "pending",
+        ).update({"status": "cancelled"}, synchronize_session=False)
+
         # Create pending payment
         payment = Payment(
             user_id=user_id,
@@ -347,10 +353,9 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                         "requires_manual_review": True,
                     }
 
-            # Comprobante looks plausible (72-95% confidence) — grant 12h grace access
+            # Comprobante looks plausible (72-95% confidence) — grant 24h grace access
             # Admin must confirm before grace expires; if not, access is revoked.
-            # SECURITY: Reduced from 24h to 12h to limit fraud exposure
-            grace_until = now + timedelta(hours=12)
+            grace_until = now + timedelta(hours=24)
             with UnitOfWork() as uow:
                 payment = uow.payments.get(payment_id)
                 if payment:
@@ -422,7 +427,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
                 "plan": plan,
                 "grace_until": grace_until.isoformat(),
                 "message": (
-                    "Tu pago está siendo verificado. Tienes acceso al plan durante 12 horas "
+                    "Tu pago está siendo verificado. Tienes acceso al plan durante 24 horas "
                     "mientras confirmamos el pago. Te avisaremos por email."
                 ),
             }
