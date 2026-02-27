@@ -266,7 +266,7 @@ export default function ContractSearch() {
                 </div>
               )}
 
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {matched.contracts.map((c) => (
                   <ContractCard key={c.id} c={c} showScore />
                 ))}
@@ -293,7 +293,7 @@ export default function ContractSearch() {
               description="Intenta con otras palabras clave."
             />
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {results.contracts.map((c) => (
                 <ContractCard key={c.id} c={c} />
               ))}
@@ -329,6 +329,11 @@ export default function ContractSearch() {
   );
 }
 
+// Strip HTML tags from SECOP descriptions
+function stripHtml(str) {
+  return str?.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() || "";
+}
+
 // =============================================================================
 // CONTRACT CARD — Con FOMO para usuarios Free
 // =============================================================================
@@ -338,6 +343,8 @@ function ContractCard({ c, showScore }) {
   const amountGate = useGate("show_amount");
   const navigate = useNavigate();
 
+  const cleanDesc = stripHtml(c.description);
+
   const handleLockedClick = (e, feature, plan) => {
     e.preventDefault();
     e.stopPropagation();
@@ -346,86 +353,52 @@ function ContractCard({ c, showScore }) {
 
   return (
     <Link to={`/contracts/${c.id}`}>
-      <Card className="hover:shadow-md transition cursor-pointer group">
+      <Card className="hover:shadow-md transition cursor-pointer group p-4 sm:p-5">
+        {/* Top row: title + score pill + amount */}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            {/* Title + Score */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold text-ink-900 truncate max-w-md">
+            <div className="flex items-start gap-2 flex-wrap">
+              <h3 className="text-base font-semibold text-ink-900 leading-snug">
                 {c.title}
               </h3>
               {showScore && c.match_score >= 50 && (
-                <>
-                  {scoreGate.allowed ? (
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 ${
-                        c.match_score >= 90
-                          ? "bg-accent-50 text-accent-700"
-                          : c.match_score >= 80
-                          ? "bg-brand-50 text-brand-600"
-                          : c.match_score >= 70
-                          ? "bg-amber-50 text-amber-700"
-                          : "bg-surface-hover text-ink-600"
-                      }`}
-                    >
-                      {c.match_score}% match
-                    </span>
-                  ) : (
-                    <button
-                      onClick={(e) => handleLockedClick(e, "match_scores", "cazador")}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-600 hover:bg-brand-100 transition flex-shrink-0 border border-brand-200"
-                      title="Desbloquea para ver tu % de compatibilidad"
-                    >
-                      <Lock size={11} />
-                      <span className="animate-pulse">??%</span>
-                      <Sparkle size={11} />
-                    </button>
-                  )}
-                </>
+                scoreGate.allowed ? (
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold flex-shrink-0 mt-0.5 ${
+                      c.match_score >= 90
+                        ? "bg-accent-50 text-accent-700"
+                        : c.match_score >= 80
+                        ? "bg-brand-50 text-brand-600"
+                        : c.match_score >= 70
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-surface-hover text-ink-600"
+                    }`}
+                  >
+                    {c.match_score}% match
+                  </span>
+                ) : (
+                  <button
+                    onClick={(e) => handleLockedClick(e, "match_scores", "cazador")}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-brand-50 text-brand-600 hover:bg-brand-100 transition flex-shrink-0 border border-brand-200 mt-0.5"
+                    title="Desbloquea para ver tu % de compatibilidad"
+                  >
+                    <Lock size={10} />
+                    <span className="animate-pulse">??%</span>
+                    <Sparkle size={10} />
+                  </button>
+                )
               )}
             </div>
 
-            {/* Entity + Source */}
-            <p className="text-xs text-ink-400 mt-1">
-              {c.entity} · {c.source}
-            </p>
-
-            {/* Description with FOMO */}
-            {c.description && (
-              <div className="mt-2">
-                {descGate.allowed ? (
-                  <p className="text-sm text-ink-600 line-clamp-2">{c.description}</p>
-                ) : (
-                  <div className="relative">
-                    <p className="text-sm text-ink-600 line-clamp-2">
-                      {truncate(c.description, 120)}
-                    </p>
-                    {c.description.length > 120 && (
-                      <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent" />
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* FOMO message for truncated description */}
-            {c.description && !descGate.allowed && c.description.length > 120 && (
-              <button
-                onClick={(e) => handleLockedClick(e, "full_description", "cazador")}
-                className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 mt-1 font-medium"
-              >
-                <Lock size={11} />
-                Ver descripción completa
-              </button>
-            )}
+            {/* Entity */}
+            <p className="text-xs text-ink-400 mt-1 truncate">{c.entity}</p>
           </div>
 
-          {/* Right side: Amount, Badge, Deadline */}
-          <div className="text-right flex-shrink-0 space-y-1">
-            {/* Amount with FOMO */}
+          {/* Amount (top-right) */}
+          <div className="text-right flex-shrink-0">
             {c.amount ? (
               amountGate.allowed ? (
-                <p className="text-sm font-bold text-ink-900">{money(c.amount)}</p>
+                <p className="text-sm font-bold text-ink-900 whitespace-nowrap">{money(c.amount)}</p>
               ) : (
                 <button
                   onClick={(e) => handleLockedClick(e, "show_amount", "cazador")}
@@ -437,25 +410,52 @@ function ContractCard({ c, showScore }) {
                 </button>
               )
             ) : null}
-
-            <Badge color={c.source?.includes("SECOP") ? "blue" : "purple"}>{c.source}</Badge>
-
-            {c.deadline && (
-              <p className="text-xs text-ink-400">{relative(c.deadline)}</p>
-            )}
           </div>
         </div>
 
-        {/* Hover hint for Free users */}
-        {(!scoreGate.allowed || !descGate.allowed || !amountGate.allowed) && (
-          <div className="mt-3 pt-3 border-t border-surface-border opacity-0 group-hover:opacity-100 transition-opacity">
-            <p className="text-xs text-ink-400 flex items-center gap-1">
-              <Sparkle size={12} className="text-brand-500" />
-              Activa <span className="font-semibold text-brand-600">Cazador</span> para ver
-              todos los detalles
-            </p>
+        {/* Description */}
+        {cleanDesc && (
+          <div className="mt-3">
+            {descGate.allowed ? (
+              <p className="text-sm text-ink-600 line-clamp-2 leading-relaxed">{cleanDesc}</p>
+            ) : (
+              <div className="relative">
+                <p className="text-sm text-ink-600 line-clamp-2 leading-relaxed">
+                  {truncate(cleanDesc, 140)}
+                </p>
+                {cleanDesc.length > 140 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white to-transparent" />
+                )}
+              </div>
+            )}
           </div>
         )}
+
+        {/* Footer row: source badge + deadline + locked hint */}
+        <div className="mt-3 pt-3 border-t border-surface-border flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Badge color={c.source?.includes("SECOP") ? "blue" : "purple"}>{c.source}</Badge>
+            {c.deadline && (
+              <span className="text-xs text-ink-400">{relative(c.deadline)}</span>
+            )}
+          </div>
+
+          {/* Locked hint OR unlock CTA */}
+          {c.description && !descGate.allowed && cleanDesc.length > 140 ? (
+            <button
+              onClick={(e) => handleLockedClick(e, "full_description", "cazador")}
+              className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700 font-medium whitespace-nowrap"
+            >
+              <Lock size={10} />
+              Ver completo
+            </button>
+          ) : (!scoreGate.allowed || !amountGate.allowed) ? (
+            <span className="text-xs text-ink-400 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Sparkle size={11} className="text-brand-500" />
+              <span>Desbloquea con <span className="font-semibold text-brand-600">Cazador</span></span>
+            </span>
+          ) : null}
+        </div>
       </Card>
     </Link>
   );
