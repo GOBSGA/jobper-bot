@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
 import Navbar from "./Navbar";
+import BottomNav from "./BottomNav";
 import { useAuth } from "../../context/AuthContext";
 import RenewalModal, { RenewalBanner } from "../ui/RenewalModal";
 
@@ -20,11 +21,12 @@ export default function Layout({ children }) {
         {showBanner && (
           <RenewalBanner daysLeft={daysLeft} onRenew={() => setShowRenewal(true)} />
         )}
-        {/* Main: generous padding, pale uninterrupted expanse */}
-        <main className="flex-1 px-5 py-6 lg:px-8 lg:py-8 max-w-5xl mx-auto w-full">
+        {/* Main: generous padding, bottom padding on mobile for BottomNav */}
+        <main className="flex-1 px-5 py-6 pb-24 lg:px-8 lg:py-8 lg:pb-8 max-w-5xl mx-auto w-full">
           {children}
         </main>
       </div>
+      <BottomNav />
       {showRenewal && <RenewalModal onClose={() => setShowRenewal(false)} />}
     </div>
   );

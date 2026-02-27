@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useApi } from "../../hooks/useApi";
-import { List, X, Bell, SignOut, ArrowRight } from "@phosphor-icons/react";
+import { X, Bell, ArrowRight } from "@phosphor-icons/react";
 import { date, money } from "../../lib/format";
 import Logo from "../ui/Logo";
 
@@ -52,75 +51,26 @@ function NotificationPanel({ onClose }) {
   );
 }
 
-// Nav items for mobile
-const MOBILE_NAV = [
-  ["/dashboard",   "Dashboard"],
-  ["/contracts",   "Contratos"],
-  ["/favorites",   "Favoritos"],
-  ["/pipeline",    "Pipeline CRM"],
-  ["/marketplace", "Marketplace"],
-  ["/referrals",   "Referidos"],
-  ["/payments",    "Plan"],
-  ["/support",     "Soporte"],
-  ["/settings",    "Configuración"],
-];
-
 export default function Navbar() {
-  const [open, setOpen] = useState(false);
   const [showNotifs, setShowNotifs] = useState(false);
-  const { user, logout } = useAuth();
 
   return (
     <header className="lg:hidden sticky top-0 z-30 bg-white border-b border-surface-border">
       <div className="flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={() => setOpen(!open)}
-            className="p-1.5 rounded-xl text-ink-600 hover:bg-surface-hover transition-colors"
-          >
-            {open ? <X size={20} /> : <List size={20} />}
-          </button>
-          <div className="flex items-center gap-2">
-            <Logo size={26} />
-            <span className="text-sm font-bold text-ink-900 tracking-tighter">Jobper</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <Logo size={26} />
+          <span className="text-sm font-bold text-ink-900 tracking-tighter">Jobper</span>
         </div>
-        <div className="flex items-center gap-1">
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifs((v) => !v)}
-              className="p-2 rounded-xl text-ink-500 hover:bg-surface-hover transition-colors"
-            >
-              <Bell size={18} weight="regular" />
-            </button>
-            {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}
-          </div>
-          <button onClick={logout} className="p-2 rounded-xl text-ink-500 hover:bg-surface-hover transition-colors">
-            <SignOut size={18} />
+        <div className="relative">
+          <button
+            onClick={() => setShowNotifs((v) => !v)}
+            className="p-2 rounded-xl text-ink-500 hover:bg-surface-hover transition-colors"
+          >
+            <Bell size={18} weight="regular" />
           </button>
+          {showNotifs && <NotificationPanel onClose={() => setShowNotifs(false)} />}
         </div>
       </div>
-
-      {open && (
-        <nav className="border-t border-surface-border px-3 py-3 grid grid-cols-2 gap-1">
-          {MOBILE_NAV.map(([to, label]) => (
-            <NavLink
-              key={to}
-              to={to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `block px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-brand-50 text-brand-600 font-semibold"
-                    : "text-ink-600 hover:bg-surface-hover hover:text-ink-900"
-                }`
-              }
-            >
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      )}
     </header>
   );
 }

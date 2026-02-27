@@ -138,7 +138,7 @@ export default function Dashboard() {
           value={pipelineStats?.total_entries ?? "—"}
         />
         <KpiCard
-          icon={TrendingUp}
+          icon={TrendUp}
           iconBg="bg-accent-50"
           iconColor="text-accent-600"
           label="Ganados"

@@ -1087,6 +1087,36 @@ def get_trust_info():
     return jsonify(result)
 
 
+@payments_bp.get("/wompi/link")
+@require_auth
+@rate_limit(10)
+def wompi_checkout_link():
+    """Return a Wompi-hosted checkout URL for automatic plan activation."""
+    plan = request.args.get("plan", "")
+    if not plan:
+        return jsonify({"error": "Plan requerido"}), 400
+    from services.wompi import build_checkout_url
+    result = build_checkout_url(g.user_id, plan)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@payments_bp.post("/wompi/webhook")
+def wompi_webhook():
+    """
+    Wompi fires this on every transaction status change.
+    No auth required — Wompi signs the payload with WOMPI_EVENTS_SECRET.
+    Auto-activates plan on APPROVED transactions.
+    """
+    payload = request.get_json(silent=True) or {}
+    from services.wompi import process_webhook
+    result = process_webhook(payload)
+    if result.get("status") == 401:
+        return jsonify(result), 401
+    return jsonify(result), 200
+
+
 @payments_bp.post("/one-click-renewal")
 @require_auth
 @rate_limit(5)
