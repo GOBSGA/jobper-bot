@@ -5,7 +5,7 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
 import { money, date, relative } from "../../lib/format";
-import { Search, Heart, GitBranch, TrendingUp, Bell, Zap, Star, ChevronRight } from "lucide-react";
+import { Search, Heart, GitBranch, TrendingUp, Bell, Zap, Star, ChevronRight, Sparkles, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Dashboard() {
@@ -14,7 +14,9 @@ export default function Dashboard() {
   const { data: matched, loading: matchedLoading } = useApi("/contracts/matched?limit=10&min_score=30");
   const { data: marketStats } = useApi("/contracts/market-stats");
   const isBusiness = ["competidor", "dominador", "business", "enterprise"].includes(user?.plan);
+  const isPaid = user?.plan && user.plan !== "free" && user.plan !== "trial";
   const { data: pipelineStats } = useApi(isBusiness ? "/pipeline/stats" : null);
+  const { data: recs, loading: recsLoading } = useApi(isPaid ? "/contracts/recommendations" : null);
 
   const trialDays = user?.trial_ends_at
     ? Math.max(0, Math.ceil((new Date(user.trial_ends_at) - Date.now()) / 86400000))
@@ -175,6 +177,86 @@ export default function Dashboard() {
           </div>
         )}
       </Card>
+
+      {/* AI Recommendations — paid users only */}
+      {isPaid && (
+        <Card>
+          <CardHeader
+            title={
+              <span className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                Tus mejores oportunidades hoy
+              </span>
+            }
+            action={
+              recs?.ai && (
+                <span className="text-xs text-purple-500 font-medium flex items-center gap-1">
+                  <Sparkles className="h-3 w-3" /> IA · actualiza cada 24h
+                </span>
+              )
+            }
+          />
+          {recsLoading ? (
+            <div className="flex justify-center py-6"><Spinner /></div>
+          ) : recs?.contracts?.length > 0 ? (
+            <div className="space-y-3">
+              {recs.summary && (
+                <p className="text-sm text-gray-500 pb-1 border-b border-gray-100">{recs.summary}</p>
+              )}
+              {recs.contracts.map((c, i) => (
+                <Link to={`/contracts/${c.id}`} key={c.id} className="flex items-start gap-3 p-3 rounded-xl hover:bg-gray-50 transition -mx-2 px-2">
+                  <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                    i === 0 ? "bg-yellow-100 text-yellow-700" :
+                    i === 1 ? "bg-gray-100 text-gray-600" :
+                    "bg-orange-50 text-orange-500"
+                  }`}>
+                    {i === 0 ? <Trophy className="h-4 w-4" /> : i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-medium text-gray-900 truncate">{c.title}</p>
+                      {c.match_score > 0 && (
+                        <span className="text-xs font-semibold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-full">
+                          {c.match_score}%
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{c.source} · {c.entity}</p>
+                    {c.ai_reason && (
+                      <p className="text-xs text-purple-700 mt-1 italic">{c.ai_reason}</p>
+                    )}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    {c.amount > 0 && <p className="text-sm font-semibold text-gray-900">{money(c.amount)}</p>}
+                    {c.deadline && (
+                      <Badge color={new Date(c.deadline) < Date.now() ? "red" : "blue"}>
+                        {relative(c.deadline)}
+                      </Badge>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-500">
+                {recs?.summary || "Agrega palabras clave a tu perfil para ver recomendaciones IA."}
+              </p>
+              <Link to="/settings" className="inline-flex items-center gap-1 mt-2 text-sm text-brand-600 hover:underline">
+                Configurar perfil <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
+          {!isPaid && (
+            <div className="py-6 text-center">
+              <p className="text-sm text-gray-500">Actualiza tu plan para ver las mejores oportunidades analizadas con IA.</p>
+              <Link to="/payments" className="inline-flex items-center gap-1 mt-2 text-sm text-brand-600 hover:underline">
+                Ver planes <ChevronRight className="h-3 w-3" />
+              </Link>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Referral banner */}
       <Card className="bg-gradient-to-r from-brand-50 to-purple-50 border-brand-200">

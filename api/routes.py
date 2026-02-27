@@ -223,6 +223,20 @@ def contract_detail(contract_id: int):
     return jsonify(result)
 
 
+@contracts_bp.get("/recommendations")
+@require_auth
+@require_plan("cazador")
+@rate_limit(10)
+def ai_recommendations():
+    """Top AI-ranked contracts for the authenticated user. Cached 24h."""
+    from services.recommendations import get_recommendations
+
+    result = get_recommendations(g.user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 @contracts_bp.get("/<int:contract_id>/analysis")
 @require_auth
 @require_plan("business")
