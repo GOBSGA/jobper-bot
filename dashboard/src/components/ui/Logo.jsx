@@ -1,6 +1,7 @@
 /**
- * Jobper logomark — clean geometric "J" lettermark.
- * Replaces the smiley face with a precise, premium badge.
+ * Jobper logomark — B&W smiley with personality.
+ * Horizontal pill eyes (happy-squinting) give it warmth and distinctiveness.
+ * Near-black warm background, not cold #000.
  */
 export default function Logo({ size = 32, className = "" }) {
   return (
@@ -12,19 +13,21 @@ export default function Logo({ size = 32, className = "" }) {
       className={className}
       aria-label="Jobper"
     >
-      {/* Rounded square base */}
-      <rect width="40" height="40" rx="10" fill="#4A58EE" />
-      {/* J lettermark — vertical + tail */}
-      <line x1="22" y1="9" x2="22" y2="27" stroke="white" strokeWidth="4" strokeLinecap="round" />
+      {/* Warm near-black rounded square */}
+      <rect width="40" height="40" rx="11" fill="#111117" />
+
+      {/* Eyes: horizontal pills — happy squinting, NOT generic circles */}
+      <rect x="10" y="14" width="8" height="5" rx="2.5" fill="white" />
+      <rect x="22" y="14" width="8" height="5" rx="2.5" fill="white" />
+
+      {/* Smile: open confident arc */}
       <path
-        d="M22 27 Q22 33 16 33 Q13 33 12 31"
+        d="M11 24 Q20 33 29 24"
         stroke="white"
-        strokeWidth="4"
+        strokeWidth="3"
         strokeLinecap="round"
         fill="none"
       />
-      {/* Serif cap — top bar */}
-      <line x1="18" y1="9" x2="26" y2="9" stroke="white" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }

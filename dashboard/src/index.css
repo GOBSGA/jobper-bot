@@ -92,3 +92,35 @@
 
 .delay-100 { animation-delay: 80ms; }
 .delay-200 { animation-delay: 160ms; }
+
+/* ── Creative utilities ───────────────────────────────────────── */
+
+/* Section label above nav groups */
+.nav-section-label {
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9394A5;
+  padding: 0 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Left indicator bar pulse on first render */
+@keyframes indicator-in {
+  from { transform: translateY(-50%) scaleY(0); }
+  to   { transform: translateY(-50%) scaleY(1); }
+}
+.nav-indicator {
+  animation: indicator-in 0.15s ease-out;
+  transform-origin: center;
+}
+
+/* Match score shimmer for high scores */
+@keyframes score-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.8; }
+}
+.score-high {
+  animation: score-pulse 2s ease-in-out infinite;
+}
