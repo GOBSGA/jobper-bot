@@ -61,6 +61,7 @@ def login():
 
 @auth_bp.post("/verify")
 @rate_limit(10)
+@audit("login")
 @validate(VerifySchema)
 def verify():
     from services.auth import verify_magic_link
@@ -69,6 +70,8 @@ def verify():
     if "error" in result:
         # Use 400, not 401 — api.js would intercept 401 and show "Sesión expirada"
         return jsonify(result), 400
+    if "user" in result:
+        g.user_id = result["user"]["id"]  # captured by @audit after this returns
     return jsonify(result)
 
 
@@ -122,6 +125,7 @@ def register():
 
 @auth_bp.post("/login-password")
 @rate_limit(10)
+@audit("login")
 @validate(LoginPasswordSchema)
 def login_password():
     """Login with email + password."""
@@ -137,6 +141,8 @@ def login_password():
             # 401 = unauthenticated (for protected routes). 400 = bad credentials.
             return jsonify(result), 400
         logger.info("Login success")
+        if "user" in result:
+            g.user_id = result["user"]["id"]  # captured by @audit after this returns
         return jsonify(result)
     except Exception as e:
         logger.error(f"Login exception: {e}", exc_info=True)

@@ -445,9 +445,8 @@ def admin_extend_trial(user_id: int, days: int = 7) -> dict:
 
 
 def admin_send_magic_link(user_id: int) -> dict:
-    """Send a magic link (password reset / login link) to user's email."""
-    from services.auth import create_magic_link
-    from services.notifications import send_magic_link_email
+    """Send a magic link (login link) to user's email."""
+    from services.auth import send_magic_link
 
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
@@ -456,8 +455,9 @@ def admin_send_magic_link(user_id: int) -> dict:
         email = user.email
 
     try:
-        token = create_magic_link(email)
-        send_magic_link_email(email, token)
+        result = send_magic_link(email)
+        if result.get("error"):
+            return result
         logger.info(f"Admin sent magic link to {email} (user_id={user_id})")
         return {"ok": True, "email": email}
     except Exception as exc:

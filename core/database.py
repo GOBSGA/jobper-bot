@@ -80,6 +80,7 @@ class User(Base):
 
     # Notifications
     notifications_enabled = Column(Boolean, default=True)
+    daily_digest_enabled = Column(Boolean, default=True)
 
     # Referrals
     referral_code = Column(String(20), unique=True, nullable=True, index=True)

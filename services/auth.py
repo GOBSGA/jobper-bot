@@ -461,6 +461,8 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
             user.whatsapp_enabled = data["whatsapp_enabled"]
         if "telegram_chat_id" in data:
             user.telegram_chat_id = data["telegram_chat_id"] or None
+        if "daily_digest_enabled" in data:
+            user.daily_digest_enabled = data["daily_digest_enabled"]
 
         uow.commit()
         return _user_to_public(user)
