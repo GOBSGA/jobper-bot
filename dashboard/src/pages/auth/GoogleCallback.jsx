@@ -6,11 +6,11 @@ import Spinner from "../../components/ui/Spinner";
 /**
  * Landing page after Google OAuth redirect.
  * URL: /auth/google/callback?token=xxx&refresh=yyy&new=0|1
- * Stores tokens via AuthContext.login(), then redirects.
+ * Stores tokens via AuthContext.login(), then fetches user profile and redirects.
  */
 export default function GoogleCallback() {
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { login, refresh } = useAuth();
   const navigate = useNavigate();
   const ran = useRef(false);
 
@@ -19,16 +19,17 @@ export default function GoogleCallback() {
     ran.current = true;
 
     const token = searchParams.get("token");
-    const refresh = searchParams.get("refresh");
+    const refreshToken = searchParams.get("refresh");
     const isNew = searchParams.get("new") === "1";
     const error = searchParams.get("error");
 
-    if (error || !token || !refresh) {
+    if (error || !token || !refreshToken) {
       navigate("/login?error=google_failed", { replace: true });
       return;
     }
 
-    login({ access_token: token, refresh_token: refresh })
+    login({ access_token: token, refresh_token: refreshToken })
+      .then(() => refresh())  // load user data into state (login() alone doesn't set user for OAuth)
       .then(() => {
         navigate(isNew ? "/onboarding" : "/contracts", { replace: true });
       })
