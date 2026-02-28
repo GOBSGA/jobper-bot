@@ -56,8 +56,8 @@ export default function Admin() {
     setTriggeringScraper(sourceKey);
     try {
       const res = await api.post(`/admin/scrapers/${sourceKey}/trigger`);
-      toast.success(`${sourceKey}: ${res.new} nuevos de ${res.fetched} encontrados`);
-      reload();
+      toast.success(res.message || `${sourceKey}: ingesta iniciada en segundo plano`);
+      setTimeout(reload, 5000); // reload after 5s to show updated counts
     } catch (err) {
       toast.error(err.error || `Error al ejecutar ${sourceKey}`);
     } finally {

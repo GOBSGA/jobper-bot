@@ -1388,31 +1388,37 @@ def admin_activity():
     return jsonify(get_activity_feed(page, min(per_page, 100)))
 
 
+_SECOP_DATASET_KEYS = {"procesos", "adjudicados", "secop1", "ejecucion", "tvec"}
+_PRIVATE_SOURCE_KEYS = {"ecopetrol", "epm", "worldbank", "idb", "ungm"}
+
+
 @admin_bp.post("/scrapers/<string:source_key>/trigger")
 @require_auth
 @require_admin
 @audit("admin_trigger_scraper")
 def admin_trigger_scraper(source_key: str):
-    """Trigger a single scraper manually — uses ingestion pipeline for proper dedup."""
-    try:
-        from aggregator.source_registry import SOURCE_REGISTRY
+    """Trigger a single scraper manually — runs in background thread."""
+    from services.ingestion import ingest_private_source, ingest_secop, run_ingestion_async
 
-        if source_key not in SOURCE_REGISTRY:
-            return jsonify({"error": f"Scraper '{source_key}' no encontrado"}), 404
+    if source_key not in _SECOP_DATASET_KEYS and source_key not in _PRIVATE_SOURCE_KEYS:
+        # Unknown key: fall back to a full ingest in the background
+        logger.warning(f"Unknown source_key '{source_key}', falling back to full ingest")
+        run_ingestion_async(days_back=7)
+        return jsonify({"ok": True, "source": source_key, "message": "Ingesta iniciada en segundo plano"})
 
-        scraper_class = SOURCE_REGISTRY[source_key]
-        scraper = scraper_class()
-        contracts = scraper.fetch_contracts()
+    import threading
 
-        # Use the ingestion pipeline for proper dedup and persistence
-        from services.ingestion import _persist_contracts
+    def _run():
+        try:
+            if source_key in _SECOP_DATASET_KEYS:
+                ingest_secop(days_back=30, dataset_key=source_key)
+            else:
+                ingest_private_source(source_key, days_back=30)
+        except Exception as e:
+            logger.error(f"Background scraper {source_key} failed: {e}", exc_info=True)
 
-        stats = _persist_contracts(contracts, source_key)
-
-        return jsonify({"ok": True, "source": source_key, "fetched": len(contracts), **stats})
-    except Exception as e:
-        logger.error(f"Admin trigger scraper {source_key} failed: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+    threading.Thread(target=_run, daemon=True, name=f"scraper-{source_key}").start()
+    return jsonify({"ok": True, "source": source_key, "new": 0, "message": "Ingesta iniciada en segundo plano"})
 
 
 @admin_bp.post("/ingest")
@@ -1420,12 +1426,12 @@ def admin_trigger_scraper(source_key: str):
 @require_admin
 @audit("admin_ingest")
 def admin_ingest():
-    """Trigger manual contract ingestion."""
+    """Trigger manual contract ingestion (non-blocking background thread)."""
     days_back = request.json.get("days_back", 7) if request.is_json else 7
-    from services.ingestion import ingest_all
+    from services.ingestion import run_ingestion_async
 
-    result = ingest_all(days_back=min(days_back, 90))
-    return jsonify(result)
+    run_ingestion_async(days_back=min(days_back, 90))
+    return jsonify({"ok": True, "message": f"Ingesta iniciada: revisando últimos {min(days_back, 90)} días. Los contratos aparecerán en 2-5 minutos."})
 
 
 @admin_bp.post("/activate-subscription")
