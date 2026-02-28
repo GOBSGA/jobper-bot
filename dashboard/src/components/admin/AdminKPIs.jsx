@@ -1,16 +1,16 @@
 import KpiCard from "./KpiCard";
 import { money } from "../../lib/format";
 import {
-  DollarSign,
-  TrendingUp,
+  CurrencyDollar,
+  TrendUp,
   CreditCard,
-  AlertTriangle,
+  Warning,
   Users,
-  Activity,
+  ChartLine,
   UserPlus,
   XCircle,
   Eye,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 
 /**
  * Admin dashboard KPIs - Revenue and Users sections
@@ -22,22 +22,22 @@ export default function AdminKPIs({ kpis }) {
     <>
       {/* Revenue KPIs */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-3">
+        <h2 className="text-xs font-semibold text-ink-400 uppercase tracking-widest mb-3">
           Ingresos
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard
             label="MRR"
             value={money(k.mrr)}
             sub="Ingresos mensuales recurrentes"
-            icon={DollarSign}
+            icon={CurrencyDollar}
             color="green"
           />
           <KpiCard
             label="ARR"
             value={money(k.arr)}
             sub="Proyección anual"
-            icon={TrendingUp}
+            icon={TrendUp}
             color="green"
           />
           <KpiCard
@@ -51,7 +51,7 @@ export default function AdminKPIs({ kpis }) {
             label="Pagos pendientes"
             value={k.pending_payments}
             sub="Requieren revisión"
-            icon={AlertTriangle}
+            icon={Warning}
             color={k.pending_payments > 0 ? "red" : "gray"}
             urgent={k.pending_payments > 0}
           />
@@ -60,29 +60,29 @@ export default function AdminKPIs({ kpis }) {
 
       {/* Users KPIs */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-widest mb-3">
+        <h2 className="text-xs font-semibold text-ink-400 uppercase tracking-widest mb-3">
           Usuarios
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KpiCard label="Total usuarios" value={k.total_users} icon={Users} color="brand" />
           <KpiCard
             label="Activos hoy"
             value={k.active_today}
-            sub="Usuarios con actividad"
+            sub="Con actividad"
             icon={Eye}
             color="green"
           />
           <KpiCard
-            label="Suscriptores activos"
+            label="Suscriptores"
             value={k.active_paid}
             sub={k.grace_subs > 0 ? `+ ${k.grace_subs} en gracia` : undefined}
-            icon={Activity}
+            icon={ChartLine}
             color="purple"
           />
           <KpiCard
             label="Nuevos hoy"
             value={k.new_today}
-            sub={`${k.new_7d} esta semana · ${k.new_30d} este mes`}
+            sub={`${k.new_7d} sem · ${k.new_30d} mes`}
             icon={UserPlus}
             color="green"
           />
