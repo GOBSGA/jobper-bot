@@ -35,7 +35,7 @@ const FEATURE_GATES = {
 
   // === DOMINADOR ($600K) ===
   competitive_intelligence: "dominador",
-  team: "dominador",
+  team: "estratega",
   api_access: "dominador",
   auto_proposals: "dominador",
   consortium_network: "dominador",
@@ -64,6 +64,7 @@ const FOMO_MESSAGES = {
   team: "Añade a tu equipo",
   export: "Exporta contratos a Excel",
   documents: "Descarga pliegos y documentos",
+  team: "Trabaja con tu equipo en el mismo pipeline",
 };
 
 // =============================================================================
@@ -93,6 +94,14 @@ export const PLAN_INFO = {
     priceText: "$149.900/mes",
     color: "purple",
     emoji: "⚔️",
+  },
+  estratega: {
+    name: "Estratega",
+    displayName: "Estratega",
+    price: 299900,
+    priceText: "$299.900/mes",
+    color: "purple",
+    emoji: "🏆",
   },
   dominador: {
     name: "Dominador",

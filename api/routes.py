@@ -395,7 +395,7 @@ def contract_alerts():
 @contracts_bp.get("/saved-searches")
 @require_auth
 def list_saved_searches():
-    from core.database import SavedSearch
+    from core.database import SavedSearch, UnitOfWork
 
     with UnitOfWork() as uow:
         searches = (
@@ -422,7 +422,7 @@ def list_saved_searches():
 @require_auth
 @require_plan("alertas")
 def create_saved_search():
-    from core.database import SavedSearch
+    from core.database import SavedSearch, UnitOfWork
 
     data = request.get_json() or {}
     name = (data.get("name") or "").strip()
@@ -449,7 +449,7 @@ def create_saved_search():
 @contracts_bp.delete("/saved-searches/<int:search_id>")
 @require_auth
 def delete_saved_search(search_id: int):
-    from core.database import SavedSearch
+    from core.database import SavedSearch, UnitOfWork
 
     with UnitOfWork() as uow:
         s = uow.session.query(SavedSearch).filter(
@@ -549,6 +549,113 @@ def pipeline_stats():
     from services.pipeline import get_stats
 
     return jsonify(get_stats(g.user_id))
+
+
+@pipeline_bp.get("/<int:entry_id>/comments")
+@require_auth
+def get_pipeline_comments(entry_id: int):
+    from core.database import PipelineComment, PipelineEntry, TeamMember, UnitOfWork
+
+    with UnitOfWork() as uow:
+        entry = uow.session.get(PipelineEntry, entry_id)
+        if not entry:
+            return jsonify({"error": "No encontrado"}), 404
+        # Access: owner or team member of owner
+        if entry.user_id != g.user_id:
+            member = uow.session.query(TeamMember).filter(
+                TeamMember.owner_id == entry.user_id,
+                TeamMember.member_user_id == g.user_id,
+                TeamMember.accepted_at != None,  # noqa: E711
+            ).first()
+            if not member:
+                return jsonify({"error": "Sin acceso"}), 403
+
+        comments = (
+            uow.session.query(PipelineComment)
+            .filter(PipelineComment.entry_id == entry_id)
+            .order_by(PipelineComment.created_at.asc())
+            .all()
+        )
+        result = []
+        for c in comments:
+            author = uow.users.get(c.user_id)
+            email = author.email if author else "—"
+            initials = (email[:2]).upper()
+            result.append({
+                "id": c.id,
+                "user_id": c.user_id,
+                "user_email": email,
+                "user_initials": initials,
+                "content": c.content,
+                "created_at": c.created_at.isoformat() if c.created_at else None,
+            })
+        return jsonify(result)
+
+
+@pipeline_bp.post("/<int:entry_id>/comments")
+@require_auth
+def add_pipeline_comment(entry_id: int):
+    from core.database import PipelineComment, PipelineEntry, TeamMember, UnitOfWork
+
+    data = request.get_json() or {}
+    content = (data.get("content") or "").strip()
+    if not content:
+        return jsonify({"error": "El comentario no puede estar vacío"}), 400
+
+    with UnitOfWork() as uow:
+        entry = uow.session.get(PipelineEntry, entry_id)
+        if not entry:
+            return jsonify({"error": "No encontrado"}), 404
+        # Access: owner or team member of owner
+        if entry.user_id != g.user_id:
+            member = uow.session.query(TeamMember).filter(
+                TeamMember.owner_id == entry.user_id,
+                TeamMember.member_user_id == g.user_id,
+                TeamMember.accepted_at != None,  # noqa: E711
+            ).first()
+            if not member:
+                return jsonify({"error": "Sin acceso"}), 403
+
+        comment = PipelineComment(entry_id=entry_id, user_id=g.user_id, content=content)
+        uow.pipeline_comments.create(comment)
+        uow.commit()
+        author = uow.users.get(g.user_id)
+        email = author.email if author else "—"
+        return jsonify({
+            "id": comment.id,
+            "user_id": comment.user_id,
+            "user_email": email,
+            "user_initials": (email[:2]).upper(),
+            "content": comment.content,
+            "created_at": comment.created_at.isoformat() if comment.created_at else None,
+        }), 201
+
+
+@pipeline_bp.put("/<int:entry_id>/assign")
+@require_auth
+def assign_pipeline_entry(entry_id: int):
+    from core.database import PipelineEntry, TeamMember, UnitOfWork
+
+    data = request.get_json() or {}
+    assigned_to = data.get("user_id")  # None = unassign
+
+    with UnitOfWork() as uow:
+        entry = uow.session.get(PipelineEntry, entry_id)
+        if not entry or entry.user_id != g.user_id:
+            return jsonify({"error": "No encontrado o sin acceso"}), 404
+
+        if assigned_to is not None:
+            member = uow.session.query(TeamMember).filter(
+                TeamMember.owner_id == g.user_id,
+                TeamMember.member_user_id == assigned_to,
+                TeamMember.accepted_at != None,  # noqa: E711
+            ).first()
+            if not member and assigned_to != g.user_id:
+                return jsonify({"error": "El usuario no es miembro del equipo"}), 400
+
+        entry.assigned_to = assigned_to
+        uow.commit()
+        return jsonify({"ok": True, "assigned_to": assigned_to})
 
 
 # =============================================================================
@@ -1932,12 +2039,220 @@ def telegram_webhook():
     return jsonify({"ok": True})
 
 
+# =============================================================================
+# TEAM (5 endpoints)
+# =============================================================================
+team_bp = Blueprint("team", __name__, url_prefix="/api/team")
+
+_TEAM_LIMITS = {"estratega": 3, "dominador": 10}
+
+
+def _get_team_owner_id(uow, user_id: int):
+    """Returns the owner_id for this user's team context. If they own a team, returns user_id.
+    If they are a member, returns the owner_id."""
+    from core.database import TeamMember
+    # Check if they are an accepted member of someone's team
+    membership = uow.session.query(TeamMember).filter(
+        TeamMember.member_user_id == user_id,
+        TeamMember.accepted_at != None,  # noqa: E711
+    ).first()
+    if membership:
+        return membership.owner_id
+    # They may own a team (just return their own id)
+    return user_id
+
+
+@team_bp.get("/")
+@require_auth
+def get_team():
+    from core.database import TeamMember, UnitOfWork
+
+    with UnitOfWork() as uow:
+        user = uow.users.get(g.user_id)
+        plan = getattr(user, "plan", "free")
+        limit = _TEAM_LIMITS.get(plan, _TEAM_LIMITS.get("estratega", 3))
+
+        members = (
+            uow.session.query(TeamMember)
+            .filter(TeamMember.owner_id == g.user_id)
+            .order_by(TeamMember.created_at.asc())
+            .all()
+        )
+        active = [m for m in members if m.accepted_at is not None]
+        pending = [m for m in members if m.accepted_at is None]
+
+        return jsonify({
+            "owner": {"id": user.id, "email": user.email, "company": user.company_name},
+            "limit": limit,
+            "current": len(active),
+            "members": [
+                {
+                    "id": m.id,
+                    "email": m.email,
+                    "role": m.role,
+                    "member_user_id": m.member_user_id,
+                    "accepted_at": m.accepted_at.isoformat() if m.accepted_at else None,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                }
+                for m in active
+            ],
+            "pending_invites": [
+                {
+                    "id": m.id,
+                    "email": m.email,
+                    "role": m.role,
+                    "created_at": m.created_at.isoformat() if m.created_at else None,
+                    "expires_at": m.invite_expires_at.isoformat() if m.invite_expires_at else None,
+                }
+                for m in pending
+            ],
+        })
+
+
+@team_bp.post("/invite")
+@require_auth
+@require_plan("estratega")
+def invite_team_member():
+    import secrets
+    from datetime import timedelta
+    from core.database import TeamMember, UnitOfWork
+
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    role = data.get("role", "member")
+
+    if not email or "@" not in email:
+        return jsonify({"error": "Email inválido"}), 400
+    if role not in ("admin", "member"):
+        role = "member"
+    if email == g.user_email:
+        return jsonify({"error": "No puedes invitarte a ti mismo"}), 400
+
+    with UnitOfWork() as uow:
+        user = uow.users.get(g.user_id)
+        plan = getattr(user, "plan", "free")
+        limit = _TEAM_LIMITS.get(plan, 3)
+
+        active_count = uow.session.query(TeamMember).filter(
+            TeamMember.owner_id == g.user_id,
+            TeamMember.accepted_at != None,  # noqa: E711
+        ).count()
+
+        if active_count >= limit:
+            return jsonify({"error": f"Límite de {limit} miembros alcanzado para tu plan"}), 400
+
+        existing = uow.session.query(TeamMember).filter(
+            TeamMember.owner_id == g.user_id,
+            TeamMember.email == email,
+        ).first()
+        if existing:
+            return jsonify({"error": "Ya existe una invitación para ese email"}), 400
+
+        token = secrets.token_urlsafe(32)
+        expires = datetime.utcnow() + timedelta(days=7)
+        member = TeamMember(
+            owner_id=g.user_id,
+            email=email,
+            role=role,
+            invite_token=token,
+            invite_expires_at=expires,
+        )
+        uow.team_members.create(member)
+        uow.commit()
+
+        from core.tasks import task_send_email
+        from config import Config
+        invite_url = f"{Config.FRONTEND_URL}/team/accept/{token}"
+        task_send_email.delay(
+            email,
+            "team_invite",
+            {
+                "inviter_name": user.company_name or user.email,
+                "inviter_email": user.email,
+                "role": role,
+                "invite_url": invite_url,
+            },
+        )
+        return jsonify({"ok": True, "email": email, "invite_url": invite_url}), 201
+
+
+@team_bp.delete("/members/<int:member_id>")
+@require_auth
+def remove_team_member(member_id: int):
+    from core.database import TeamMember, UnitOfWork
+
+    with UnitOfWork() as uow:
+        member = uow.session.query(TeamMember).filter(
+            TeamMember.id == member_id,
+            TeamMember.owner_id == g.user_id,
+        ).first()
+        if not member:
+            return jsonify({"error": "No encontrado"}), 404
+        uow.team_members.delete(member)
+        uow.commit()
+        return jsonify({"ok": True})
+
+
+@team_bp.get("/accept/<token>")
+def accept_team_invite(token: str):
+    from core.database import TeamMember, UnitOfWork
+    from config import Config
+
+    with UnitOfWork() as uow:
+        member = uow.session.query(TeamMember).filter(
+            TeamMember.invite_token == token,
+        ).first()
+
+        if not member:
+            return redirect(f"{Config.FRONTEND_URL}/team/join?error=invalid_invite")
+        if member.invite_expires_at and member.invite_expires_at < datetime.utcnow():
+            return redirect(f"{Config.FRONTEND_URL}/team/join?error=expired_invite")
+        if member.accepted_at:
+            return redirect(f"{Config.FRONTEND_URL}/team/join?error=already_accepted")
+
+        member.accepted_at = datetime.utcnow()
+        member.invite_token = None  # invalidate token
+
+        # Link to existing account if email matches
+        existing_user = uow.users.get_by_email(member.email)
+        if existing_user:
+            member.member_user_id = existing_user.id
+
+        uow.commit()
+
+        owner = uow.users.get(member.owner_id)
+        owner_email = owner.email if owner else ""
+        return redirect(f"{Config.FRONTEND_URL}/team/join?success=1&owner_email={owner_email}")
+
+
+@team_bp.get("/pipeline")
+@require_auth
+def get_team_pipeline():
+    from core.database import PipelineEntry, TeamMember, UnitOfWork
+
+    with UnitOfWork() as uow:
+        owner_id = _get_team_owner_id(uow, g.user_id)
+        if owner_id != g.user_id:
+            # Verify membership
+            member = uow.session.query(TeamMember).filter(
+                TeamMember.owner_id == owner_id,
+                TeamMember.member_user_id == g.user_id,
+                TeamMember.accepted_at != None,  # noqa: E711
+            ).first()
+            if not member:
+                return jsonify({"error": "Sin acceso al equipo"}), 403
+
+        from services.pipeline import get_pipeline
+        return jsonify(get_pipeline(owner_id))
+
+
 ALL_BLUEPRINTS = [
     health_bp,
     setup_bp,
     auth_bp,
     contracts_bp,
     pipeline_bp,
+    team_bp,
     marketplace_bp,
     user_bp,
     onboarding_bp,

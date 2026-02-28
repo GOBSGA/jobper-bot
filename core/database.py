@@ -369,11 +369,13 @@ class PipelineEntry(Base):
     notes = Column(JSONType, default=list)  # [{text, created_at}]
     follow_up_date = Column(DateTime, nullable=True)
     value = Column(Float, nullable=True)
+    assigned_to = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user = relationship("User", back_populates="pipeline_entries")
+    user = relationship("User", foreign_keys=[user_id], back_populates="pipeline_entries")
+    assignee = relationship("User", foreign_keys=[assigned_to])
 
     __table_args__ = (Index("idx_pipe_user_stage", "user_id", "stage"),)
 
@@ -472,6 +474,46 @@ class SavedSearch(Base):
     __table_args__ = (Index("idx_saved_search_user", "user_id"),)
 
 
+class TeamMember(Base):
+    """Miembro de un equipo — vincula usuarios bajo una cuenta owner con plan estratega+."""
+
+    __tablename__ = "team_members"
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    email = Column(String(255), nullable=False)
+    member_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    role = Column(String(20), default="member")  # "admin" | "member"
+    invite_token = Column(String(64), unique=True, nullable=True)
+    invite_expires_at = Column(DateTime, nullable=True)
+    accepted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    owner = relationship("User", foreign_keys=[owner_id])
+    member = relationship("User", foreign_keys=[member_user_id])
+
+    __table_args__ = (
+        Index("idx_team_member_owner", "owner_id"),
+        UniqueConstraint("owner_id", "email", name="uq_team_member_owner_email"),
+    )
+
+
+class PipelineComment(Base):
+    """Comentario en una entrada del pipeline — colaboración en equipo."""
+
+    __tablename__ = "pipeline_comments"
+
+    id = Column(Integer, primary_key=True)
+    entry_id = Column(Integer, ForeignKey("pipeline_entries.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    author = relationship("User", foreign_keys=[user_id])
+
+    __table_args__ = (Index("idx_pipeline_comment_entry", "entry_id"),)
+
+
 # =============================================================================
 # ENGINE + SESSION FACTORY
 # =============================================================================
@@ -541,6 +583,8 @@ class UnitOfWork:
         self.audit = BaseRepository(AuditLog, self.session)
         self.mkt_messages = BaseRepository(MarketplaceMessage, self.session)
         self.saved_searches = BaseRepository(SavedSearch, self.session)
+        self.team_members = BaseRepository(TeamMember, self.session)
+        self.pipeline_comments = BaseRepository(PipelineComment, self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

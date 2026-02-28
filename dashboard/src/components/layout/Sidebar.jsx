@@ -10,6 +10,7 @@ import {
   Kanban,
   Storefront,
   Users,
+  UsersThree,
   CreditCard,
   ChatCircle,
   GearSix,
@@ -32,9 +33,10 @@ const NAV_GROUPS = [
   {
     label: "Negocio",
     items: [
-      { to: "/pipeline",    icon: Kanban,     label: "Pipeline CRM" },
-      { to: "/marketplace", icon: Storefront, label: "Marketplace" },
-      { to: "/referrals",   icon: Users,      label: "Referidos" },
+      { to: "/pipeline",    icon: Kanban,      label: "Pipeline CRM" },
+      { to: "/team",        icon: UsersThree,  label: "Equipo" },
+      { to: "/marketplace", icon: Storefront,  label: "Marketplace" },
+      { to: "/referrals",   icon: Users,       label: "Referidos" },
     ],
   },
   {

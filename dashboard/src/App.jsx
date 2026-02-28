@@ -50,6 +50,8 @@ import ContractSearch from "./pages/contracts/ContractSearch";
 import ContractDetail from "./pages/contracts/ContractDetail";
 import Favorites from "./pages/contracts/Favorites";
 import Pipeline from "./pages/pipeline/Pipeline";
+import Team from "./pages/team/Team";
+import TeamAccept from "./pages/team/TeamAccept";
 import Marketplace from "./pages/marketplace/Marketplace";
 import Plans from "./pages/payments/Plans";
 import Referrals from "./pages/payments/Referrals";
@@ -127,6 +129,7 @@ export default function App() {
       <Route path="/onboarding/traditional" element={<Onboarding />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/team/accept/:token" element={<TeamAccept />} />
 
       {/* Private */}
       <Route element={<PrivateRoute />}>
@@ -135,6 +138,7 @@ export default function App() {
         <Route path="/contracts/:id" element={<ContractDetail />} />
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/pipeline" element={<Pipeline />} />
+        <Route path="/team" element={<Team />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/payments" element={<Plans />} />
         <Route path="/referrals" element={<Referrals />} />

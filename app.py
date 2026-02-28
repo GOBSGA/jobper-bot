@@ -426,7 +426,37 @@ def _ensure_missing_columns():
             created_at TIMESTAMP DEFAULT NOW()
         )
         """
-        ddl_statements = [create_pipeline_table, create_mkt_messages_table, create_saved_searches_table] + ddl_statements
+        create_team_members_table = """
+        CREATE TABLE IF NOT EXISTS team_members (
+            id SERIAL PRIMARY KEY,
+            owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            email VARCHAR(255) NOT NULL,
+            member_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            role VARCHAR(20) DEFAULT 'member',
+            invite_token VARCHAR(64) UNIQUE,
+            invite_expires_at TIMESTAMP,
+            accepted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW(),
+            UNIQUE (owner_id, email)
+        )
+        """
+        create_pipeline_comments_table = """
+        CREATE TABLE IF NOT EXISTS pipeline_comments (
+            id SERIAL PRIMARY KEY,
+            entry_id INTEGER NOT NULL REFERENCES pipeline_entries(id) ON DELETE CASCADE,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+        ddl_statements = [
+            create_pipeline_table,
+            create_mkt_messages_table,
+            create_saved_searches_table,
+            create_team_members_table,
+            create_pipeline_comments_table,
+            "ALTER TABLE pipeline_entries ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL",
+        ] + ddl_statements
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.
         for stmt in ddl_statements:

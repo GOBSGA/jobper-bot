@@ -142,6 +142,7 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         # System alerts
         "scraper_alert": _tmpl_scraper_alert,
         "saved_search_alert": _tmpl_saved_search_alert,
+        "team_invite": _tmpl_team_invite,
     }
 
     fn = templates.get(template)
@@ -270,6 +271,32 @@ def _tmpl_saved_search_alert(data: dict) -> tuple[str, str]:
 {_button(Config.FRONTEND_URL + "/contracts", "Ver todos los contratos")}
 """
     return f"Alerta: {count} nuevo{'s' if count != 1 else ''} contrato{'s' if count != 1 else ''} para «{search_name}»", _base_html(content)
+
+
+def _tmpl_team_invite(data: dict) -> tuple[str, str]:
+    inviter = _escape(data.get("inviter_name", "Tu empresa"))
+    role = _escape(data.get("role", "member"))
+    role_label = "Administrador" if role == "admin" else "Miembro"
+    invite_url = data.get("invite_url", Config.FRONTEND_URL)
+
+    content = f"""
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Te invitaron a unirte al equipo</h2>
+<p style="color:#475569;margin:0 0 12px;line-height:1.6">
+  <strong>{inviter}</strong> te invitó a colaborar en su equipo de licitaciones en Jobper
+  como <strong>{role_label}</strong>.
+</p>
+<div style="background:#f0f4ff;border:1px solid #c7d2fe;border-radius:8px;padding:14px;margin:12px 0">
+  <p style="margin:0;color:#4338ca;font-size:13px">
+    Al aceptar tendrás acceso al pipeline compartido, podrás comentar en contratos
+    y colaborar en tiempo real con el equipo.
+  </p>
+</div>
+{_button(invite_url, "Aceptar invitación")}
+<p style="color:#94a3b8;font-size:12px;margin-top:16px">
+  Este enlace expira en 7 días. Si no esperabas esta invitación, ignora este email.
+</p>
+"""
+    return f"{inviter} te invitó al equipo de licitaciones en Jobper", _base_html(content)
 
 
 def _tmpl_trial_expiring(data: dict) -> tuple[str, str]:
