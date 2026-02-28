@@ -348,6 +348,7 @@ def _ensure_missing_columns():
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS comprobante_hash VARCHAR(64)",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_result TEXT",
             "ALTER TABLE payments ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20)",
+            "ALTER TABLE payments ADD COLUMN IF NOT EXISTS reference VARCHAR(100)",
             # Telegram / contact
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS telegram_chat_id VARCHAR(50)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20)",

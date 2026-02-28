@@ -2353,7 +2353,8 @@ def intelligence_market():
         )
 
         # Monthly trend — dialect-aware SQL
-        dialect = uow.session.get_bind().dialect.name
+        from core.database import get_engine
+        dialect = get_engine().dialect.name
         if dialect == "postgresql":
             trend_sql = text("""
                 SELECT
