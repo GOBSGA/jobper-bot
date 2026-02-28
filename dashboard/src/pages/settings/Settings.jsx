@@ -16,35 +16,29 @@ import {
   CurrencyDollar,
   Tag,
   User,
-  ChatCircle,
   Lock,
   Eye,
   EyeSlash,
-  Funnel,
-  SlidersHorizontal,
   Lightning,
   Trash,
-  DownloadSimple,
-  MagnifyingGlass,
   EnvelopeSimple,
   TelegramLogo,
-  WhatsappLogo,
   Export,
 } from "@phosphor-icons/react";
 
 const SECTORS = [
-  { key: "tecnologia", label: "Tecnología", emoji: "💻" },
-  { key: "construccion", label: "Construcción", emoji: "🏗️" },
-  { key: "salud", label: "Salud", emoji: "🏥" },
-  { key: "educacion", label: "Educación", emoji: "📚" },
-  { key: "consultoria", label: "Consultoría", emoji: "📊" },
-  { key: "logistica", label: "Logística", emoji: "🚚" },
-  { key: "marketing", label: "Marketing", emoji: "📢" },
-  { key: "energia", label: "Energía", emoji: "⚡" },
-  { key: "juridico", label: "Jurídico", emoji: "⚖️" },
-  { key: "ambiental", label: "Ambiental", emoji: "🌿" },
-  { key: "agricultura", label: "Agricultura", emoji: "🌾" },
-  { key: "mineria", label: "Minería", emoji: "⛏️" },
+  { key: "tecnologia", label: "Tecnología" },
+  { key: "construccion", label: "Construcción" },
+  { key: "salud", label: "Salud" },
+  { key: "educacion", label: "Educación" },
+  { key: "consultoria", label: "Consultoría" },
+  { key: "logistica", label: "Logística" },
+  { key: "marketing", label: "Marketing" },
+  { key: "energia", label: "Energía" },
+  { key: "juridico", label: "Jurídico" },
+  { key: "ambiental", label: "Ambiental" },
+  { key: "agricultura", label: "Agricultura" },
+  { key: "mineria", label: "Minería" },
 ];
 
 const CITIES = [
@@ -62,11 +56,8 @@ const BUDGET_RANGES = [
   { min: 2_000_000_000, max: null, label: "Más de $2.000M" },
 ];
 
-const SOURCES = ["SECOP I", "SECOP II", "BID", "Banco Mundial", "Ecopetrol", "EPM", "UNGM"];
-const CONTRACT_TYPES = [
-  "Servicios profesionales", "Obra pública", "Suministros",
-  "Consultoría", "Tecnología", "Capacitación", "Interventoría",
-];
+const SELECT_CLS =
+  "w-full px-3 py-2 border border-surface-border rounded-xl text-sm text-ink-700 bg-white focus:outline-none focus:border-brand-500";
 
 function Toggle({ enabled, onToggle, disabled = false }) {
   return (
@@ -96,12 +87,11 @@ export default function Settings() {
     city: "",
     budget_min: "",
     budget_max: "",
-    whatsapp_number: "",
-    whatsapp_enabled: false,
     telegram_chat_id: "",
     daily_digest_enabled: true,
   });
   const [saving, setSaving] = useState(false);
+  const [savingNotif, setSavingNotif] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [showPw, setShowPw] = useState(false);
@@ -120,8 +110,6 @@ export default function Settings() {
         city: user.city || "",
         budget_min: user.budget_min || "",
         budget_max: user.budget_max || "",
-        whatsapp_number: user.whatsapp_number || "",
-        whatsapp_enabled: user.whatsapp_enabled || false,
         telegram_chat_id: user.telegram_chat_id || "",
         daily_digest_enabled: user.daily_digest_enabled !== false,
       });
@@ -139,13 +127,9 @@ export default function Settings() {
         city: form.city,
         budget_min: form.budget_min ? Number(form.budget_min) : null,
         budget_max: form.budget_max ? Number(form.budget_max) : null,
-        whatsapp_number: form.whatsapp_number || null,
-        whatsapp_enabled: form.whatsapp_enabled,
-        telegram_chat_id: form.telegram_chat_id || null,
-        daily_digest_enabled: form.daily_digest_enabled,
       });
       await refresh();
-      toast.success("Guardado");
+      toast.success("Perfil guardado");
     } catch (err) {
       toast.error(err.error || "Error al guardar");
     } finally {
@@ -154,11 +138,9 @@ export default function Settings() {
   };
 
   const saveNotifications = async () => {
-    setSaving(true);
+    setSavingNotif(true);
     try {
       await api.put("/user/profile", {
-        whatsapp_number: form.whatsapp_number || null,
-        whatsapp_enabled: form.whatsapp_enabled,
         telegram_chat_id: form.telegram_chat_id || null,
         daily_digest_enabled: form.daily_digest_enabled,
       });
@@ -167,7 +149,7 @@ export default function Settings() {
     } catch (err) {
       toast.error(err.error || "Error al guardar");
     } finally {
-      setSaving(false);
+      setSavingNotif(false);
     }
   };
 
@@ -206,16 +188,6 @@ export default function Settings() {
     }
   };
 
-  const selectBudgetRange = (range) => {
-    setForm({ ...form, budget_min: range.min || "", budget_max: range.max || "" });
-  };
-
-  const currentBudgetLabel = () => {
-    if (!form.budget_min && !form.budget_max) return null;
-    const found = BUDGET_RANGES.find((r) => r.min === form.budget_min && r.max === form.budget_max);
-    return found?.label || `$${(form.budget_min / 1_000_000).toFixed(0)}M – ${form.budget_max ? "$" + (form.budget_max / 1_000_000).toFixed(0) + "M" : "∞"}`;
-  };
-
   return (
     <div className="space-y-5 pb-8">
       <h1 className="text-xl sm:text-2xl font-bold text-ink-900">Configuración</h1>
@@ -223,10 +195,10 @@ export default function Settings() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         {/* ── Left column ── */}
         <div className="space-y-5">
-          {/* ── PLAN & FACTURACIÓN ── */}
+          {/* PLAN */}
           <Card>
             <CardHeader title="Plan y facturación" />
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div className="flex items-center justify-between p-4 rounded-xl bg-surface-hover border border-surface-border">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -247,7 +219,7 @@ export default function Settings() {
                 <Link to="/payments">
                   <Button size="sm" variant={isPaid ? "secondary" : "primary"}>
                     <Lightning size={14} weight="duotone" />
-                    {isPaid ? "Cambiar plan" : "Mejorar plan"}
+                    {isPaid ? "Cambiar" : "Mejorar"}
                   </Button>
                 </Link>
               </div>
@@ -257,10 +229,10 @@ export default function Settings() {
             </div>
           </Card>
 
-          {/* ── PERFIL ── */}
+          {/* PERFIL */}
           <Card>
             <CardHeader title="Tu perfil" />
-            <form onSubmit={save} className="space-y-5">
+            <form onSubmit={save} className="space-y-4">
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-1.5">
                   <User size={15} className="text-ink-400" /> Email
@@ -279,25 +251,37 @@ export default function Settings() {
                 />
               </div>
 
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <Tag size={15} className="text-ink-400" /> Sector
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {SECTORS.map((s) => (
-                    <button
-                      key={s.key}
-                      type="button"
-                      onClick={() => setForm({ ...form, sector: s.key })}
-                      className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-                        form.sector === s.key
-                          ? "border-brand-500 bg-brand-50 text-brand-700"
-                          : "border-surface-border hover:border-surface-border hover:bg-surface-hover text-ink-600"
-                      }`}
-                    >
-                      <span className="mr-1">{s.emoji}</span> {s.label}
-                    </button>
-                  ))}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-1.5">
+                    <Tag size={15} className="text-ink-400" /> Sector
+                  </label>
+                  <select
+                    value={form.sector}
+                    onChange={(e) => setForm({ ...form, sector: e.target.value })}
+                    className={SELECT_CLS}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {SECTORS.map((s) => (
+                      <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-1.5">
+                    <MapPin size={15} className="text-ink-400" /> Ciudad
+                  </label>
+                  <select
+                    value={form.city}
+                    onChange={(e) => setForm({ ...form, city: e.target.value })}
+                    className={SELECT_CLS}
+                  >
+                    <option value="">Seleccionar...</option>
+                    {CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -310,49 +294,19 @@ export default function Settings() {
                   onChange={(e) => setForm({ ...form, keywords: e.target.value })}
                   placeholder="software, desarrollo, cloud, IA"
                 />
-                <p className="text-xs text-ink-400 mt-1">Separadas por coma. El motor de match las usa para encontrar tus contratos.</p>
+                <p className="text-xs text-ink-400 mt-1">Separadas por coma. Se usan para encontrar contratos relevantes.</p>
               </div>
 
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <MapPin size={15} className="text-ink-400" /> Ciudad principal
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {CITIES.slice(0, 10).map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setForm({ ...form, city: c })}
-                      className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        form.city === c
-                          ? "bg-brand-600 text-white"
-                          : "bg-surface-hover text-ink-600 hover:bg-surface-border"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={CITIES.includes(form.city) ? "" : form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className="mt-2 w-full px-3 py-2 border border-surface-border rounded-xl text-sm text-ink-600 bg-white"
-                >
-                  <option value="">Otra ciudad...</option>
-                  {CITIES.slice(10).map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <CurrencyDollar size={15} className="text-ink-400" /> Rango de presupuesto objetivo
+                  <CurrencyDollar size={15} className="text-ink-400" /> Presupuesto objetivo
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   {BUDGET_RANGES.map((r, i) => (
                     <button
                       key={i}
                       type="button"
-                      onClick={() => selectBudgetRange(r)}
+                      onClick={() => setForm({ ...form, budget_min: r.min || "", budget_max: r.max || "" })}
                       className={`px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
                         form.budget_min == r.min && form.budget_max == r.max
                           ? "border-brand-500 bg-brand-50 text-brand-700"
@@ -363,94 +317,40 @@ export default function Settings() {
                     </button>
                   ))}
                 </div>
-                {currentBudgetLabel() && (
-                  <p className="text-xs text-brand-600 mt-2">Seleccionado: {currentBudgetLabel()}</p>
-                )}
               </div>
 
-              <div className="pt-2">
-                <Button type="submit" disabled={saving} className="w-full sm:w-auto">
-                  <FloppyDisk size={15} /> {saving ? "Guardando..." : "Guardar cambios"}
-                </Button>
-              </div>
+              <Button type="submit" disabled={saving} className="w-full sm:w-auto">
+                <FloppyDisk size={15} /> {saving ? "Guardando..." : "Guardar perfil"}
+              </Button>
             </form>
           </Card>
         </div>
 
         {/* ── Right column ── */}
         <div className="space-y-5">
-          {/* ── BÚSQUEDA & MATCHING ── */}
-          <Card>
-            <CardHeader title="Búsqueda y matching" />
-            <div className="space-y-5">
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <Funnel size={15} className="text-ink-400" /> Fuentes de contratos
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {SOURCES.map((s) => (
-                    <span key={s} className="px-3 py-1.5 bg-brand-50 text-brand-700 rounded-full text-sm font-medium border border-brand-100">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-ink-400 mt-2">Próximamente: selecciona qué fuentes monitorear.</p>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <SlidersHorizontal size={15} className="text-ink-400" /> Tipos de contrato de interés
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {CONTRACT_TYPES.map((t) => (
-                    <span key={t} className="px-3 py-1.5 bg-surface-hover text-ink-600 rounded-full text-sm border border-surface-border">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-xs text-ink-400 mt-2">Próximamente: filtra por tipo de contrato.</p>
-              </div>
-
-              <div>
-                <label className="flex items-center gap-2 text-sm font-medium text-ink-700 mb-2">
-                  <MagnifyingGlass size={15} className="text-ink-400" /> Umbral mínimo de match (%)
-                </label>
-                <div className="flex items-center gap-3">
-                  <input type="range" min={0} max={80} step={5} defaultValue={0}
-                    className="flex-1 accent-brand-600" disabled />
-                  <span className="text-sm font-semibold text-ink-400 w-12">0%</span>
-                </div>
-                <p className="text-xs text-ink-400 mt-1">Próximamente: ocultar contratos con score menor a este valor.</p>
-              </div>
-            </div>
-          </Card>
-
-          {/* ── NOTIFICACIONES ── */}
+          {/* NOTIFICACIONES */}
           <Card>
             <CardHeader title="Notificaciones" />
             <div className="space-y-4">
-
-              {/* Push */}
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-ink-900 flex items-center gap-1.5">
-                    <Bell size={15} className="text-ink-400" /> Push notifications
+                    <Bell size={15} className="text-ink-400" /> Push en el navegador
                   </p>
-                  <p className="text-xs text-ink-400 mt-0.5">Alertas en el navegador cuando aparecen contratos relevantes.</p>
+                  <p className="text-xs text-ink-400 mt-0.5">Alertas cuando aparecen contratos relevantes.</p>
                 </div>
                 <Button variant="secondary" size="sm" onClick={enablePush} disabled={pushEnabled}>
                   {pushEnabled ? "Activado" : "Activar"}
                 </Button>
               </div>
 
-              {/* Daily digest */}
               <div className="border-t border-surface-border pt-4 flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-ink-900 flex items-center gap-1.5">
                     <EnvelopeSimple size={15} className="text-ink-400" /> Resumen diario por email
                   </p>
                   <p className="text-xs text-ink-400 mt-0.5">
-                    Te enviamos los mejores contratos del día cada mañana.
+                    Los mejores contratos del día, cada mañana.
                     {!isPaid && <span className="text-amber-600 font-medium"> Requiere plan Cazador.</span>}
                   </p>
                 </div>
@@ -461,37 +361,13 @@ export default function Settings() {
                 />
               </div>
 
-              {/* WhatsApp */}
-              <div className="border-t border-surface-border pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-medium text-ink-900 flex items-center gap-1.5">
-                      <WhatsappLogo size={15} weight="duotone" className="text-accent-600" /> WhatsApp
-                      <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded-full font-medium">Próximamente</span>
-                    </p>
-                    <p className="text-xs text-ink-400 mt-0.5">Alertas de contratos directamente en WhatsApp.</p>
-                  </div>
-                  <Toggle
-                    enabled={form.whatsapp_enabled}
-                    onToggle={() => setForm({ ...form, whatsapp_enabled: !form.whatsapp_enabled })}
-                    disabled
-                  />
-                </div>
-                {form.whatsapp_enabled && (
-                  <Input value={form.whatsapp_number}
-                    onChange={(e) => setForm({ ...form, whatsapp_number: e.target.value })}
-                    placeholder="+57 300 123 4567" />
-                )}
-              </div>
-
-              {/* Telegram */}
               <div className="border-t border-surface-border pt-4">
                 <p className="text-sm font-medium text-ink-900 flex items-center gap-1.5 mb-1">
                   <TelegramLogo size={15} weight="duotone" className="text-brand-500" /> Telegram
                 </p>
-                <p className="text-xs text-ink-400 mb-3">
-                  Busca <span className="font-mono bg-surface-hover px-1 rounded text-ink-600">@JobperAlertas_bot</span> en Telegram
-                  y escribe <span className="font-mono bg-surface-hover px-1 rounded text-ink-600">/start</span> para obtener tu Chat ID.
+                <p className="text-xs text-ink-400 mb-2">
+                  Busca <span className="font-mono bg-surface-hover px-1 rounded text-ink-600">@JobperAlertas_bot</span> y
+                  escribe <span className="font-mono bg-surface-hover px-1 rounded text-ink-600">/start</span> para obtener tu Chat ID.
                 </p>
                 <Input
                   placeholder="Chat ID de Telegram (ej: 123456789)"
@@ -500,22 +376,23 @@ export default function Settings() {
                 />
               </div>
 
-              <div className="pt-2">
-                <Button onClick={saveNotifications} disabled={saving} size="sm" variant="secondary">
-                  <FloppyDisk size={14} /> Guardar notificaciones
-                </Button>
-              </div>
+              <Button onClick={saveNotifications} disabled={savingNotif} size="sm" variant="secondary">
+                <FloppyDisk size={14} /> {savingNotif ? "Guardando..." : "Guardar notificaciones"}
+              </Button>
             </div>
           </Card>
 
-          {/* ── SEGURIDAD ── */}
+          {/* SEGURIDAD */}
           <Card>
             <CardHeader title="Seguridad" />
             <form onSubmit={changePassword} className="space-y-4">
+              <p className="text-xs text-ink-400">
+                Si accedes con Magic Link (sin contraseña), deja el campo actual en blanco.
+              </p>
               <Input
                 label="Contraseña actual"
                 type={showPw ? "text" : "password"}
-                placeholder="Deja en blanco si usas Magic Link"
+                placeholder="Dejar en blanco si usas Magic Link"
                 value={pwForm.current}
                 onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
               />
@@ -549,11 +426,10 @@ export default function Settings() {
                   {savingPw ? "Guardando..." : "Cambiar contraseña"}
                 </Button>
               </div>
-              <p className="text-xs text-ink-400">Si usas Magic Link (sin contraseña), deja el campo actual en blanco.</p>
             </form>
           </Card>
 
-          {/* ── PRIVACIDAD & DATOS ── */}
+          {/* PRIVACIDAD */}
           <Card>
             <CardHeader title="Privacidad y datos" />
             <div className="space-y-4">
@@ -575,7 +451,7 @@ export default function Settings() {
                   <p className="text-xs text-ink-400">Cómo usamos y protegemos tus datos.</p>
                 </div>
                 <a href="/privacy" target="_blank" className="text-sm text-brand-600 hover:underline font-medium">
-                  Ver política →
+                  Ver →
                 </a>
               </div>
 
@@ -593,10 +469,10 @@ export default function Settings() {
                     className="border-red-200 text-red-600 hover:bg-red-100"
                     onClick={async () => {
                       const confirmed = window.confirm(
-                        `¿Eliminar permanentemente la cuenta de ${user?.email}?\n\nSe borrarán todos tus datos, favoritos, pipeline y suscripción. Esta acción es IRREVERSIBLE.`
+                        `¿Eliminar permanentemente la cuenta de ${user?.email}?\n\nSe borrarán todos tus datos. Esta acción es IRREVERSIBLE.`
                       );
                       if (!confirmed) return;
-                      const reconfirmed = window.confirm("Última confirmación: ¿seguro que quieres eliminar tu cuenta para siempre?");
+                      const reconfirmed = window.confirm("Última confirmación: ¿seguro que quieres eliminar tu cuenta?");
                       if (!reconfirmed) return;
                       try {
                         await api.del("/user/account");
