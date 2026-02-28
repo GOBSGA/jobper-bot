@@ -41,6 +41,7 @@ import Verify from "./pages/auth/Verify";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
 import Onboarding from "./pages/auth/Onboarding";
+import GoogleCallback from "./pages/auth/GoogleCallback";
 import OnboardingConversational from "./pages/auth/OnboardingConversational";
 
 // App pages
@@ -119,6 +120,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
       </Route>
       <Route path="/verify" element={<Verify />} />
+      <Route path="/auth/google/callback" element={<GoogleCallback />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/onboarding" element={<OnboardingConversational />} />

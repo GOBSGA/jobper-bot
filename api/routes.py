@@ -11,7 +11,7 @@ import re
 import io
 from datetime import datetime
 
-from flask import Blueprint, g, jsonify, request, send_file
+from flask import Blueprint, g, jsonify, redirect, request, send_file
 from sqlalchemy import text
 
 from api.schemas import (
@@ -146,6 +146,51 @@ def login_password():
         if "connection" in error_str.lower() or "operational" in error_str.lower():
             return jsonify({"error": "Servicio temporalmente no disponible. Intenta en 1 minuto."}), 503
         return jsonify({"error": "Error al procesar login. Contacta soporte@jobper.co"}), 500
+
+
+@auth_bp.get("/google")
+@rate_limit(20)
+def google_oauth_start():
+    """Redirect user to Google OAuth consent screen."""
+    from services.auth import google_oauth_url
+    from config import Config
+
+    if not Config.GOOGLE_CLIENT_ID:
+        return jsonify({"error": "Google OAuth no está habilitado"}), 503
+
+    state = request.args.get("ref", "")  # carry referral code through OAuth
+    url = google_oauth_url(state=state)
+    return redirect(url)
+
+
+@auth_bp.get("/google/callback")
+def google_oauth_callback_route():
+    """Handle Google OAuth callback, issue JWT, redirect to frontend."""
+    from services.auth import google_oauth_callback
+    from config import Config
+
+    error = request.args.get("error")
+    if error:
+        return redirect(f"{Config.FRONTEND_URL}/login?error=google_cancelled")
+
+    code = request.args.get("code", "")
+    state = request.args.get("state", "")
+
+    if not code:
+        return redirect(f"{Config.FRONTEND_URL}/login?error=google_no_code")
+
+    result = google_oauth_callback(code=code, state=state)
+
+    if "error" in result:
+        logger.error(f"Google OAuth callback error: {result['error']}")
+        return redirect(f"{Config.FRONTEND_URL}/login?error=google_failed")
+
+    # Redirect to frontend with tokens in URL fragment (not query string for security)
+    access = result["access_token"]
+    refresh = result["refresh_token"]
+    is_new = "1" if result.get("is_new") else "0"
+    target = f"{Config.FRONTEND_URL}/auth/google/callback?token={access}&refresh={refresh}&new={is_new}"
+    return redirect(target)
 
 
 @auth_bp.post("/forgot-password")

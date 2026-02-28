@@ -466,6 +466,136 @@ def update_user_profile(user_id: int, data: dict) -> dict | None:
         return _user_to_public(user)
 
 
+# =============================================================================
+# GOOGLE OAUTH
+# =============================================================================
+
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
+
+
+def google_oauth_url(state: str = "") -> str:
+    """
+    Build the Google OAuth authorization URL.
+    state is used to carry referral_code through the OAuth round-trip.
+    """
+    import urllib.parse
+
+    params = {
+        "client_id": Config.GOOGLE_CLIENT_ID,
+        "redirect_uri": f"{Config.BACKEND_URL}/api/auth/google/callback",
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "online",
+        "prompt": "select_account",
+        "state": state or "",
+    }
+    return f"{GOOGLE_AUTH_URL}?{urllib.parse.urlencode(params)}"
+
+
+def google_oauth_callback(code: str, state: str = "") -> dict:
+    """
+    Exchange OAuth code for Google user info, then find-or-create the Jobper user.
+    Returns: {access_token, refresh_token, user, is_new} or {error: str}
+    """
+    import requests as req
+
+    if not Config.GOOGLE_CLIENT_ID or not Config.GOOGLE_CLIENT_SECRET:
+        return {"error": "Google OAuth no está configurado"}
+
+    # 1. Exchange code for access token
+    try:
+        token_resp = req.post(
+            GOOGLE_TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": Config.GOOGLE_CLIENT_ID,
+                "client_secret": Config.GOOGLE_CLIENT_SECRET,
+                "redirect_uri": f"{Config.BACKEND_URL}/api/auth/google/callback",
+                "grant_type": "authorization_code",
+            },
+            timeout=10,
+        )
+        token_data = token_resp.json()
+    except Exception as e:
+        logger.error(f"Google token exchange failed: {e}")
+        return {"error": "Error al conectar con Google"}
+
+    if "error" in token_data:
+        logger.error(f"Google token error: {token_data}")
+        return {"error": "Código de autorización inválido o expirado"}
+
+    google_access_token = token_data.get("access_token")
+    if not google_access_token:
+        return {"error": "No se obtuvo token de Google"}
+
+    # 2. Get user info from Google
+    try:
+        userinfo_resp = req.get(
+            GOOGLE_USERINFO_URL,
+            headers={"Authorization": f"Bearer {google_access_token}"},
+            timeout=10,
+        )
+        userinfo = userinfo_resp.json()
+    except Exception as e:
+        logger.error(f"Google userinfo failed: {e}")
+        return {"error": "Error obteniendo datos de Google"}
+
+    email = userinfo.get("email", "").lower().strip()
+    name = userinfo.get("name") or userinfo.get("given_name") or ""
+    if not email:
+        return {"error": "No se pudo obtener el email de Google"}
+
+    # 3. Find or create user
+    is_new = False
+    with UnitOfWork() as uow:
+        user = uow.users.get_by_email(email)
+
+        if not user:
+            is_new = True
+            user_referral_code = f"JOB-{secrets.token_hex(4).upper()}"
+            user = User(
+                email=email,
+                company_name=name,
+                email_verified=True,
+                plan="trial",
+                trial_ends_at=datetime.utcnow() + timedelta(days=14),
+                referral_code=user_referral_code,
+                privacy_policy_accepted_at=datetime.utcnow(),
+                privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
+            )
+            uow.users.create(user)
+            uow.commit()
+            logger.info(f"New user via Google OAuth: {email}")
+        else:
+            # Ensure email_verified for existing users who sign in via Google
+            if not user.email_verified:
+                user.email_verified = True
+                uow.commit()
+            logger.info(f"Existing user signed in via Google: {email}")
+
+        access = _create_access_token(user)
+        refresh = _create_refresh_token(user)
+        user_data = _user_to_public(user)
+
+    # Track referral if state contains a referral code
+    referral_code = state.strip() if state else None
+    if is_new and referral_code:
+        try:
+            from services.referrals import track_signup
+            track_signup(referral_code, user_data["id"])
+        except Exception as e:
+            logger.error(f"Referral tracking failed after Google OAuth: {e}")
+
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "user": user_data,
+        "is_new": is_new,
+    }
+
+
 def accept_privacy_policy(user_id: int) -> dict:
     """
     Mark privacy policy as accepted by user (with version tracking).

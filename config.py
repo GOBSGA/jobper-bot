@@ -63,6 +63,13 @@ class Config:
     JWT_REFRESH_EXPIRY_DAYS: int = 30
     MAGIC_LINK_EXPIRY_MINUTES: int = 60  # 60 minutes (was 15 - too short with email delays)
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:5000")
+
+    # ======================================================================
+    # GOOGLE OAUTH
+    # ======================================================================
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
 
     # ======================================================================
     # REDIS
