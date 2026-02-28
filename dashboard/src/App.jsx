@@ -52,6 +52,7 @@ import Favorites from "./pages/contracts/Favorites";
 import Pipeline from "./pages/pipeline/Pipeline";
 import Team from "./pages/team/Team";
 import TeamAccept from "./pages/team/TeamAccept";
+import Intelligence from "./pages/intelligence/Intelligence";
 import Marketplace from "./pages/marketplace/Marketplace";
 import Plans from "./pages/payments/Plans";
 import Referrals from "./pages/payments/Referrals";
@@ -139,6 +140,7 @@ export default function App() {
         <Route path="/favorites" element={<Favorites />} />
         <Route path="/pipeline" element={<Pipeline />} />
         <Route path="/team" element={<Team />} />
+        <Route path="/intelligence" element={<Intelligence />} />
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/payments" element={<Plans />} />
         <Route path="/referrals" element={<Referrals />} />

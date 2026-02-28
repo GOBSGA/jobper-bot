@@ -11,7 +11,7 @@ import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Logo from "../ui/Logo";
 import {
-  BookmarkSimple, Users, UsersThree, CreditCard, ChatCircle, GearSix, SignOut,
+  BookmarkSimple, Users, UsersThree, ChartBar, CreditCard, ChatCircle, GearSix, SignOut,
 } from "@phosphor-icons/react";
 
 const PRIMARY = [
@@ -22,12 +22,13 @@ const PRIMARY = [
 ];
 
 const MORE_NAV = [
-  { to: "/favorites",  icon: BookmarkSimple, label: "Favoritos" },
-  { to: "/team",       icon: UsersThree,     label: "Equipo" },
-  { to: "/referrals",  icon: Users,          label: "Referidos" },
-  { to: "/payments",   icon: CreditCard,     label: "Plan" },
-  { to: "/support",    icon: ChatCircle,     label: "Soporte" },
-  { to: "/settings",   icon: GearSix,        label: "Configuración" },
+  { to: "/favorites",    icon: BookmarkSimple, label: "Favoritos" },
+  { to: "/team",         icon: UsersThree,     label: "Equipo" },
+  { to: "/intelligence", icon: ChartBar,       label: "Inteligencia" },
+  { to: "/referrals",    icon: Users,          label: "Referidos" },
+  { to: "/payments",     icon: CreditCard,     label: "Plan" },
+  { to: "/support",      icon: ChatCircle,     label: "Soporte" },
+  { to: "/settings",     icon: GearSix,        label: "Configuración" },
 ];
 
 function MoreSheet({ onClose }) {

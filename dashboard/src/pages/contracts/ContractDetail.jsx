@@ -20,6 +20,9 @@ import {
   CheckCircle,
   ArrowSquareOut,
   Sparkle,
+  FileText,
+  Globe,
+  FilePdf,
 } from "@phosphor-icons/react";
 import { useToast } from "../../components/ui/Toast";
 
@@ -41,10 +44,22 @@ export default function ContractDetail() {
 
   const [analysis, setAnalysis] = useState(null);
   const [analyzingAI, setAnalyzingAI] = useState(false);
+  const [documents, setDocuments] = useState(null);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const docsGate = useGate("documents");
 
   useEffect(() => {
     if (c?.analysis) setAnalysis(c.analysis);
   }, [c]);
+
+  useEffect(() => {
+    if (!c || !docsGate.allowed) return;
+    setDocsLoading(true);
+    api.get(`/contracts/${id}/documents`)
+      .then((d) => setDocuments(d.documents || []))
+      .catch(() => setDocuments([]))
+      .finally(() => setDocsLoading(false));
+  }, [c, id, docsGate.allowed]);
 
   const handleAnalyze = async () => {
     setAnalyzingAI(true);
@@ -271,6 +286,58 @@ export default function ContractDetail() {
         ) : (
           <p className="text-sm text-ink-400 text-center py-4">
             Haz clic en "Analizar" para obtener un análisis detallado de este contrato.
+          </p>
+        )}
+      </Card>
+
+      {/* Documents */}
+      <Card className="p-5 sm:p-6">
+        <h2 className="font-semibold text-ink-900 mb-4 flex items-center gap-2">
+          <FilePdf size={16} className="text-red-500" weight="duotone" /> Documentos y pliegos
+        </h2>
+        {!docsGate.allowed ? (
+          <div className="text-center py-4">
+            <Lock size={20} className="text-ink-400 mx-auto mb-2" />
+            <p className="text-sm text-ink-400">
+              {docsGate.fomoMessage || "Descarga pliegos disponible en plan Competidor"}
+            </p>
+            <Link
+              to={docsGate.upgradeUrl || "/payments"}
+              className="inline-flex items-center gap-1 mt-2 text-xs text-brand-600 hover:underline"
+            >
+              <Lightning size={11} /> Ver planes
+            </Link>
+          </div>
+        ) : docsLoading ? (
+          <div className="flex items-center gap-2 py-4 text-ink-400">
+            <Spinner className="h-4 w-4" />
+            <span className="text-sm">Buscando documentos...</span>
+          </div>
+        ) : documents && documents.length > 0 ? (
+          <div className="space-y-2">
+            {documents.map((doc, i) => (
+              <a
+                key={i}
+                href={doc.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 p-3 rounded-xl border border-surface-border hover:bg-surface-hover transition-colors group"
+              >
+                {doc.type === "pliego" ? (
+                  <FileText size={18} className="text-red-500 flex-shrink-0" weight="duotone" />
+                ) : (
+                  <Globe size={18} className="text-brand-500 flex-shrink-0" weight="duotone" />
+                )}
+                <span className="flex-1 text-sm font-medium text-ink-700 group-hover:text-ink-900">
+                  {doc.label}
+                </span>
+                <ArrowSquareOut size={14} className="text-ink-300 group-hover:text-ink-600 flex-shrink-0" />
+              </a>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-400 py-2">
+            No se encontraron documentos adjuntos para este proceso. Usa el link de la fuente original.
           </p>
         )}
       </Card>

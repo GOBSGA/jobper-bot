@@ -302,6 +302,42 @@ def contract_analysis(contract_id: int):
     return jsonify(result)
 
 
+@contracts_bp.get("/<int:contract_id>/documents")
+@require_auth
+@require_plan("competidor")
+def contract_documents(contract_id: int):
+    """Return document/portal links for a contract. Gated to competidor+."""
+    from core.database import Contract, UnitOfWork
+
+    with UnitOfWork() as uow:
+        c = uow.session.get(Contract, contract_id)
+        if not c:
+            return jsonify({"error": "Contrato no encontrado"}), 404
+
+        urls = []
+
+        # 1. Main contract URL
+        if c.url:
+            urls.append({"label": "Portal del proceso", "url": c.url, "type": "portal"})
+
+        # 2. Extract additional URLs from raw_data (SECOP sometimes stores urlproceso)
+        raw = c.raw_data or {}
+        for key in ("urlproceso", "url_proceso", "url_pliego", "url_documentos"):
+            val = raw.get(key)
+            if isinstance(val, dict):
+                val = val.get("url")
+            if val and isinstance(val, str) and val.startswith("http") and val != c.url:
+                urls.append({"label": "Pliego oficial", "url": val, "type": "pliego"})
+
+        # 3. For SECOP sources: construct direct link to contratos.gov.co
+        if c.source in ("secop", "secop_adjudicados", "secop1", "ejecucion") and c.external_id:
+            cgov_url = f"https://www.contratos.gov.co/consultas/detalleProceso.do?numConstancia={c.external_id}"
+            if not any(u["url"] == cgov_url for u in urls):
+                urls.append({"label": "Contratos.gov.co", "url": cgov_url, "type": "portal"})
+
+        return jsonify({"documents": urls, "source": c.source, "external_id": c.external_id})
+
+
 @contracts_bp.get("/export")
 @require_auth
 @require_plan("cazador")
@@ -2246,6 +2282,138 @@ def get_team_pipeline():
         return jsonify(get_pipeline(owner_id))
 
 
+# =============================================================================
+# INTELLIGENCE (1 endpoint)
+# =============================================================================
+intelligence_bp = Blueprint("intelligence", __name__, url_prefix="/api/intelligence")
+
+
+@intelligence_bp.get("/market")
+@require_auth
+def intelligence_market():
+    """Market analytics: top entities, monthly trend, by-source breakdown.
+    Filtered by user profile keywords. Gate enforced on frontend (dominador)."""
+    from core.database import Contract, UnitOfWork, User
+    from sqlalchemy import func
+    from datetime import timedelta
+
+    with UnitOfWork() as uow:
+        user = uow.session.get(User, g.user_id)
+        keywords = (request.args.get("keywords") or (user.keywords if user else "") or "").strip()
+        try:
+            months = min(int(request.args.get("months", 12)), 24)
+        except (ValueError, TypeError):
+            months = 12
+        since = datetime.utcnow() - timedelta(days=months * 30)
+
+        # Build base query with optional keyword filter
+        base = uow.session.query(Contract).filter(Contract.created_at >= since)
+        if keywords:
+            for term in keywords.split()[:5]:
+                t = f"%{term.lower()}%"
+                base = base.filter(
+                    func.lower(Contract.title).like(t)
+                    | func.lower(Contract.description).like(t)
+                )
+
+        # Summary
+        totals = base.with_entities(
+            func.count(Contract.id),
+            func.coalesce(func.sum(Contract.amount), 0),
+        ).one()
+        total_contracts = totals[0]
+        total_value = float(totals[1])
+        avg_amount = total_value / total_contracts if total_contracts else 0
+
+        # Top entities (top 10 by contract count)
+        entity_rows = (
+            uow.session.query(
+                Contract.entity,
+                func.count(Contract.id).label("cnt"),
+                func.coalesce(func.sum(Contract.amount), 0).label("tv"),
+            )
+            .filter(
+                Contract.created_at >= since,
+                Contract.entity.isnot(None),
+                Contract.entity != "",
+            )
+        )
+        if keywords:
+            for term in keywords.split()[:5]:
+                t = f"%{term.lower()}%"
+                entity_rows = entity_rows.filter(
+                    func.lower(Contract.title).like(t)
+                    | func.lower(Contract.description).like(t)
+                )
+        entity_rows = (
+            entity_rows.group_by(Contract.entity)
+            .order_by(func.count(Contract.id).desc())
+            .limit(10)
+            .all()
+        )
+
+        # Monthly trend — dialect-aware SQL
+        dialect = uow.session.get_bind().dialect.name
+        if dialect == "postgresql":
+            trend_sql = text("""
+                SELECT
+                    TO_CHAR(created_at, 'YYYY-MM') AS period,
+                    COUNT(*) AS cnt,
+                    COALESCE(SUM(amount), 0) AS tv
+                FROM contracts
+                WHERE created_at >= :since
+                GROUP BY period
+                ORDER BY period
+            """)
+        else:
+            trend_sql = text("""
+                SELECT
+                    strftime('%Y-%m', created_at) AS period,
+                    COUNT(*) AS cnt,
+                    COALESCE(SUM(amount), 0) AS tv
+                FROM contracts
+                WHERE created_at >= :since
+                GROUP BY period
+                ORDER BY period
+            """)
+        trend_rows = uow.session.execute(trend_sql, {"since": since}).fetchall()
+
+        # By source
+        source_rows = (
+            uow.session.query(
+                Contract.source,
+                func.count(Contract.id).label("cnt"),
+                func.coalesce(func.sum(Contract.amount), 0).label("tv"),
+            )
+            .filter(Contract.created_at >= since)
+            .group_by(Contract.source)
+            .order_by(func.count(Contract.id).desc())
+            .all()
+        )
+
+        return jsonify({
+            "summary": {
+                "total_contracts": total_contracts,
+                "total_value": total_value,
+                "avg_amount": avg_amount,
+                "period_months": months,
+                "keywords": keywords,
+            },
+            "top_entities": [
+                {"entity": r.entity, "count": r.cnt, "total_value": float(r.tv)}
+                for r in entity_rows
+            ],
+            "monthly_trend": [
+                {"period": r.period, "count": r.cnt, "total_value": float(r.tv)}
+                for r in trend_rows
+            ],
+            "by_source": [
+                {"source": r.source, "count": r.cnt, "total_value": float(r.tv)}
+                for r in source_rows
+            ],
+        })
+
+
 ALL_BLUEPRINTS = [
     health_bp,
     setup_bp,
@@ -2254,6 +2422,7 @@ ALL_BLUEPRINTS = [
     pipeline_bp,
     team_bp,
     marketplace_bp,
+    intelligence_bp,
     user_bp,
     onboarding_bp,
     payments_bp,
