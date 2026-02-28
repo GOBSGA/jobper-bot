@@ -4,14 +4,22 @@ import Badge from "../../components/ui/Badge";
 import Button from "../../components/ui/Button";
 import Spinner from "../../components/ui/Spinner";
 import { useToast } from "../../components/ui/Toast";
-import { Users, Copy, Gift, MessageCircle, Share2, Mail } from "lucide-react";
+import {
+  Users,
+  Copy,
+  Gift,
+  ChatCircle,
+  ShareNetwork,
+  EnvelopeSimple,
+  CheckCircle,
+  Lock,
+  WhatsappLogo,
+} from "@phosphor-icons/react";
 
 export default function Referrals() {
-  // Call /referrals/ (not /referrals/stats) — this generates a code AND returns stats
   const { data, loading } = useApi("/referrals/");
   const toast = useToast();
 
-  // Backend spreads {code, total_clicks, total_signups, total_subscribed, current_discount, max_per_month}
   const code = data?.code || "";
   const referralUrl = code
     ? `${window.location.origin}/register?ref=${code}`
@@ -38,100 +46,159 @@ export default function Referrals() {
     window.open(`mailto:?subject=${subject}&body=${body}`);
   };
 
-  if (loading) return <div className="flex justify-center py-12"><Spinner /></div>;
+  if (loading)
+    return (
+      <div className="flex justify-center py-12">
+        <Spinner />
+      </div>
+    );
 
   const signups = data?.total_signups ?? 0;
   const referralsNeeded = Math.max(0, 3 - signups);
 
+  const TIERS = [
+    { refs: 1, reward: "10% descuento en tu suscripción" },
+    { refs: 3, reward: "1 mes gratis plan Alertas" },
+    { refs: 5, reward: "30% descuento permanente" },
+    { refs: 10, reward: "50% descuento permanente" },
+  ];
+
   return (
-    <div className="max-w-2xl space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Programa de referidos</h1>
-
-      {/* Main CTA */}
-      <Card className="bg-gradient-to-r from-green-50 to-brand-50 border-green-200">
-        <div className="text-center space-y-4">
-          <Gift className="h-12 w-12 text-green-600 mx-auto" />
-          <h2 className="text-xl font-bold text-gray-900">Invita 3 amigos = 1 mes gratis</h2>
-          <p className="text-sm text-gray-600">
-            Comparte tu link. Cuando 3 amigos se registren, recibes 1 mes del plan Alertas ($29,900 COP) completamente gratis.
-          </p>
-          {referralsNeeded > 0 ? (
-            <p className="text-sm font-semibold text-brand-600">
-              Te faltan {referralsNeeded} {referralsNeeded === 1 ? "referido" : "referidos"} para tu mes gratis
-            </p>
-          ) : (
-            <Badge color="green" className="text-sm">Ya ganaste tu mes gratis</Badge>
-          )}
-        </div>
-      </Card>
-
-      {/* Share buttons */}
-      <Card>
-        <CardHeader title="Comparte tu link" />
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <code className="flex-1 bg-gray-50 px-4 py-3 rounded-lg border text-sm font-mono truncate">
-              {referralUrl || "Cargando tu link..."}
-            </code>
-            <Button size="sm" onClick={copy} disabled={!code}><Copy className="h-4 w-4" /> Copiar</Button>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Button onClick={shareWhatsApp} disabled={!code} className="bg-green-600 hover:bg-green-700 text-white">
-              <MessageCircle className="h-4 w-4" /> WhatsApp
-            </Button>
-            <Button onClick={shareEmail} disabled={!code} variant="secondary">
-              <Mail className="h-4 w-4" /> Email
-            </Button>
-            <Button onClick={copy} disabled={!code} variant="secondary">
-              <Share2 className="h-4 w-4" /> Copiar link
-            </Button>
-          </div>
-        </div>
-      </Card>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Clicks", value: data?.total_clicks ?? 0 },
-          { label: "Registros", value: data?.total_signups ?? 0 },
-          { label: "Suscritos", value: data?.total_subscribed ?? 0 },
-          { label: "Descuento actual", value: `${Math.round((data?.current_discount ?? 0) * 100)}%` },
-        ].map((s) => (
-          <Card key={s.label} className="text-center">
-            <p className="text-2xl font-bold text-gray-900">{s.value}</p>
-            <p className="text-xs text-gray-500 mt-1">{s.label}</p>
-          </Card>
-        ))}
+    <div className="space-y-6 pb-8">
+      <div>
+        <h1 className="text-xl sm:text-2xl font-bold text-ink-900">Programa de referidos</h1>
+        <p className="text-sm text-ink-400 mt-1">
+          Invita amigos y gana recompensas exclusivas
+        </p>
       </div>
 
-      {/* Rewards tiers */}
-      <Card>
-        <CardHeader title="Recompensas por referidos" />
-        <div className="space-y-3">
-          {[
-            { refs: 1, reward: "10% descuento en tu suscripción" },
-            { refs: 3, reward: "1 mes gratis plan Alertas" },
-            { refs: 5, reward: "30% descuento permanente" },
-            { refs: 10, reward: "50% descuento permanente" },
-          ].map((tier) => (
-            <div key={tier.refs} className={`flex items-center justify-between p-3 rounded-lg ${
-              signups >= tier.refs ? "bg-green-50 border border-green-200" : "bg-gray-50"
-            }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  signups >= tier.refs ? "bg-green-600 text-white" : "bg-gray-300 text-white"
-                }`}>
-                  {tier.refs}
-                </div>
-                <span className="text-sm font-medium text-gray-900">{tier.reward}</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ── Left column ── */}
+        <div className="space-y-5">
+          {/* Hero CTA */}
+          <Card className="p-6 bg-gradient-to-br from-accent-50 to-brand-50 border-accent-100">
+            <div className="text-center space-y-3">
+              <div className="inline-flex items-center justify-center h-14 w-14 rounded-2xl bg-white shadow-sm mx-auto">
+                <Gift size={28} className="text-accent-600" weight="duotone" />
               </div>
-              {signups >= tier.refs && (
-                <Badge color="green">Desbloqueado</Badge>
+              <h2 className="text-xl font-bold text-ink-900">Invita 3 amigos = 1 mes gratis</h2>
+              <p className="text-sm text-ink-600 max-w-sm mx-auto">
+                Comparte tu link. Cuando 3 amigos se registren, recibes 1 mes del plan Alertas
+                ($29,900 COP) completamente gratis.
+              </p>
+              {referralsNeeded > 0 ? (
+                <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 text-sm font-semibold text-brand-600 shadow-sm">
+                  <Users size={14} />
+                  Te faltan {referralsNeeded}{" "}
+                  {referralsNeeded === 1 ? "referido" : "referidos"} para tu mes gratis
+                </div>
+              ) : (
+                <Badge color="green" className="text-sm">
+                  ✓ Ya ganaste tu mes gratis
+                </Badge>
               )}
             </div>
-          ))}
+          </Card>
+
+          {/* Share link */}
+          <Card className="p-5">
+            <h2 className="font-semibold text-ink-900 mb-4">Comparte tu link</h2>
+            <div className="flex items-center gap-2 mb-4">
+              <code className="flex-1 bg-surface-hover px-4 py-2.5 rounded-xl border border-surface-border text-sm font-mono truncate text-ink-600">
+                {referralUrl || "Cargando..."}
+              </code>
+              <Button size="sm" onClick={copy} disabled={!code}>
+                <Copy size={14} /> Copiar
+              </Button>
+            </div>
+            <div className="grid grid-cols-3 gap-2.5">
+              <button
+                onClick={shareWhatsApp}
+                disabled={!code}
+                className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20BC5A] text-white text-sm font-medium transition disabled:opacity-50"
+              >
+                <WhatsappLogo size={16} weight="fill" /> WhatsApp
+              </button>
+              <Button onClick={shareEmail} disabled={!code} variant="secondary" className="text-sm">
+                <EnvelopeSimple size={14} /> Email
+              </Button>
+              <Button onClick={copy} disabled={!code} variant="secondary" className="text-sm">
+                <ShareNetwork size={14} /> Copiar
+              </Button>
+            </div>
+          </Card>
         </div>
-      </Card>
+
+        {/* ── Right column ── */}
+        <div className="space-y-5">
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Clicks", value: data?.total_clicks ?? 0, color: "text-brand-600 bg-brand-50" },
+              { label: "Registros", value: data?.total_signups ?? 0, color: "text-accent-600 bg-accent-50" },
+              { label: "Suscritos", value: data?.total_subscribed ?? 0, color: "text-purple-600 bg-purple-50" },
+              {
+                label: "Descuento actual",
+                value: `${Math.round((data?.current_discount ?? 0) * 100)}%`,
+                color: "text-amber-600 bg-amber-50",
+              },
+            ].map((s) => (
+              <Card key={s.label} className="p-4 text-center">
+                <p className={`text-2xl font-bold ${s.color.split(" ")[0]}`}>{s.value}</p>
+                <p className="text-xs text-ink-400 mt-1">{s.label}</p>
+              </Card>
+            ))}
+          </div>
+
+          {/* Reward tiers */}
+          <Card className="p-5">
+            <h2 className="font-semibold text-ink-900 mb-4">Recompensas por referidos</h2>
+            <div className="space-y-2.5">
+              {TIERS.map((tier) => {
+                const unlocked = signups >= tier.refs;
+                return (
+                  <div
+                    key={tier.refs}
+                    className={`flex items-center gap-3 p-3.5 rounded-xl border transition ${
+                      unlocked
+                        ? "bg-accent-50 border-accent-100"
+                        : "bg-surface-hover border-surface-border"
+                    }`}
+                  >
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                        unlocked ? "bg-accent-500 text-white" : "bg-surface-border text-ink-400"
+                      }`}
+                    >
+                      {unlocked ? (
+                        <CheckCircle size={18} weight="fill" />
+                      ) : (
+                        tier.refs
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={`text-sm font-medium ${
+                          unlocked ? "text-ink-900" : "text-ink-600"
+                        }`}
+                      >
+                        {tier.reward}
+                      </p>
+                      <p className="text-xs text-ink-400">
+                        {tier.refs} {tier.refs === 1 ? "referido" : "referidos"}
+                      </p>
+                    </div>
+                    {unlocked && <Badge color="green">Desbloqueado</Badge>}
+                    {!unlocked && (
+                      <Lock size={14} className="text-ink-300 flex-shrink-0" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

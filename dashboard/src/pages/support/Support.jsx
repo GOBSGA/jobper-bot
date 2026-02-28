@@ -2,11 +2,30 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../lib/api";
 import Card from "../../components/ui/Card";
-import Button from "../../components/ui/Button";
 import Input from "../../components/ui/Input";
-import { MessageCircle, Send, Clock, Mail, Zap, Bot } from "lucide-react";
+import {
+  Robot,
+  Clock,
+  EnvelopeSimple,
+  Lightning,
+  PaperPlaneTilt,
+  Question,
+  Buildings,
+  FileText,
+  CreditCard,
+  Gear,
+  ArrowsClockwise,
+} from "@phosphor-icons/react";
 
 const SUPPORT_EMAIL = "soporte@jobper.co";
+
+const QUICK_QUESTIONS = [
+  { icon: FileText, text: "¿Cómo funciona la búsqueda de contratos?" },
+  { icon: CreditCard, text: "¿Cómo pago mi suscripción?" },
+  { icon: Buildings, text: "¿Qué diferencia hay entre los planes?" },
+  { icon: Gear, text: "¿Cómo configuro mis alertas?" },
+  { icon: Question, text: "¿Qué es el score de compatibilidad?" },
+];
 
 export default function Support() {
   const [messages, setMessages] = useState([
@@ -26,27 +45,22 @@ export default function Support() {
 
   const escalate = () => {
     const subject = encodeURIComponent("Soporte Jobper — Consulta");
-    const body = encodeURIComponent("Hola equipo de Jobper,\n\nNecesito ayuda con:\n\n[Describe tu problema aquí]\n\nGracias.");
+    const body = encodeURIComponent(
+      "Hola equipo de Jobper,\n\nNecesito ayuda con:\n\n[Describe tu problema aquí]\n\nGracias."
+    );
     window.open(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`, "_blank");
   };
 
-  const send = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
-    const q = input.trim();
+  const send = async (text) => {
+    const q = (text !== undefined ? text : input).trim();
+    if (!q || loading) return;
     setInput("");
     setMessages((m) => [...m, { role: "user", text: q }]);
     setLoading(true);
     try {
       const res = await api.post("/support/chat", { question: q });
-
-      if (res.messages_remaining != null) {
-        setRemaining(res.messages_remaining);
-      }
-
-      const botMsg = { role: "bot", text: res.answer };
-      setMessages((m) => [...m, botMsg]);
-
+      if (res.messages_remaining != null) setRemaining(res.messages_remaining);
+      setMessages((m) => [...m, { role: "bot", text: res.answer }]);
       if (res.suggestions?.length) {
         setMessages((m) => [
           ...m,
@@ -57,69 +71,122 @@ export default function Support() {
           },
         ]);
       }
-
-      if (res.rate_limited) {
-        setRemaining(0);
-      }
+      if (res.rate_limited) setRemaining(0);
     } catch {
       setMessages((m) => [
         ...m,
-        { role: "bot", text: "Ocurrió un error al procesar tu pregunta. Intenta de nuevo o escríbenos a soporte@jobper.co." },
+        {
+          role: "bot",
+          text: "Ocurrió un error. Intenta de nuevo o escríbenos a soporte@jobper.co.",
+        },
       ]);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    send();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  };
+
   const isRateLimited = remaining === 0;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Bot className="h-6 w-6 text-brand-600" />
-          <h1 className="text-2xl font-bold text-gray-900">Asistente Jobper</h1>
+    <div className="flex flex-col lg:flex-row gap-5 pb-6 h-full">
+      {/* ── Left panel: info + quick questions ── */}
+      <div className="lg:w-72 xl:w-80 flex-shrink-0 space-y-4">
+        {/* Title */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Robot size={22} className="text-brand-600" weight="duotone" />
+            <h1 className="text-xl font-bold text-ink-900">Asistente Jobper</h1>
+          </div>
+          <p className="text-sm text-ink-400">Respuestas instantáneas 24/7</p>
         </div>
+
+        {/* SLA */}
+        <Card className="p-4 !bg-blue-50 !border-blue-100">
+          <div className="flex items-start gap-3">
+            <Clock size={15} className="text-blue-500 flex-shrink-0 mt-0.5" weight="fill" />
+            <p className="text-xs text-blue-800 leading-relaxed">
+              Asistente disponible <strong>24/7</strong>. Soporte humano:{" "}
+              <strong>6:00 AM y 4:00 PM</strong> (Colombia, lun–vie).
+            </p>
+          </div>
+        </Card>
+
+        {/* Remaining */}
+        {remaining !== null && (
+          <div
+            className={`flex items-center justify-between px-3 py-2 rounded-xl border text-xs font-medium ${
+              remaining <= 2
+                ? "bg-amber-50 border-amber-200 text-amber-700"
+                : "bg-surface-hover border-surface-border text-ink-400"
+            }`}
+          >
+            <span>
+              {remaining > 0 ? `${remaining} consultas restantes hoy` : "Límite diario alcanzado"}
+            </span>
+            {remaining <= 2 && (
+              <Link to="/payments" className="flex items-center gap-0.5 text-brand-600 hover:underline">
+                <Lightning size={11} /> Mejorar
+              </Link>
+            )}
+          </div>
+        )}
+
+        {/* Quick questions */}
+        <Card className="p-4">
+          <p className="text-xs font-semibold text-ink-400 uppercase tracking-wide mb-3">
+            Preguntas frecuentes
+          </p>
+          <div className="space-y-0.5">
+            {QUICK_QUESTIONS.map((q) => (
+              <button
+                key={q.text}
+                onClick={() => send(q.text)}
+                disabled={loading || isRateLimited}
+                className="w-full flex items-start gap-2.5 text-left px-3 py-2.5 rounded-xl text-sm text-ink-700 hover:bg-surface-hover transition disabled:opacity-50"
+              >
+                <q.icon size={14} className="text-brand-400 flex-shrink-0 mt-0.5" />
+                <span className="leading-snug">{q.text}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {/* Escalate button */}
         <button
           onClick={escalate}
-          className="flex items-center gap-2 text-sm text-brand-600 hover:text-brand-700 font-medium border border-brand-200 hover:border-brand-400 rounded-lg px-3 py-1.5 transition"
+          className="w-full flex items-center justify-center gap-2 text-sm font-medium text-brand-600 border border-brand-200 hover:border-brand-400 hover:bg-brand-50 rounded-xl px-4 py-2.5 transition"
         >
-          <Mail className="h-4 w-4" /> Escalar por correo
+          <EnvelopeSimple size={15} /> Escalar a soporte humano
         </button>
+
+        <p className="text-xs text-center text-ink-400">
+          soporte@jobper.co ·{" "}
+          <Link to="/privacy" className="hover:underline">
+            Privacidad
+          </Link>
+        </p>
       </div>
 
-      {/* SLA */}
-      <div className="flex items-start gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-sm text-blue-800">
-        <Clock className="h-4 w-4 mt-0.5 shrink-0 text-blue-500" />
-        <span>
-          El asistente está disponible 24/7. Para soporte humano respondemos a las{" "}
-          <strong>6:00 AM</strong> y <strong>4:00 PM</strong> (hora Colombia, lun–vie).
-        </span>
-      </div>
-
-      {/* Remaining messages */}
-      {remaining !== null && (
-        <div className={`flex items-center justify-between px-4 py-2 rounded-lg text-xs font-medium ${
-          remaining <= 2 ? "bg-yellow-50 text-yellow-700 border border-yellow-200" : "bg-gray-50 text-gray-500"
-        }`}>
-          <span>{remaining > 0 ? `${remaining} consultas restantes hoy` : "Límite diario alcanzado"}</span>
-          {remaining <= 2 && (
-            <Link to="/payments" className="flex items-center gap-1 text-brand-600 hover:underline">
-              <Zap className="h-3 w-3" /> Mejorar plan
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Chat */}
-      <Card className="h-[480px] flex flex-col">
-        <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
+      {/* ── Right panel: chat ── */}
+      <Card className="flex-1 flex flex-col min-h-[500px] lg:min-h-0 p-5">
+        <div className="flex-1 overflow-y-auto space-y-3 pr-1 mb-4">
           {messages.map((m, i) => (
             <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               {m.role === "bot" && (
                 <div className="h-7 w-7 rounded-full bg-brand-100 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">
-                  <Bot className="h-4 w-4 text-brand-600" />
+                  <Robot size={14} className="text-brand-600" weight="duotone" />
                 </div>
               )}
               <div
@@ -127,47 +194,72 @@ export default function Support() {
                   m.role === "user"
                     ? "bg-brand-600 text-white rounded-br-sm"
                     : m.isSuggestions
-                    ? "bg-gray-50 text-gray-500 border border-gray-200 text-xs"
-                    : "bg-gray-100 text-gray-800 rounded-bl-sm"
+                      ? "bg-surface-hover text-ink-400 border border-surface-border text-xs"
+                      : "bg-surface-hover text-ink-800 rounded-bl-sm"
                 }`}
               >
                 {m.text}
               </div>
             </div>
           ))}
+
           {loading && (
             <div className="flex justify-start items-center gap-2">
               <div className="h-7 w-7 rounded-full bg-brand-100 flex items-center justify-center">
-                <Bot className="h-4 w-4 text-brand-600" />
+                <ArrowsClockwise size={13} className="text-brand-600 animate-spin" />
               </div>
-              <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm text-gray-400 flex items-center gap-1.5">
-                <span className="animate-pulse">●</span>
-                <span className="animate-pulse delay-100">●</span>
-                <span className="animate-pulse delay-200">●</span>
+              <div className="bg-surface-hover rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-ink-300 animate-bounce"
+                  style={{ animationDelay: "0ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-ink-300 animate-bounce"
+                  style={{ animationDelay: "150ms" }}
+                />
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-ink-300 animate-bounce"
+                  style={{ animationDelay: "300ms" }}
+                />
               </div>
             </div>
           )}
+
           <div ref={bottomRef} />
         </div>
 
-        <form onSubmit={send} className="flex gap-2">
-          <Input
-            className="flex-1"
-            placeholder={isRateLimited ? "Límite diario alcanzado — actualiza tu plan" : "Escribe tu pregunta..."}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={isRateLimited}
-          />
-          <Button type="submit" disabled={loading || isRateLimited}>
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+        {/* Input */}
+        {isRateLimited ? (
+          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+            <Lightning size={15} className="text-amber-600 flex-shrink-0" weight="fill" />
+            <p className="text-sm text-amber-800 flex-1">
+              Límite diario alcanzado.{" "}
+              <Link to="/payments" className="font-semibold underline">
+                Actualiza tu plan
+              </Link>{" "}
+              para mensajes ilimitados.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder="Escribe tu pregunta... (Enter para enviar)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={loading}
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              className="h-10 w-10 flex-shrink-0 flex items-center justify-center rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition disabled:opacity-50"
+            >
+              <PaperPlaneTilt size={16} weight="fill" />
+            </button>
+          </form>
+        )}
       </Card>
-
-      <p className="text-xs text-center text-gray-400">
-        Soporte@jobper.co · Respuesta humana en horario comercial ·{" "}
-        <Link to="/privacy" className="hover:underline">Privacidad</Link>
-      </p>
     </div>
   );
 }
