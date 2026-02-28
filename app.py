@@ -357,6 +357,7 @@ def _ensure_missing_columns():
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT false",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT false",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS notifications_enabled BOOLEAN DEFAULT true",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS daily_digest_enabled BOOLEAN DEFAULT true",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS city VARCHAR(100)",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS budget_min FLOAT",
             "ALTER TABLE users ADD COLUMN IF NOT EXISTS budget_max FLOAT",

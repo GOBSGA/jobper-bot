@@ -702,45 +702,68 @@ def _quick_match_score(user, contract: dict) -> int:
 
 def send_daily_digest():
     """
-    Send daily email digest to eligible users (Alertas plan and above).
-    Includes top matching contracts from the last 24 hours.
+    Send daily email digest to eligible users (Cazador plan and above).
+    Only sends if there are new contracts from the last 24h with score >= 50.
+    Respects user's daily_digest_enabled preference.
     """
     from core.plans import PLAN_ORDER
     from services.matching import get_matched_contracts
 
     with UnitOfWork() as uow:
-        # Get users with Alertas plan or higher
         users = uow.users.get_active_with_notifications()
         sent_count = 0
         skipped_count = 0
 
         for user in users:
-            # Daily digest only for alertas+ plans
-            user_plan_level = PLAN_ORDER.get(user.plan, 0)
-            alertas_level = PLAN_ORDER.get("alertas", 1)
+            # Cazador+ only (level 1+, includes legacy "alertas")
+            if PLAN_ORDER.get(user.plan, 0) < 1:
+                skipped_count += 1
+                continue
 
-            if user_plan_level < alertas_level:
+            # Respect user preference (default True if column not yet migrated)
+            digest_enabled = getattr(user, "daily_digest_enabled", True)
+            if digest_enabled is False:
                 skipped_count += 1
                 continue
 
             try:
-                # Get top matched contracts for this user
                 matched = get_matched_contracts(user.id, min_score=50, limit=10, days_back=1)
-
                 if not matched:
                     continue
 
-                # Format contracts for email
                 top_contracts = []
                 for c in matched[:5]:
-                    top_contracts.append(
-                        {
-                            "title": c.get("title", "")[:100],
-                            "entity": c.get("entity", ""),
-                            "amount": f"${c.get('amount', 0):,.0f} COP" if c.get("amount") else "N/A",
-                            "match_score": c.get("match_score", 0),
-                        }
-                    )
+                    deadline_str = ""
+                    deadline_raw = c.get("deadline")
+                    if deadline_raw:
+                        try:
+                            from datetime import date as date_t
+                            if hasattr(deadline_raw, "date"):
+                                d = deadline_raw.date()
+                            else:
+                                from datetime import datetime
+                                d = datetime.fromisoformat(str(deadline_raw)).date()
+                            days_left = (d - date_t.today()).days
+                            if days_left == 0:
+                                deadline_str = "Cierra hoy"
+                            elif days_left == 1:
+                                deadline_str = "Cierra mañana"
+                            elif days_left > 0:
+                                deadline_str = f"Cierra en {days_left} días"
+                            else:
+                                deadline_str = "Cerrado"
+                        except Exception:
+                            deadline_str = ""
+
+                    top_contracts.append({
+                        "id": c.get("id"),
+                        "title": (c.get("title") or "")[:90],
+                        "entity": (c.get("entity") or "")[:60],
+                        "amount": f"${c.get('amount', 0):,.0f}" if c.get("amount") else "",
+                        "match_score": c.get("match_score", 0),
+                        "deadline": deadline_str,
+                        "url": f"{Config.FRONTEND_URL}/contracts/{c.get('id')}",
+                    })
 
                 if top_contracts:
                     send_email(
@@ -762,36 +785,61 @@ def send_daily_digest():
 
 
 def _tmpl_daily_digest(data: dict) -> tuple[str, str]:
-    """Daily digest email template."""
+    """Daily digest email template — clean cards with direct contract links."""
     count = data.get("count", 0)
     top = data.get("top_contracts", [])
     name = data.get("name", "")
 
-    greeting = f"Hola {name}," if name else "Hola,"
+    greeting = f"Hola {_escape(name)}," if name else "Hola,"
+
+    def score_badge(score: int) -> str:
+        if score >= 85:
+            bg, label = "#16a34a", f"{score}% match"
+        elif score >= 70:
+            bg, label = "#2563eb", f"{score}% match"
+        elif score >= 50:
+            bg, label = "#d97706", f"{score}% match"
+        else:
+            bg, label = "#64748b", f"{score}% match"
+        return f'<span style="background:{bg};color:#fff;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap">{label}</span>'
 
     contracts_html = ""
     for c in top[:5]:
-        score_color = (
-            "#16a34a" if c.get("match_score", 0) >= 80 else "#3b82f6" if c.get("match_score", 0) >= 60 else "#6b7280"
-        )
+        score = c.get("match_score", 0)
+        amount_str = f'<span style="font-weight:700;color:#0f172a">{_escape(c.get("amount",""))} COP</span> &nbsp;·&nbsp; ' if c.get("amount") else ""
+        deadline_str = f'<span style="color:#dc2626">{_escape(c.get("deadline",""))}</span>' if c.get("deadline") else ""
+        meta = amount_str + deadline_str
+
         contracts_html += f"""
-<div style="border-bottom:1px solid #e2e8f0;padding:12px 0">
-  <div style="display:flex;justify-content:space-between;align-items:center">
-    <p style="margin:0;font-weight:600;color:#0f172a">{_escape(str(c.get('title', ''))[:80])}</p>
-    <span style="background:{score_color};color:#fff;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600">{c.get('match_score', 0)}%</span>
+<div style="border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px">
+    <p style="margin:0;font-weight:600;color:#0f172a;font-size:14px;line-height:1.4">{_escape(c.get('title',''))}</p>
+    {score_badge(score)}
   </div>
-  <p style="margin:4px 0 0;color:#475569;font-size:13px">{_escape(str(c.get('entity', '')))} — {_escape(str(c.get('amount', 'N/A')))}</p>
+  <p style="margin:0 0 10px;color:#64748b;font-size:12px">{_escape(c.get('entity',''))}</p>
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+    <p style="margin:0;font-size:12px;color:#475569">{meta}</p>
+    <a href="{c.get('url','#')}" style="background:#4f46e5;color:#fff;text-decoration:none;padding:6px 16px;border-radius:6px;font-size:12px;font-weight:600">Ver contrato →</a>
+  </div>
 </div>"""
 
     content = f"""
-<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">Digest diario</h2>
-<p style="color:#475569;line-height:1.6">{greeting}</p>
-<p style="color:#475569;line-height:1.6">Hoy encontramos <strong>{count} contratos</strong> que coinciden con tu perfil. Aquí los mejores:</p>
+<p style="color:#475569;line-height:1.6;margin:0 0 4px">{greeting}</p>
+<h2 style="margin:0 0 4px;color:#0f172a;font-size:20px;font-weight:700">
+  {"Hoy hay " + str(count) + " contratos nuevos para ti" if count > 0 else "Sin contratos nuevos hoy"}
+</h2>
+<p style="color:#64748b;font-size:13px;margin:0 0 20px">Filtrados según tu perfil y sector — estos son los mejores:</p>
 {contracts_html}
-{_button(Config.FRONTEND_URL + "/contracts", "Ver todos los contratos")}
-<p style="color:#94a3b8;font-size:12px;margin-top:16px">Recibes este email porque tienes el plan Alertas o superior. <a href="{Config.FRONTEND_URL}/settings" style="color:#3b82f6">Ajustar notificaciones</a></p>
+<div style="text-align:center;margin:24px 0">
+  <a href="{Config.FRONTEND_URL}/contracts" style="display:inline-block;padding:12px 28px;background:#0f172a;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;font-size:14px">Ver todos los contratos →</a>
+</div>
+<p style="color:#94a3b8;font-size:11px;margin-top:20px;border-top:1px solid #f1f5f9;padding-top:12px">
+  Recibes este email porque tienes el plan Cazador o superior.
+  <a href="{Config.FRONTEND_URL}/settings" style="color:#4f46e5">Ajustar preferencias</a>
+</p>
 """
-    return f"Digest diario — {count} contratos para ti", _base_html(content)
+    subject = f"🎯 {count} contratos nuevos para ti hoy" if count > 0 else "Tu resumen diario — Jobper"
+    return subject, _base_html(content)
 
 
 def _tmpl_renewal_reminder(data: dict) -> tuple[str, str]:
