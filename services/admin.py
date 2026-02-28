@@ -425,6 +425,46 @@ def admin_toggle_admin(user_id: int) -> dict:
     return {"ok": True, "is_admin": user.is_admin}
 
 
+def admin_extend_trial(user_id: int, days: int = 7) -> dict:
+    """Extend a user's trial by N days from today."""
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+
+        now = datetime.utcnow()
+        # Extend from current expiry or from now, whichever is later
+        base = max(user.trial_ends_at or now, now)
+        user.trial_ends_at = base + timedelta(days=days)
+        if user.plan not in ("cazador", "competidor", "dominador"):
+            user.plan = "trial"
+        uow.commit()
+
+    logger.info(f"Admin extended trial for user {user_id} by {days} days → {user.trial_ends_at}")
+    return {"ok": True, "trial_ends_at": user.trial_ends_at.isoformat()}
+
+
+def admin_send_magic_link(user_id: int) -> dict:
+    """Send a magic link (password reset / login link) to user's email."""
+    from services.auth import create_magic_link
+    from services.notifications import send_magic_link_email
+
+    with UnitOfWork() as uow:
+        user = uow.users.get(user_id)
+        if not user:
+            return {"error": "Usuario no encontrado"}
+        email = user.email
+
+    try:
+        token = create_magic_link(email)
+        send_magic_link_email(email, token)
+        logger.info(f"Admin sent magic link to {email} (user_id={user_id})")
+        return {"ok": True, "email": email}
+    except Exception as exc:
+        logger.error(f"admin_send_magic_link failed for {email}: {exc}")
+        return {"error": f"Error al enviar email: {exc}"}
+
+
 def get_activity_feed(page: int = 1, per_page: int = 50) -> dict:
     """Global activity feed: audit logs with user emails."""
     with UnitOfWork() as uow:

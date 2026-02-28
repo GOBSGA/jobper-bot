@@ -1299,8 +1299,14 @@ def admin_health():
 @require_admin
 def admin_user_detail(user_id: int):
     from services.admin import get_user_detail
+    import traceback
 
-    result = get_user_detail(user_id)
+    try:
+        result = get_user_detail(user_id)
+    except Exception as exc:
+        logger.error(f"admin_user_detail({user_id}): {exc}\n{traceback.format_exc()}")
+        return jsonify({"error": f"Error interno: {exc}"}), 500
+
     if "error" in result:
         return jsonify(result), 404
     return jsonify(result)
@@ -1332,6 +1338,34 @@ def admin_toggle_admin(user_id: int):
     from services.admin import admin_toggle_admin as do_toggle
 
     result = do_toggle(user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.post("/users/<int:user_id>/extend-trial")
+@require_auth
+@require_admin
+@audit("admin_extend_trial")
+def admin_extend_trial(user_id: int):
+    data = request.get_json(silent=True) or {}
+    days = int(data.get("days", 7))
+    from services.admin import admin_extend_trial as do_extend
+
+    result = do_extend(user_id, days)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
+@admin_bp.post("/users/<int:user_id>/send-magic-link")
+@require_auth
+@require_admin
+@audit("admin_send_magic_link")
+def admin_send_magic_link(user_id: int):
+    from services.admin import admin_send_magic_link as do_send
+
+    result = do_send(user_id)
     if "error" in result:
         return jsonify(result), 400
     return jsonify(result)
