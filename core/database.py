@@ -127,6 +127,7 @@ class User(Base):
     subscriptions = relationship("Subscription", back_populates="user")
     pipeline_entries = relationship("PipelineEntry", back_populates="user")
     push_subscriptions = relationship("PushSubscription", back_populates="user")
+    saved_searches = relationship("SavedSearch", back_populates="user")
 
     def is_trial_active(self) -> bool:
         if self.plan != "trial":
@@ -454,6 +455,23 @@ class MarketplaceMessage(Base):
     )
 
 
+class SavedSearch(Base):
+    """Búsqueda guardada — el usuario recibe alertas cuando llegan nuevos contratos que coincidan."""
+
+    __tablename__ = "saved_searches"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(200), nullable=False)
+    query = Column(String(500), nullable=True)  # texto libre de búsqueda
+    last_notified_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="saved_searches")
+
+    __table_args__ = (Index("idx_saved_search_user", "user_id"),)
+
+
 # =============================================================================
 # ENGINE + SESSION FACTORY
 # =============================================================================
@@ -522,6 +540,7 @@ class UnitOfWork:
         self.push_subs = BaseRepository(PushSubscription, self.session)
         self.audit = BaseRepository(AuditLog, self.session)
         self.mkt_messages = BaseRepository(MarketplaceMessage, self.session)
+        self.saved_searches = BaseRepository(SavedSearch, self.session)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):

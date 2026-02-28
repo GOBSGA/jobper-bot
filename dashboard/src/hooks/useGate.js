@@ -14,6 +14,7 @@ const FEATURE_GATES = {
   email_digest: "cazador",
   advanced_filters: "cazador",
   export: "cazador",
+  saved_searches: "cazador",
   // Legacy aliases
   alerts: "cazador",
   favorites: "cazador",
@@ -57,6 +58,7 @@ const FOMO_MESSAGES = {
   ai_analysis: "Analiza con IA tu probabilidad de ganar",
   competitive_intelligence: "Descubre quién gana en tu sector",
   alerts_email: "Recibe alertas de nuevos contratos",
+  saved_searches: "Guarda búsquedas y recibe alertas automáticas",
   instant_alerts: "Sé el primero en enterarte",
   pipeline: "Gestiona tu pipeline de contratos",
   team: "Añade a tu equipo",

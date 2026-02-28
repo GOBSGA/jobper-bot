@@ -10,6 +10,7 @@ import { SkeletonContractCard } from "../../components/ui/Skeleton";
 import EmptyState from "../../components/ui/EmptyState";
 import { useGate, usePlanLimits } from "../../hooks/useGate";
 import { FomoBanner, LockedInline } from "../../components/ui/LockedContent";
+import { useToast } from "../../components/ui/Toast";
 import { money, date, relative, truncate } from "../../lib/format";
 import {
   MagnifyingGlass,
@@ -23,6 +24,9 @@ import {
   Star,
   DownloadSimple,
   Spinner as PhosphorSpinner,
+  BookmarkSimple,
+  BellRinging,
+  Trash,
 } from "@phosphor-icons/react";
 
 export default function ContractSearch() {
@@ -34,12 +38,16 @@ export default function ContractSearch() {
   const [page, setPage] = useState(1);
   const [showFomoBanner, setShowFomoBanner] = useState(true);
   const [searchError, setSearchError] = useState(null);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [savingSearch, setSavingSearch] = useState(false);
 
   const { isFreeTier, limits } = usePlanLimits();
   const scoreGate = useGate("match_scores");
   const exportGate = useGate("export");
+  const savedSearchGate = useGate("saved_searches");
   const navigate = useNavigate();
   const [exporting, setExporting] = useState(false);
+  const toast = useToast();
 
   const handleExport = async () => {
     setExporting(true);
@@ -93,8 +101,46 @@ export default function ContractSearch() {
     }
   };
 
+  const loadSavedSearches = async () => {
+    if (!savedSearchGate.allowed) return;
+    try {
+      const data = await api.get("/contracts/saved-searches");
+      setSavedSearches(Array.isArray(data) ? data : []);
+    } catch {
+      // silent
+    }
+  };
+
+  const saveSearch = async () => {
+    if (!savedSearchGate.allowed) {
+      navigate(savedSearchGate.upgradeUrl);
+      return;
+    }
+    const name = query.trim() || "Mi búsqueda";
+    setSavingSearch(true);
+    try {
+      await api.post("/contracts/saved-searches", { name, query: query.trim() });
+      toast.success(`Búsqueda guardada: "${name}"`);
+      loadSavedSearches();
+    } catch (err) {
+      toast.error(err.error || "Error al guardar búsqueda");
+    } finally {
+      setSavingSearch(false);
+    }
+  };
+
+  const deleteSavedSearch = async (id) => {
+    try {
+      await api.delete(`/contracts/saved-searches/${id}`);
+      setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      toast.error("Error al eliminar");
+    }
+  };
+
   useEffect(() => {
     loadMatched();
+    loadSavedSearches();
   }, []);
 
   useEffect(() => {
@@ -149,6 +195,17 @@ export default function ContractSearch() {
         <Button type="submit" disabled={loading}>
           <MagnifyingGlass size={16} /> Buscar
         </Button>
+        {query.trim() && (
+          <button
+            type="button"
+            onClick={saveSearch}
+            disabled={savingSearch}
+            title={savedSearchGate.allowed ? "Guardar esta búsqueda y recibir alertas" : savedSearchGate.fomoMessage}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl border border-surface-border text-ink-600 hover:border-brand-300 hover:text-brand-600 hover:bg-brand-50 transition text-sm"
+          >
+            <BookmarkSimple size={15} weight={savingSearch ? "fill" : "regular"} />
+          </button>
+        )}
         {exportGate.allowed ? (
           <Button type="button" variant="secondary" onClick={handleExport} disabled={exporting} title="Exportar a Excel">
             {exporting ? <PhosphorSpinner size={16} className="animate-spin" /> : <DownloadSimple size={16} />}
@@ -164,6 +221,33 @@ export default function ContractSearch() {
           </button>
         )}
       </form>
+
+      {/* Saved searches panel */}
+      {savedSearchGate.allowed && savedSearches.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <BellRinging size={14} className="text-brand-500 flex-shrink-0" weight="duotone" />
+          <span className="text-xs text-ink-400 flex-shrink-0">Alertas activas:</span>
+          {savedSearches.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-50 border border-brand-100 text-xs text-brand-700 group"
+            >
+              <button
+                onClick={() => { setQuery(s.query || s.name); setTab("todos"); searchAll(); }}
+                className="font-medium hover:underline"
+              >
+                {s.name}
+              </button>
+              <button
+                onClick={() => deleteSavedSearch(s.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-brand-400 hover:text-red-500"
+              >
+                <Trash size={11} weight="bold" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-surface-hover rounded-2xl p-1">

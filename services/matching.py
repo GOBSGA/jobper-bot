@@ -19,7 +19,7 @@ from typing import Optional
 import numpy as np
 
 from core.cache import cache
-from core.database import Contract, UnitOfWork, User
+from core.database import Contract, SavedSearch, UnitOfWork, User
 
 logger = logging.getLogger(__name__)
 
@@ -613,3 +613,98 @@ def _queue_push_notification(user: User, contract: Contract, score: int):
             send_telegram(user.telegram_chat_id, msg)
     except Exception as e:
         logger.error(f"Telegram notification failed for user {user.email}: {e}")
+
+
+def notify_saved_search_matches():
+    """
+    After ingestion, check every active saved search and notify the user if new
+    contracts match the saved query.  Only runs once per hour per saved search
+    to avoid spam.
+    """
+    from config import Config
+    from core.tasks import task_send_email
+
+    COOLDOWN_HOURS = 1  # min hours between notifications per saved search
+
+    try:
+        with UnitOfWork() as uow:
+            now = datetime.utcnow()
+            cutoff = now - timedelta(hours=COOLDOWN_HOURS)
+
+            # Get saved searches not notified in the last hour
+            searches = (
+                uow.session.query(SavedSearch)
+                .filter(
+                    (SavedSearch.last_notified_at == None)  # noqa: E711
+                    | (SavedSearch.last_notified_at < cutoff)
+                )
+                .all()
+            )
+            if not searches:
+                return
+
+            # Get contracts ingested in the last 2 hours
+            since = now - timedelta(hours=2)
+            new_contracts = (
+                uow.session.query(Contract)
+                .filter(Contract.created_at >= since)
+                .limit(500)
+                .all()
+            )
+            if not new_contracts:
+                return
+
+            for search in searches:
+                user = uow.users.get(search.user_id)
+                if not user or not user.notifications_enabled:
+                    continue
+
+                # Simple keyword match: query words appear in title or description
+                q = (search.query or "").lower().strip()
+                if not q:
+                    continue
+
+                terms = [t for t in q.split() if len(t) > 2]
+                if not terms:
+                    continue
+
+                matches = []
+                for contract in new_contracts:
+                    haystack = f"{contract.title or ''} {contract.description or ''}".lower()
+                    if any(term in haystack for term in terms):
+                        matches.append(contract)
+
+                if not matches:
+                    continue
+
+                # Send email with up to 3 matching contracts
+                try:
+                    task_send_email.delay(
+                        user.email,
+                        "saved_search_alert",
+                        {
+                            "search_name": search.name,
+                            "query": search.query,
+                            "count": len(matches),
+                            "contracts": [
+                                {
+                                    "title": c.title or "Sin título",
+                                    "entity": c.entity or "No especificada",
+                                    "amount": c.amount or 0,
+                                    "url": f"{Config.FRONTEND_URL}/contracts/{c.id}",
+                                }
+                                for c in matches[:3]
+                            ],
+                        },
+                    )
+                    search.last_notified_at = now
+                    logger.info(
+                        f"Saved search alert sent: user={user.email} search='{search.name}' matches={len(matches)}"
+                    )
+                except Exception as e:
+                    logger.error(f"Saved search email failed for user {user.email}: {e}")
+
+            uow.commit()
+
+    except Exception as e:
+        logger.error(f"notify_saved_search_matches failed: {e}")

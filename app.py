@@ -416,7 +416,17 @@ def _ensure_missing_columns():
             created_at TIMESTAMP DEFAULT NOW()
         )
         """
-        ddl_statements = [create_pipeline_table, create_mkt_messages_table] + ddl_statements
+        create_saved_searches_table = """
+        CREATE TABLE IF NOT EXISTS saved_searches (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            name VARCHAR(200) NOT NULL,
+            query VARCHAR(500),
+            last_notified_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+        )
+        """
+        ddl_statements = [create_pipeline_table, create_mkt_messages_table, create_saved_searches_table] + ddl_statements
         # Use a SEPARATE connection per statement — if one fails (PostgreSQL aborts
         # the whole transaction), it won't prevent the others from running.
         for stmt in ddl_statements:

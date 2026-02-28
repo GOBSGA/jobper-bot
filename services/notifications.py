@@ -141,6 +141,7 @@ def _render_template(template: str, data: dict) -> tuple[str, str]:
         "payment_rejected": _tmpl_payment_rejected,
         # System alerts
         "scraper_alert": _tmpl_scraper_alert,
+        "saved_search_alert": _tmpl_saved_search_alert,
     }
 
     fn = templates.get(template)
@@ -235,6 +236,40 @@ def _tmpl_contract_alert(data: dict) -> tuple[str, str]:
 {_button(url, "Ver contrato")}
 """
     return f"Contrato relevante: {_escape(title[:60])}", _base_html(content)
+
+
+def _tmpl_saved_search_alert(data: dict) -> tuple[str, str]:
+    search_name = _escape(data.get("search_name", "Tu búsqueda"))
+    query = _escape(data.get("query", ""))
+    count = data.get("count", 0)
+    contracts = data.get("contracts", [])
+
+    rows = ""
+    for c in contracts:
+        title = _escape(c.get("title", "Sin título"))
+        entity = _escape(c.get("entity", "No especificada"))
+        amount = c.get("amount", 0)
+        url = c.get("url", Config.FRONTEND_URL)
+        amount_str = f"${amount:,.0f} COP" if amount else "No especificado"
+        rows += f"""
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin:8px 0">
+  <p style="margin:0 0 4px;font-weight:600;color:#0f172a;font-size:15px">{title}</p>
+  <p style="margin:0;color:#475569;font-size:13px">{entity} · {amount_str}</p>
+  <a href="{url}" style="color:#3b82f6;font-size:13px;text-decoration:none">Ver contrato →</a>
+</div>"""
+
+    content = f"""
+<h2 style="margin:0 0 8px;color:#0f172a;font-size:18px">
+  Nuevos contratos para «{search_name}»
+</h2>
+<p style="color:#475569;margin:0 0 12px">
+  Encontramos <strong>{count} contrato{"s" if count != 1 else ""}</strong>
+  {"que incluye" if count == 1 else "que incluyen"} <em>{query}</em>.
+</p>
+{rows}
+{_button(Config.FRONTEND_URL + "/contracts", "Ver todos los contratos")}
+"""
+    return f"Alerta: {count} nuevo{'s' if count != 1 else ''} contrato{'s' if count != 1 else ''} para «{search_name}»", _base_html(content)
 
 
 def _tmpl_trial_expiring(data: dict) -> tuple[str, str]:

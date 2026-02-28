@@ -69,7 +69,8 @@ def analyze_contract(contract_id: int, user_id: int) -> Dict[str, Any]:
             "competition_level": analysis.competition_level.value if hasattr(analysis.competition_level, "value") else str(analysis.competition_level),
             "opportunity_score": analysis.opportunity_score,
             "fit_score": analysis.fit_score,
-            "requirements": analysis.requirements,
+            # ContractRequirement objects → plain strings for frontend
+            "requirements": [r.description for r in analysis.requirements] if analysis.requirements else [],
             "key_technologies": analysis.key_technologies,
             "certifications_required": analysis.certifications_required,
             "key_deliverables": analysis.key_deliverables,
@@ -79,6 +80,7 @@ def analyze_contract(contract_id: int, user_id: int) -> Dict[str, Any]:
             "requires_consortium": analysis.requires_consortium,
             "allows_foreign_companies": analysis.allows_foreign_companies,
             "requires_local_presence": analysis.requires_local_presence,
-            "warnings": analysis.warnings,
-            "recommendations": analysis.recommendations,
+            # Map ContractInsight objects (no warnings/recommendations fields in dataclass)
+            "warnings": [i.description for i in analysis.insights if i.type == "risk"],
+            "recommendations": [i.description for i in analysis.insights if i.type in ("recommendation", "opportunity")],
         }

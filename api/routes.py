@@ -392,6 +392,76 @@ def contract_alerts():
     return jsonify(result)
 
 
+@contracts_bp.get("/saved-searches")
+@require_auth
+def list_saved_searches():
+    from core.database import SavedSearch
+
+    with UnitOfWork() as uow:
+        searches = (
+            uow.session.query(SavedSearch)
+            .filter(SavedSearch.user_id == g.user_id)
+            .order_by(SavedSearch.created_at.desc())
+            .all()
+        )
+        return jsonify(
+            [
+                {
+                    "id": s.id,
+                    "name": s.name,
+                    "query": s.query,
+                    "created_at": s.created_at.isoformat() if s.created_at else None,
+                    "last_notified_at": s.last_notified_at.isoformat() if s.last_notified_at else None,
+                }
+                for s in searches
+            ]
+        )
+
+
+@contracts_bp.post("/saved-searches")
+@require_auth
+@require_plan("alertas")
+def create_saved_search():
+    from core.database import SavedSearch
+
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    query = (data.get("query") or "").strip()
+    if not name:
+        return jsonify({"error": "El nombre es requerido"}), 400
+
+    with UnitOfWork() as uow:
+        # Limit to 10 saved searches per user
+        count = (
+            uow.session.query(SavedSearch)
+            .filter(SavedSearch.user_id == g.user_id)
+            .count()
+        )
+        if count >= 10:
+            return jsonify({"error": "Límite de 10 búsquedas guardadas alcanzado"}), 400
+
+        s = SavedSearch(user_id=g.user_id, name=name, query=query or None)
+        uow.saved_searches.create(s)
+        uow.commit()
+        return jsonify({"id": s.id, "name": s.name, "query": s.query}), 201
+
+
+@contracts_bp.delete("/saved-searches/<int:search_id>")
+@require_auth
+def delete_saved_search(search_id: int):
+    from core.database import SavedSearch
+
+    with UnitOfWork() as uow:
+        s = uow.session.query(SavedSearch).filter(
+            SavedSearch.id == search_id, SavedSearch.user_id == g.user_id
+        ).first()
+        if not s:
+            return jsonify({"error": "No encontrado"}), 404
+        uow.saved_searches.delete(s)
+        uow.commit()
+        return jsonify({"ok": True})
+
+
 @contracts_bp.get("/matched")
 @require_auth
 def matched_contracts():

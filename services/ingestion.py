@@ -130,9 +130,13 @@ def ingest_all(days_back: int = 7, force_aggressive: bool = False) -> dict:
 
 def _post_ingestion_notify(new_count: int):
     """After ingestion, check for high-priority matches and notify users."""
-    from services.matching import notify_high_priority_matches
+    from services.matching import notify_high_priority_matches, notify_saved_search_matches
 
     notify_high_priority_matches(new_count)
+    try:
+        notify_saved_search_matches()
+    except Exception as e:
+        logger.error(f"Saved search notification failed: {e}")
 
 
 def _compute_content_hash(title: str, entity: str) -> str:
