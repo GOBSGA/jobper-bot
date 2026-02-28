@@ -125,7 +125,7 @@ class User(Base):
     # Relationships
     favorites = relationship("Favorite", back_populates="user")
     subscriptions = relationship("Subscription", back_populates="user")
-    pipeline_entries = relationship("PipelineEntry", back_populates="user")
+    pipeline_entries = relationship("PipelineEntry", foreign_keys="[PipelineEntry.user_id]", back_populates="user")
     push_subscriptions = relationship("PushSubscription", back_populates="user")
     saved_searches = relationship("SavedSearch", back_populates="user")
 
