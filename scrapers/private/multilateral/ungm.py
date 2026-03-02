@@ -46,11 +46,19 @@ class UNGMScraper(PrivatePortalScraper):
         days_back: int = 30,
     ) -> List[ContractData]:
         """
-        Obtiene oportunidades de procurement de UNGM.
+        UNGM requiere JavaScript para renderizar su contenido.
+        BeautifulSoup no puede parsear el HTML renderizado dinámicamente.
+        Se necesita Playwright o Selenium para acceder a este portal.
 
-        UNGM no tiene API pública, así que usamos web scraping
-        de su página de notices públicos.
+        TODO: Implementar con Playwright cuando esté disponible.
         """
+        logger.info(
+            f"{self.portal_name}: Deshabilitado — el portal requiere JavaScript. "
+            "Se necesita Playwright para scraping. Retornando vacío."
+        )
+        return []
+
+        # --- CÓDIGO ORIGINAL (requiere JavaScript) ---
         contracts = []
 
         try:

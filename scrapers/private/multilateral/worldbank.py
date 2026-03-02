@@ -1,12 +1,15 @@
 """
 Scraper para el Banco Mundial (World Bank)
-Obtiene oportunidades de procurement del Banco Mundial
+Obtiene proyectos activos del Banco Mundial con presencia en Colombia/LAC.
+
+API: https://search.worldbank.org/api/v2/projects
+Docs: https://data.worldbank.org/products/api
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from scrapers.base import ContractData
@@ -17,13 +20,13 @@ logger = logging.getLogger(__name__)
 
 class WorldBankScraper(PrivatePortalScraper):
     """
-    Scraper para oportunidades del Banco Mundial.
+    Scraper para proyectos/oportunidades del Banco Mundial.
 
-    El Banco Mundial publica procurement notices para proyectos
-    de desarrollo en todo el mundo.
+    Usa la API pública de proyectos del Banco Mundial, filtrando por Colombia
+    y países de América Latina. Los proyectos incluyen oportunidades de
+    procurement asociadas.
 
-    API: World Bank Procurement API
-    Docs: https://projects.worldbank.org/en/projects-operations/procurement
+    API: search.worldbank.org/api/v2/projects
     """
 
     portal_name = "Banco Mundial"
@@ -31,8 +34,11 @@ class WorldBankScraper(PrivatePortalScraper):
     source_type = "multilateral"
     requires_authentication = False
 
-    # API endpoint - World Bank tiene API pública
-    API_URL = "https://search.worldbank.org/api/v2/procnotices"
+    # API endpoint — versión confirmada como funcional
+    API_URL = "https://search.worldbank.org/api/v2/projects"
+
+    # Países LAC más relevantes para usuarios colombianos
+    LAC_COUNTRIES = ["CO", "PE", "EC", "MX", "BR", "AR", "CL", "PA", "VE"]
 
     def __init__(self):
         super().__init__(api_url=self.API_URL)
@@ -44,138 +50,152 @@ class WorldBankScraper(PrivatePortalScraper):
         max_amount: Optional[float] = None,
         days_back: int = 30,
     ) -> List[ContractData]:
-        """
-        Obtiene oportunidades de procurement del Banco Mundial.
-
-        La API del Banco Mundial soporta búsqueda por texto y filtros.
-        """
+        """Obtiene proyectos activos del Banco Mundial en Colombia/LAC."""
         contracts = []
 
-        try:
-            # Calcular fecha límite
-            date_from = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        # Intentar primero Colombia, luego LAC amplio
+        country_filters = ["CO", None]  # None = sin filtro de país
 
-            # Parámetros de búsqueda
-            params = {
-                "format": "json",
-                "rows": 100,
-                "os": 0,  # offset
-                "strdate": date_from,
-                "status": "Active",
-            }
+        for country_code in country_filters:
+            batch = self._fetch_for_country(country_code, keywords, days_back)
+            contracts.extend(batch)
+            if len(contracts) >= 20:
+                break
 
-            # Agregar búsqueda por texto si hay keywords
-            if keywords:
-                params["qterm"] = " OR ".join(keywords[:5])
+        # Filtrar por monto si se especifica
+        if min_amount or max_amount:
+            contracts = [
+                c for c in contracts
+                if not c.amount or (
+                    (not min_amount or c.amount >= min_amount) and
+                    (not max_amount or c.amount <= max_amount)
+                )
+            ]
 
-            response = self._make_request("", params=params)
-
-            if not response:
-                logger.warning(f"{self.portal_name}: No response, trying alternative endpoint")
-                return self._fetch_alternative(keywords, days_back)
-
-            # La respuesta puede tener diferentes estructuras
-            notices = response.get("procnotices", response.get("documents", []))
-            if isinstance(notices, dict):
-                notices = list(notices.values())
-
-            for notice in notices:
-                try:
-                    contract = self._normalize_contract(notice)
-                    if contract:
-                        # Filtrar por monto
-                        if min_amount and contract.amount and contract.amount < min_amount:
-                            continue
-                        if max_amount and contract.amount and contract.amount > max_amount:
-                            continue
-
-                        contracts.append(contract)
-                except Exception as e:
-                    logger.debug(f"Error normalizando contrato WB: {e}")
-                    continue
-
-            logger.info(f"{self.portal_name}: {len(contracts)} oportunidades encontradas")
-
-        except Exception as e:
-            logger.error(f"{self.portal_name}: Error fetching: {e}")
-            return self._fetch_alternative(keywords, days_back)
-
+        logger.info(f"{self.portal_name}: {len(contracts)} proyectos encontrados")
         return contracts
 
-    def _normalize_contract(self, raw: dict) -> Optional[ContractData]:
-        """Normaliza un notice del Banco Mundial al formato estándar."""
+    def _fetch_for_country(
+        self,
+        country_code: Optional[str],
+        keywords: Optional[List[str]],
+        days_back: int,
+    ) -> List[ContractData]:
+        """Fetch proyectos para un país específico (o global si country_code=None)."""
+        params = {
+            "format": "json",
+            "rows": 50,
+            "status_exact": "Active",
+            "fl": "id,project_name,countryname,totalamt,boardapprovaldate,closingdate,project_abstract,lendprojecttype",
+        }
+
+        if country_code:
+            params["countrycode_exact"] = country_code
+
+        if keywords:
+            params["qterm"] = " ".join(keywords[:3])
+
         try:
-            # IDs del Banco Mundial
-            external_id = raw.get("id") or raw.get("noticeNo") or raw.get("notice_id") or raw.get("project_id")
-            if not external_id:
+            response = self._make_request(self.API_URL, params=params)
+            if not response:
+                return []
+
+            projects = response.get("projects", {})
+            if isinstance(projects, dict):
+                projects = list(projects.values())
+            elif not isinstance(projects, list):
+                return []
+
+            contracts = []
+            for proj in projects:
+                if not isinstance(proj, dict):
+                    continue
+                try:
+                    contract = self._normalize_project(proj)
+                    if contract:
+                        contracts.append(contract)
+                except Exception as e:
+                    logger.debug(f"Error normalizando proyecto WB: {e}")
+
+            return contracts
+
+        except Exception as e:
+            logger.error(f"{self.portal_name}: Error fetching country={country_code}: {e}")
+            return []
+
+    def _normalize_project(self, proj: dict) -> Optional[ContractData]:
+        """Normaliza un proyecto del Banco Mundial al formato estándar."""
+        try:
+            project_id = proj.get("id", "")
+            if not project_id:
                 return None
 
-            # Título
-            title = raw.get("title") or raw.get("notice_title") or raw.get("project_name") or ""
+            title = proj.get("project_name", "").strip()
             if not title:
                 return None
 
-            # Descripción
-            description = raw.get("description") or raw.get("notice_text")
-
-            # Entidad ejecutora
-            entity = raw.get("borrower") or raw.get("agency") or "Banco Mundial"
-
-            # Monto estimado
+            # Monto total
             amount = None
-            for field in ["contractvalue", "estimated_amount", "amount", "value"]:
-                if raw.get(field):
-                    try:
-                        val = str(raw[field]).replace(",", "").replace("$", "").strip()
-                        amount = float(val)
-                        break
-                    except ValueError:
-                        continue
+            raw_amount = proj.get("totalamt")
+            if raw_amount:
+                try:
+                    amount = float(str(raw_amount).replace(",", ""))
+                    if amount <= 0:
+                        amount = None
+                except (ValueError, TypeError):
+                    pass
 
             # Fechas
-            pub_date = self._parse_date(
-                raw.get("notice_posted_date") or raw.get("submission_date") or raw.get("created_date")
-            )
+            pub_date = self._parse_date(proj.get("boardapprovaldate"))
+            deadline = self._parse_date(proj.get("closingdate"))
 
-            deadline = self._parse_date(
-                raw.get("deadline_date") or raw.get("submission_deadline") or raw.get("closing_date")
-            )
+            # Descripción
+            description = proj.get("project_abstract", "")
+            if isinstance(description, dict):
+                description = description.get("cdata", "") or str(description)
 
-            # URL
-            url = raw.get("url") or raw.get("notice_url")
-            if not url and external_id:
-                url = f"https://projects.worldbank.org/en/projects-operations/procurement-detail/{external_id}"
+            # País
+            country_name = proj.get("countryname", "")
+            if isinstance(country_name, dict):
+                country_name = str(country_name)
 
-            # País del proyecto (si está disponible)
-            country_name = raw.get("country") or raw.get("countryname") or "multilateral"
+            entity = f"Banco Mundial — {country_name}" if country_name else "Banco Mundial"
+
+            url = f"https://projects.worldbank.org/en/projects-operations/project-detail/{project_id}"
 
             return ContractData(
-                external_id=f"WB-{external_id}",
+                external_id=f"WB-{project_id}",
                 title=title[:500],
-                description=description[:2000] if description else None,
+                description=str(description)[:2000] if description else None,
                 entity=entity,
                 amount=amount,
                 currency="USD",
                 country="multilateral",
                 source=self.portal_name,
+                source_type=self.source_type,
                 url=url,
-                publication_date=pub_date,
+                publication_date=pub_date or datetime.now(timezone.utc),
                 deadline=deadline,
-                raw_data=raw,
+                raw_data={"project_id": project_id, "country": country_name},
             )
 
         except Exception as e:
-            logger.debug(f"Error normalizando contrato WB: {e}")
+            logger.debug(f"Error normalizando proyecto WB: {e}")
             return None
 
-    def _parse_date(self, date_str: Optional[str]) -> Optional[datetime]:
-        """Parsea fechas en varios formatos."""
+    def _parse_date(self, date_str) -> Optional[datetime]:
+        """Parsea fechas del Banco Mundial."""
         if not date_str:
             return None
 
+        # Puede venir como dict con cdata
+        if isinstance(date_str, dict):
+            date_str = date_str.get("cdata", "") or str(date_str)
+
+        date_str = str(date_str).strip()[:19]
+
         formats = [
             "%Y-%m-%dT%H:%M:%S",
-            "%Y-%m-%dT%H:%M:%SZ",
             "%Y-%m-%d",
             "%d-%b-%Y",
             "%m/%d/%Y",
@@ -183,66 +203,8 @@ class WorldBankScraper(PrivatePortalScraper):
 
         for fmt in formats:
             try:
-                return datetime.strptime(str(date_str)[:19], fmt)
+                return datetime.strptime(date_str, fmt).replace(tzinfo=timezone.utc)
             except ValueError:
                 continue
 
         return None
-
-    def _fetch_alternative(self, keywords: Optional[List[str]] = None, days_back: int = 30) -> List[ContractData]:
-        """
-        Método alternativo usando la API de proyectos.
-        """
-        contracts = []
-
-        try:
-            # API alternativa de proyectos
-            alt_url = "https://search.worldbank.org/api/v2/projects"
-
-            params = {
-                "format": "json",
-                "rows": 50,
-                "status_exact": "Active",
-                "fl": "id,project_name,countryname,totalamt,boardapprovaldate,closingdate,project_abstract",
-            }
-
-            if keywords:
-                params["qterm"] = " ".join(keywords[:3])
-
-            response = self._make_request(alt_url, params=params)
-
-            if not response:
-                return contracts
-
-            projects = response.get("projects", {})
-            if isinstance(projects, dict):
-                projects = list(projects.values())
-
-            for proj in projects:
-                try:
-                    if isinstance(proj, dict):
-                        contract = ContractData(
-                            external_id=f"WB-PROJ-{proj.get('id', '')}",
-                            title=proj.get("project_name", "")[:500],
-                            description=proj.get("project_abstract"),
-                            entity=f"Banco Mundial - {proj.get('countryname', '')}",
-                            amount=float(proj.get("totalamt", 0)) if proj.get("totalamt") else None,
-                            currency="USD",
-                            country="multilateral",
-                            source=self.portal_name,
-                            url=f"https://projects.worldbank.org/en/projects-operations/project-detail/{proj.get('id', '')}",
-                            publication_date=self._parse_date(proj.get("boardapprovaldate")),
-                            deadline=self._parse_date(proj.get("closingdate")),
-                            raw_data=proj,
-                        )
-                        contracts.append(contract)
-                except Exception as e:
-                    logger.debug(f"Error en proyecto WB: {e}")
-                    continue
-
-            logger.info(f"{self.portal_name} (alt): {len(contracts)} proyectos")
-
-        except Exception as e:
-            logger.error(f"{self.portal_name} alternative error: {e}")
-
-        return contracts

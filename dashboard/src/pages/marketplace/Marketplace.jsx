@@ -12,6 +12,7 @@ import { money, relative } from "../../lib/format";
 import {
   Storefront, ChatCircle, PaperPlaneTilt, ArrowLeft,
   Plus, Star, Tray, Check, Checks, ArrowRight, X,
+  CheckCircle, MapPin, Tag, Calendar, Briefcase, ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { useGate } from "../../hooks/useGate";
 import UpgradePrompt from "../../components/ui/UpgradePrompt";
@@ -279,10 +280,177 @@ function ConversationList({ activeId, onSelectContract, onClose }) {
   );
 }
 
-// ─── Marketplace card ─────────────────────────────────────────────────────────
-function MarketplaceCard({ c, onContact }) {
+// ─── Contract detail modal ─────────────────────────────────────────────────────
+function ContractDetailModal({ contractId, onClose, onChat, onComplete, currentUserId }) {
+  const { data: c, loading } = useApi(contractId ? `/marketplace/${contractId}` : null);
+  const [completing, setCompleting] = useState(false);
+  const toast = useToast();
+
+  const isOwner = c && c.publisher_id === currentUserId;
+
+  const handleComplete = async () => {
+    if (!window.confirm("¿Marcar este contrato como cerrado? Desaparecerá del marketplace.")) return;
+    setCompleting(true);
+    try {
+      await api.post(`/marketplace/${contractId}/complete`);
+      toast.success("Contrato cerrado");
+      onComplete();
+      onClose();
+    } catch (err) {
+      toast.error(err.error || "Error al cerrar el contrato");
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  if (!contractId) return null;
+
   return (
-    <div className="bg-white rounded-2xl border border-surface-border p-5 flex flex-col gap-3 hover:border-brand-200 transition-colors">
+    <Modal open onClose={onClose} title="Detalle del contrato">
+      {loading ? (
+        <div className="space-y-4 py-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="animate-pulse bg-surface-border rounded-xl h-8" />
+          ))}
+        </div>
+      ) : !c ? (
+        <p className="text-sm text-ink-500 py-4 text-center">Contrato no encontrado</p>
+      ) : (
+        <div className="space-y-5">
+          {/* Header */}
+          <div>
+            <div className="flex items-start gap-2 mb-2">
+              <h2 className="text-base font-bold text-ink-900 flex-1 leading-snug">{c.title}</h2>
+              {c.is_featured && (
+                <Star size={16} weight="fill" className="text-amber-400 flex-shrink-0 mt-0.5" />
+              )}
+              {c.status === "completed" && (
+                <span className="text-2xs bg-green-100 text-green-700 font-semibold px-2 py-0.5 rounded-full flex-shrink-0">
+                  Cerrado
+                </span>
+              )}
+            </div>
+            {/* Meta badges */}
+            <div className="flex flex-wrap gap-1.5">
+              {c.category && (
+                <span className="flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 font-medium">
+                  <Tag size={10} />
+                  {c.category}
+                </span>
+              )}
+              {c.city && (
+                <span className="flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full bg-surface-hover text-ink-600 font-medium">
+                  <MapPin size={10} />
+                  {c.city}
+                </span>
+              )}
+              {c.is_remote && (
+                <span className="text-2xs px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
+                  Remoto
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Budget */}
+          {(c.budget_min || c.budget_max) && (
+            <div className="bg-surface-bg rounded-xl px-4 py-3">
+              <p className="text-2xs text-ink-400 font-medium mb-1">Presupuesto</p>
+              <p className="text-lg font-bold text-ink-900 tracking-tighter">
+                {c.budget_min ? money(c.budget_min) : ""}
+                {c.budget_min && c.budget_max ? " – " : ""}
+                {c.budget_max ? money(c.budget_max) : ""}
+                {!c.budget_min && !c.budget_max ? "No especificado" : ""}
+                {c.currency && c.currency !== "COP" && (
+                  <span className="text-sm font-normal text-ink-400 ml-1">{c.currency}</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {/* Description */}
+          {c.description && (
+            <div>
+              <p className="text-2xs text-ink-400 font-medium mb-1.5">Descripción</p>
+              <p className="text-sm text-ink-700 leading-relaxed whitespace-pre-wrap">{c.description}</p>
+            </div>
+          )}
+
+          {/* Keywords */}
+          {c.keywords?.length > 0 && (
+            <div>
+              <p className="text-2xs text-ink-400 font-medium mb-1.5">Palabras clave</p>
+              <div className="flex flex-wrap gap-1.5">
+                {c.keywords.map((kw, i) => (
+                  <span key={i} className="text-2xs px-2 py-0.5 rounded-full border border-surface-border text-ink-600">
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Deadline */}
+          {c.deadline && (
+            <div className="flex items-center gap-2 text-sm text-ink-600">
+              <Calendar size={14} className="text-ink-400" />
+              <span>
+                Plazo:{" "}
+                <span className="font-medium">
+                  {new Date(c.deadline).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" })}
+                </span>
+              </span>
+            </div>
+          )}
+
+          {/* Published */}
+          <p className="text-2xs text-ink-400">
+            Publicado {c.created_at ? relative(c.created_at) : ""}
+          </p>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2 pt-2 border-t border-surface-border">
+            {c.status === "active" && !isOwner && (
+              <Button
+                className="w-full justify-center"
+                onClick={() => { onClose(); onChat(c); }}
+              >
+                <ChatCircle size={15} /> Contactar al publicador
+              </Button>
+            )}
+            {c.status === "active" && isOwner && (
+              <>
+                <p className="text-2xs text-ink-400 text-center">Este es tu contrato publicado</p>
+                <Button
+                  variant="secondary"
+                  className="w-full justify-center"
+                  onClick={handleComplete}
+                  disabled={completing}
+                >
+                  <CheckCircle size={15} />
+                  {completing ? "Cerrando..." : "Contrato cerrado — encontré contratista"}
+                </Button>
+              </>
+            )}
+            {c.status === "completed" && (
+              <p className="text-center text-sm text-green-700 font-medium py-1">
+                ✓ Este contrato ya fue completado
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+// ─── Marketplace card ─────────────────────────────────────────────────────────
+function MarketplaceCard({ c, onViewDetail, onContact }) {
+  return (
+    <div
+      className="bg-white rounded-2xl border border-surface-border p-5 flex flex-col gap-3 hover:border-brand-200 transition-colors cursor-pointer"
+      onClick={() => onViewDetail(c.id)}
+    >
       {/* Title row */}
       <div className="flex items-start justify-between gap-2">
         <h3 className="text-sm font-semibold text-ink-900 line-clamp-2 flex-1 leading-snug">{c.title}</h3>
@@ -324,7 +492,10 @@ function MarketplaceCard({ c, onContact }) {
         <span className="text-2xs text-ink-400">
           {c.created_at ? relative(c.created_at) : ""}
         </span>
-        <Button size="sm" onClick={() => onContact(c)}>
+        <Button
+          size="sm"
+          onClick={(e) => { e.stopPropagation(); onContact(c); }}
+        >
           Contactar <ArrowRight size={12} />
         </Button>
       </div>
@@ -332,12 +503,85 @@ function MarketplaceCard({ c, onContact }) {
   );
 }
 
+// ─── My contracts tab ─────────────────────────────────────────────────────────
+function MyContracts({ onViewDetail, onRefetch }) {
+  const { data, loading, refetch } = useApi("/marketplace/mine");
+  const contracts = data?.results || [];
+
+  useEffect(() => {
+    if (onRefetch) onRefetch.current = refetch;
+  }, [refetch]);
+
+  const statusLabel = (s) => ({
+    active: { label: "Activo", cls: "bg-green-50 text-green-700" },
+    completed: { label: "Cerrado", cls: "bg-gray-100 text-ink-500" },
+    draft: { label: "Borrador", cls: "bg-yellow-50 text-yellow-700" },
+    cancelled: { label: "Cancelado", cls: "bg-red-50 text-red-700" },
+  }[s] || { label: s, cls: "bg-surface-hover text-ink-500" });
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {[1, 2, 3].map((i) => <SkeletonMarketplaceCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (!contracts.length) {
+    return (
+      <EmptyState
+        icon={Briefcase}
+        title="Aún no has publicado contratos"
+        description="Publica un contrato y conecta con los mejores contratistas del mercado."
+      />
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {contracts.map((c) => {
+        const st = statusLabel(c.status);
+        return (
+          <div
+            key={c.id}
+            className="bg-white rounded-2xl border border-surface-border p-5 flex flex-col gap-3 hover:border-brand-200 transition-colors cursor-pointer"
+            onClick={() => onViewDetail(c.id)}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold text-ink-900 line-clamp-2 flex-1 leading-snug">{c.title}</h3>
+              <span className={`text-2xs px-2 py-0.5 rounded-full font-semibold flex-shrink-0 ${st.cls}`}>{st.label}</span>
+            </div>
+            {c.description && (
+              <p className="text-xs text-ink-600 line-clamp-2 leading-relaxed">{c.description}</p>
+            )}
+            {(c.budget_min || c.budget_max) && (
+              <p className="text-sm font-bold text-ink-900 tracking-tighter">
+                {c.budget_min ? money(c.budget_min) : ""}
+                {c.budget_min && c.budget_max ? " – " : ""}
+                {c.budget_max ? money(c.budget_max) : ""}
+              </p>
+            )}
+            <div className="flex items-center justify-between pt-1 border-t border-surface-border mt-auto">
+              <span className="text-2xs text-ink-400">{c.created_at ? relative(c.created_at) : ""}</span>
+              {c.status === "active" && (
+                <span className="text-2xs text-brand-500 font-medium">Haz clic para gestionar</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Marketplace() {
   const { allowed, requiredPlan } = useGate("marketplace");
+  const { user } = useAuth();
   const { data, loading, refetch } = useApi("/marketplace");
   const { data: inboxData, refetch: refetchInbox } = useApi("/marketplace/inbox");
   const toast = useToast();
+  const [tab, setTab] = useState("explore"); // "explore" | "mine"
   const [showPublish, setShowPublish] = useState(false);
   const [form, setForm] = useState({
     title: "", description: "", budget_min: "", budget_max: "",
@@ -346,18 +590,34 @@ export default function Marketplace() {
   const [publishing, setPublishing] = useState(false);
   const [chatContract, setChatContract] = useState(null);
   const [showInboxMobile, setShowInboxMobile] = useState(false);
+  const [detailContractId, setDetailContractId] = useState(null);
+  const myContractsRefetch = useRef(null);
 
   const totalUnread = inboxData?.total_unread || 0;
 
   const openChat = (c) => {
     setChatContract(c);
     setShowInboxMobile(false);
+    setDetailContractId(null);
     refetchInbox();
   };
 
   const closeChat = () => {
     setChatContract(null);
     refetchInbox();
+  };
+
+  const openDetail = (id) => {
+    setDetailContractId(id);
+  };
+
+  const closeDetail = () => {
+    setDetailContractId(null);
+  };
+
+  const handleContractCompleted = () => {
+    refetch();
+    if (myContractsRefetch.current) myContractsRefetch.current();
   };
 
   const publish = async (e) => {
@@ -377,6 +637,8 @@ export default function Marketplace() {
       setForm({ title: "", description: "", budget_min: "", budget_max: "", category: "", contact_phone: "", city: "" });
       toast.success("Contrato publicado");
       refetch();
+      if (myContractsRefetch.current) myContractsRefetch.current();
+      setTab("mine");
     } catch (err) {
       toast.error(err.error || "Error al publicar");
     } finally {
@@ -483,24 +745,71 @@ export default function Marketplace() {
         </div>
       </div>
 
-      {/* Cards grid */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonMarketplaceCard key={i} />)}
-        </div>
-      ) : !data?.results?.length ? (
-        <EmptyState
-          icon={Storefront}
-          title="Marketplace vacío"
-          description="Sé el primero en publicar un contrato o servicio."
-          action={<Button onClick={() => setShowPublish(true)}>Publicar ahora</Button>}
-        />
+      {/* Tabs */}
+      <div className="flex gap-1 bg-surface-bg rounded-xl p-1 w-fit">
+        <button
+          onClick={() => setTab("explore")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            tab === "explore"
+              ? "bg-white text-ink-900 shadow-sm"
+              : "text-ink-500 hover:text-ink-700"
+          }`}
+        >
+          Explorar
+        </button>
+        <button
+          onClick={() => setTab("mine")}
+          className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+            tab === "mine"
+              ? "bg-white text-ink-900 shadow-sm"
+              : "text-ink-500 hover:text-ink-700"
+          }`}
+        >
+          Mis contratos
+        </button>
+      </div>
+
+      {/* Tab content */}
+      {tab === "explore" ? (
+        loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => <SkeletonMarketplaceCard key={i} />)}
+          </div>
+        ) : !data?.results?.length ? (
+          <EmptyState
+            icon={Storefront}
+            title="Marketplace vacío"
+            description="Sé el primero en publicar un contrato o servicio."
+            action={<Button onClick={() => setShowPublish(true)}>Publicar ahora</Button>}
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {data.results.map((c) => (
+              <MarketplaceCard
+                key={c.id}
+                c={c}
+                onViewDetail={openDetail}
+                onContact={openChat}
+              />
+            ))}
+          </div>
+        )
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {data.results.map((c) => (
-            <MarketplaceCard key={c.id} c={c} onContact={openChat} />
-          ))}
-        </div>
+        <MyContracts
+          onViewDetail={openDetail}
+          onRefetch={myContractsRefetch}
+        />
+      )}
+
+      {/* Contract detail modal */}
+      {detailContractId && (
+        <ContractDetailModal
+          contractId={detailContractId}
+          onClose={closeDetail}
+          onChat={openChat}
+          onComplete={handleContractCompleted}
+          currentUserId={user?.id}
+        />
       )}
 
       {/* Publish modal */}

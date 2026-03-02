@@ -142,6 +142,50 @@ def feature(contract_id: int, user_id: int) -> dict:
 _MARKETPLACE_PLANS = {"competidor", "dominador", "business", "enterprise"}
 
 
+def get_detail(contract_id: int) -> dict | None:
+    """Get full contract detail (no description truncation)."""
+    with UnitOfWork() as uow:
+        pc = uow.private_contracts.get(contract_id)
+        if not pc:
+            return None
+        return _pc_to_dict(pc, full=True)
+
+
+def complete_contract(contract_id: int, user_id: int) -> dict:
+    """Mark contract as completed (found a contractor). Only publisher can do this."""
+    with UnitOfWork() as uow:
+        pc = uow.private_contracts.get(contract_id)
+        if not pc or pc.publisher_id != user_id:
+            return {"error": "Contrato no encontrado"}
+        if pc.status != "active":
+            return {"error": "El contrato no está activo"}
+        pc.status = "completed"
+        pc.updated_at = datetime.now(timezone.utc)
+        uow.commit()
+        return {"ok": True}
+
+
+def get_my_contracts(user_id: int, page: int = 1, per_page: int = 20) -> dict:
+    """Get contracts published by user (active + completed)."""
+    with UnitOfWork() as uow:
+        q = uow.session.query(PrivateContract).filter(
+            PrivateContract.publisher_id == user_id
+        )
+        total = q.count()
+        contracts = (
+            q.order_by(PrivateContract.created_at.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+            .all()
+        )
+        return {
+            "results": [_pc_to_dict(c) for c in contracts],
+            "total": total,
+            "page": page,
+            "pages": (total + per_page - 1) // per_page if per_page else 0,
+        }
+
+
 def get_contact(contract_id: int, user_id: int) -> dict:
     """Reveal publisher contact info (audit logged). Requires marketplace plan."""
     with UnitOfWork() as uow:
@@ -176,12 +220,12 @@ def get_contact(contract_id: int, user_id: int) -> dict:
 # =============================================================================
 
 
-def _pc_to_dict(pc: PrivateContract) -> dict:
+def _pc_to_dict(pc: PrivateContract, full: bool = False) -> dict:
     return {
         "id": pc.id,
         "publisher_id": pc.publisher_id,
         "title": pc.title,
-        "description": (pc.description or "")[:500],
+        "description": pc.description or "" if full else (pc.description or "")[:500],
         "category": pc.category,
         "budget_min": pc.budget_min,
         "budget_max": pc.budget_max,

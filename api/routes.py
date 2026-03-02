@@ -756,6 +756,41 @@ def feature_mkt(contract_id: int):
     return jsonify(result)
 
 
+@marketplace_bp.get("/mine")
+@require_auth
+@rate_limit(30)
+def my_contracts_mkt():
+    from services.marketplace import get_my_contracts
+
+    page = request.args.get("page", 1, type=int)
+    result = get_my_contracts(g.user_id, page=page)
+    return jsonify(result)
+
+
+@marketplace_bp.get("/<int:contract_id>")
+@require_auth
+@rate_limit(60)
+def get_mkt_detail(contract_id: int):
+    from services.marketplace import get_detail
+
+    result = get_detail(contract_id)
+    if not result:
+        return jsonify({"error": "Contrato no encontrado"}), 404
+    return jsonify(result)
+
+
+@marketplace_bp.post("/<int:contract_id>/complete")
+@require_auth
+@audit("complete_contract")
+def complete_mkt(contract_id: int):
+    from services.marketplace import complete_contract
+
+    result = complete_contract(contract_id, g.user_id)
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
+
+
 @marketplace_bp.get("/<int:contract_id>/contact")
 @require_auth
 @audit("contact_reveal")
@@ -2307,9 +2342,13 @@ def intelligence_market():
         except (ValueError, TypeError):
             months = 12
         since = datetime.now(timezone.utc) - timedelta(days=months * 30)
+        now_utc = datetime.now(timezone.utc)
 
-        # Build base query with optional keyword filter
-        base = uow.session.query(Contract).filter(Contract.created_at >= since)
+        # Build base query — only active (non-expired) contracts within the window
+        base = uow.session.query(Contract).filter(
+            Contract.created_at >= since,
+            (Contract.deadline.is_(None)) | (Contract.deadline >= now_utc),
+        )
         if keywords:
             for term in keywords.split()[:5]:
                 t = f"%{term.lower()}%"
@@ -2336,6 +2375,7 @@ def intelligence_market():
             )
             .filter(
                 Contract.created_at >= since,
+                (Contract.deadline.is_(None)) | (Contract.deadline >= now_utc),
                 Contract.entity.isnot(None),
                 Contract.entity != "",
             )
@@ -2354,7 +2394,7 @@ def intelligence_market():
             .all()
         )
 
-        # Monthly trend — dialect-aware SQL
+        # Monthly trend — dialect-aware SQL (solo contratos vigentes)
         from core.database import get_engine
         dialect = get_engine().dialect.name
         if dialect == "postgresql":
@@ -2365,6 +2405,7 @@ def intelligence_market():
                     COALESCE(SUM(amount), 0) AS tv
                 FROM contracts
                 WHERE created_at >= :since
+                  AND (deadline IS NULL OR deadline >= :now)
                 GROUP BY period
                 ORDER BY period
             """)
@@ -2376,19 +2417,23 @@ def intelligence_market():
                     COALESCE(SUM(amount), 0) AS tv
                 FROM contracts
                 WHERE created_at >= :since
+                  AND (deadline IS NULL OR deadline >= :now)
                 GROUP BY period
                 ORDER BY period
             """)
-        trend_rows = uow.session.execute(trend_sql, {"since": since}).fetchall()
+        trend_rows = uow.session.execute(trend_sql, {"since": since, "now": now_utc}).fetchall()
 
-        # By source
+        # By source (solo contratos vigentes)
         source_rows = (
             uow.session.query(
                 Contract.source,
                 func.count(Contract.id).label("cnt"),
                 func.coalesce(func.sum(Contract.amount), 0).label("tv"),
             )
-            .filter(Contract.created_at >= since)
+            .filter(
+                Contract.created_at >= since,
+                (Contract.deadline.is_(None)) | (Contract.deadline >= now_utc),
+            )
             .group_by(Contract.source)
             .order_by(func.count(Contract.id).desc())
             .all()

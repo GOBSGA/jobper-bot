@@ -345,7 +345,7 @@ def get_demo_contracts(limit: int = 6) -> list:
         return result
 
 
-def cleanup_expired_contracts(days_grace: int = 30) -> dict:
+def cleanup_expired_contracts(days_grace: int = 7) -> dict:
     """
     Delete contracts that expired more than `days_grace` days ago.
     Keeps recently-expired contracts so users can still see them briefly.

@@ -45,10 +45,20 @@ class EPMScraper(PrivatePortalScraper):
         days_back: int = 30,
     ) -> List[ContractData]:
         """
-        Obtiene oportunidades de contratación de EPM.
+        El portal de proveedores de EPM usa SharePoint/Oracle y renderiza
+        su contenido con JavaScript. BeautifulSoup no puede parsear el HTML.
 
-        EPM publica sus procesos de contratación en su portal de proveedores.
+        TODO: Verificar si EPM expone un portal SECOP para sus contratos
+        (entidades con capital público deben publicar en SECOP). Si es así,
+        ya están cubiertos por el scraper de SECOP.
         """
+        logger.info(
+            f"{self.portal_name}: Deshabilitado — portal requiere JavaScript. "
+            "Sus contratos públicos pueden estar en SECOP. Retornando vacío."
+        )
+        return []
+
+        # --- CÓDIGO ORIGINAL (requiere JavaScript) ---
         contracts = []
 
         try:

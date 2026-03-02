@@ -45,11 +45,20 @@ class EcopetrolScraper(PrivatePortalScraper):
         days_back: int = 30,
     ) -> List[ContractData]:
         """
-        Obtiene oportunidades de contratación de Ecopetrol.
+        El portal CSP de Ecopetrol (csp.ecopetrol.com.co) requiere autenticación
+        de proveedor registrado y renderiza contenido con JavaScript.
+        BeautifulSoup no puede parsear el contenido dinámico.
 
-        Ecopetrol no tiene una API pública, así que usamos web scraping
-        del portal de proveedores.
+        TODO: Implementar con API oficial de Ecopetrol cuando esté disponible,
+        o con Playwright + credenciales de proveedor registrado.
         """
+        logger.info(
+            f"{self.portal_name}: Deshabilitado — el portal CSP requiere "
+            "autenticación y JavaScript. Retornando vacío."
+        )
+        return []
+
+        # --- CÓDIGO ORIGINAL (requiere JS + auth) ---
         contracts = []
 
         try:
