@@ -7,7 +7,7 @@ Includes duplicate detection and fraud prevention.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from sqlalchemy import text as _sa_text
@@ -77,7 +77,7 @@ def update_user_trust(user_id: int, confidence: float) -> dict:
     Returns:
         dict with new trust info and any unlocked rewards
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     rewards = []
 
     with UnitOfWork() as uow:
@@ -276,7 +276,7 @@ def confirm_payment(user_id: int, payment_id: int, comprobante_path: str) -> dic
     Returns:
         dict with status and details
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # Validate payment exists and belongs to user
     with UnitOfWork() as uow:
@@ -615,7 +615,7 @@ def create_payment_request(user_id: int, plan: str) -> dict:
     if discount > 0:
         amount = int(amount * (1 - discount))
 
-    reference = f"JOB-{user_id}-{plan}-{int(datetime.utcnow().timestamp())}"
+    reference = f"JOB-{user_id}-{plan}-{int(datetime.now(timezone.utc).timestamp())}"
 
     with UnitOfWork() as uow:
         payment = Payment(
@@ -658,7 +658,7 @@ def one_click_renewal(user_id: int, plan: str = None) -> dict:
     If they have a very high trust level (gold+), we can even auto-approve
     based on their payment history.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
@@ -772,7 +772,7 @@ def admin_activate(user_id: int, plan: str) -> dict:
 
     plan_info = Config.PLANS[plan]
     amount = plan_info["price"]
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # FIX: Capture user_email inside session to avoid DetachedInstanceError
     user_email = None
@@ -845,7 +845,7 @@ def admin_activate(user_id: int, plan: str) -> dict:
 
 def admin_approve_payment(payment_id: int) -> dict:
     """Admin approves a payment that was flagged for manual review."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     user_email = None
     plan = None
     payment_amount = None
@@ -1060,7 +1060,7 @@ def get_user_payment_status(user_id: int) -> dict:
                 .filter(Subscription.user_id == user_id, Subscription.status == "grace")
                 .first()
             )
-            result["grace_active"] = bool(grace_sub and grace_sub.ends_at > datetime.utcnow())
+            result["grace_active"] = bool(grace_sub and grace_sub.ends_at > datetime.now(timezone.utc))
 
         return result
 
@@ -1070,7 +1070,7 @@ def admin_batch_approve_today() -> dict:
     Approve ALL grace/review payments submitted in the last 24h — one-button daily workflow.
     Admin opens Bre-B, verifies all arrived, clicks this button.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(hours=24)
     approved = 0
     skipped = []
@@ -1103,7 +1103,7 @@ def check_grace_periods() -> dict:
     Scheduler task: revoke grace subscriptions that expired without admin approval.
     Call this every hour from the background scheduler.
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     revoked = 0
 
     with UnitOfWork() as uow:
@@ -1172,11 +1172,11 @@ def get_subscription(user_id: int) -> dict | None:
                     "plan": "trial",
                     "status": "active",
                     "ends_at": user.trial_ends_at.isoformat(),
-                    "days_remaining": (user.trial_ends_at - datetime.utcnow()).days,
+                    "days_remaining": (user.trial_ends_at - datetime.now(timezone.utc)).days,
                 }
             return None
 
-        days_remaining = max(0, (sub.ends_at - datetime.utcnow()).days)
+        days_remaining = max(0, (sub.ends_at - datetime.now(timezone.utc)).days)
         return {
             "id": sub.id,
             "plan": sub.plan,
@@ -1227,7 +1227,7 @@ def _get_referral_discount(user_id: int) -> float:
 
 def check_renewals():
     """Check subscriptions approaching expiry and send reminders / expire."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     from core.tasks import task_send_email
 
     with UnitOfWork() as uow:

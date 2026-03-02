@@ -53,7 +53,9 @@ def require_auth(fn):
         g.user_id = int(payload["sub"])  # sub is string (RFC 7519), DB needs int
         g.user_email = payload.get("email", "")
         g.user_plan = payload.get("plan", "trial")
-        g.is_admin = payload.get("admin", False)
+        # JWT bakes admin status at login time. If admin was granted/revoked after login,
+        # read from cache so the change takes effect without forcing re-login.
+        g.is_admin = payload.get("admin", False) or bool(cache.get(f"user_is_admin:{g.user_id}"))
 
         return fn(*args, **kwargs)
 

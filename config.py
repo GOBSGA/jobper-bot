@@ -59,7 +59,7 @@ class Config:
         sys.exit(1)
 
     JWT_SECRET: str = _jwt_secret
-    JWT_ACCESS_EXPIRY_MINUTES: int = 10080  # 7 days
+    JWT_ACCESS_EXPIRY_MINUTES: int = 1440  # 24 hours (refresh token cubre los 30 días)
     JWT_REFRESH_EXPIRY_DAYS: int = 30
     MAGIC_LINK_EXPIRY_MINUTES: int = 60  # 60 minutes (was 15 - too short with email delays)
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")

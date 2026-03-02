@@ -9,7 +9,7 @@ import logging
 import os
 import re
 import io
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask import Blueprint, g, jsonify, redirect, request, send_file
 from sqlalchemy import text
@@ -800,7 +800,7 @@ def get_mkt_messages(contract_id: int):
             MarketplaceMessage.contract_id == contract_id,
             MarketplaceMessage.receiver_id == g.user_id,
             MarketplaceMessage.read_at == None,  # noqa: E711
-        ).update({"read_at": datetime.utcnow()}, synchronize_session=False)
+        ).update({"read_at": datetime.now(timezone.utc)}, synchronize_session=False)
         uow.commit()
 
         publisher_id = contract[0]
@@ -1107,9 +1107,9 @@ def analyze_profile():
                 )
 
                 # Get recent contracts and score them with proposed profile
-                from datetime import datetime, timedelta
+                from datetime import datetime, timedelta, timezone
 
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 contracts = (
                     uow.session.query(uow.contracts.model)
                     .filter(
@@ -2150,7 +2150,7 @@ def get_team():
 @require_plan("estratega")
 def invite_team_member():
     import secrets
-    from datetime import timedelta
+    from datetime import timedelta, timezone
     from core.database import TeamMember, UnitOfWork
 
     data = request.get_json() or {}
@@ -2185,7 +2185,7 @@ def invite_team_member():
             return jsonify({"error": "Ya existe una invitación para ese email"}), 400
 
         token = secrets.token_urlsafe(32)
-        expires = datetime.utcnow() + timedelta(days=7)
+        expires = datetime.now(timezone.utc) + timedelta(days=7)
         member = TeamMember(
             owner_id=g.user_id,
             email=email,
@@ -2240,13 +2240,13 @@ def accept_team_invite(token: str):
         ).first()
 
         if not member:
-            return redirect(f"{Config.FRONTEND_URL}/team/join?error=invalid_invite")
-        if member.invite_expires_at and member.invite_expires_at < datetime.utcnow():
-            return redirect(f"{Config.FRONTEND_URL}/team/join?error=expired_invite")
+            return redirect(f"{Config.FRONTEND_URL}/team/accept/invalid?error=invalid_invite")
+        if member.invite_expires_at and member.invite_expires_at < datetime.now(timezone.utc):
+            return redirect(f"{Config.FRONTEND_URL}/team/accept/invalid?error=expired_invite")
         if member.accepted_at:
-            return redirect(f"{Config.FRONTEND_URL}/team/join?error=already_accepted")
+            return redirect(f"{Config.FRONTEND_URL}/team/accept/invalid?error=already_accepted")
 
-        member.accepted_at = datetime.utcnow()
+        member.accepted_at = datetime.now(timezone.utc)
         member.invite_token = None  # invalidate token
 
         # Link to existing account if email matches
@@ -2258,7 +2258,9 @@ def accept_team_invite(token: str):
 
         owner = uow.users.get(member.owner_id)
         owner_email = owner.email if owner else ""
-        return redirect(f"{Config.FRONTEND_URL}/team/join?success=1&owner_email={owner_email}")
+        # Redirect to /team/accept/done?success=1 — the React route /team/accept/:token
+        # reads `success` from searchParams and shows the welcome screen without re-triggering
+        return redirect(f"{Config.FRONTEND_URL}/team/accept/done?success=1&owner_email={owner_email}")
 
 
 @team_bp.get("/pipeline")
@@ -2295,7 +2297,7 @@ def intelligence_market():
     Filtered by user profile keywords. Gate enforced on frontend (dominador)."""
     from core.database import Contract, UnitOfWork, User
     from sqlalchemy import func
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
     with UnitOfWork() as uow:
         user = uow.session.get(User, g.user_id)
@@ -2304,7 +2306,7 @@ def intelligence_market():
             months = min(int(request.args.get("months", 12)), 24)
         except (ValueError, TypeError):
             months = 12
-        since = datetime.utcnow() - timedelta(days=months * 30)
+        since = datetime.now(timezone.utc) - timedelta(days=months * 30)
 
         # Build base query with optional keyword filter
         base = uow.session.query(Contract).filter(Contract.created_at >= since)

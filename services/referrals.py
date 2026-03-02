@@ -6,7 +6,7 @@ Jobper Services — Referral system
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from config import Config
 from core.database import Referral, UnitOfWork
@@ -69,7 +69,7 @@ def track_signup(code: str, new_user_id: int) -> dict:
 
         referral.referred_id = new_user_id
         referral.status = "registered"
-        referral.registered_at = datetime.utcnow()
+        referral.registered_at = datetime.now(timezone.utc)
 
         # Also mark user as referred
         new_user = uow.users.get(new_user_id)
@@ -90,7 +90,7 @@ def track_subscription(user_id: int):
 
         if referral:
             referral.status = "subscribed"
-            referral.subscribed_at = datetime.utcnow()
+            referral.subscribed_at = datetime.now(timezone.utc)
             uow.commit()
 
 

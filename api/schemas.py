@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List, Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from core.security import sanitize_html, sanitize_search_query
 
@@ -132,8 +132,8 @@ class PublishContractSchema(BaseModel):
     title: str = Field(min_length=5, max_length=500)
     description: Optional[str] = Field(None, max_length=5000)
     category: Optional[str] = Field(None, max_length=100)
-    budget_min: Optional[float] = Field(None, ge=0)
-    budget_max: Optional[float] = Field(None, ge=0)
+    budget_min: Optional[float] = Field(None, ge=0, le=10_000_000_000_000)  # máx 10 billones COP
+    budget_max: Optional[float] = Field(None, ge=0, le=10_000_000_000_000)  # máx 10 billones COP
     city: Optional[str] = Field(None, max_length=100)
     is_remote: bool = False
     deadline: Optional[str] = None  # ISO date
@@ -151,6 +151,13 @@ class PublishContractSchema(BaseModel):
         if v:
             return [sanitize_html(kw)[:100] for kw in v[:20]]
         return v
+
+    @model_validator(mode="after")
+    def validate_budget_range(self):
+        if self.budget_min is not None and self.budget_max is not None:
+            if self.budget_min > self.budget_max:
+                raise ValueError("budget_min no puede ser mayor que budget_max")
+        return self
 
 
 class MarketplaceListSchema(BaseModel):

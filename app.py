@@ -200,11 +200,11 @@ def create_app() -> Flask:
         Returns 200 if healthy, 503 if any service is down.
         """
         import time
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         health_status = {
             "status": "healthy",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "version": "5.0.0",
             "checks": {},
         }
@@ -517,7 +517,7 @@ def _start_background_services():
     """Start background scheduler for periodic tasks."""
     import threading
     import time
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     _last_digest_day = [None]  # mutable cell to track when daily digest last ran
     _consecutive_scraper_failures = [0]  # mutable cell: count of consecutive all-error runs
@@ -558,7 +558,7 @@ def _start_background_services():
                                 {
                                     "failed_sources": failed_sources,
                                     "total_errors": total_errors,
-                                    "run_time": datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
+                                    "run_time": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
                                     "consecutive_failures": _consecutive_scraper_failures[0],
                                 },
                             )
@@ -586,8 +586,8 @@ def _start_background_services():
                 logger.info(f"Scheduler: Cleanup complete - {cleanup_result['deleted']} contracts removed")
 
                 # Send daily digest once per day (on first run after midnight Bogotá time)
-                today = datetime.utcnow().date()
-                current_hour = datetime.utcnow().hour  # 8am Bogotá = 13:00 UTC
+                today = datetime.now(timezone.utc).date()
+                current_hour = datetime.now(timezone.utc).hour  # 8am Bogotá = 13:00 UTC
                 if _last_digest_day[0] != today and current_hour >= 13:
                     try:
                         logger.info("Scheduler: Sending daily digest emails...")

@@ -5,7 +5,7 @@ Jobper Services — Marketplace (publish, feature, contact reveal)
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from core.database import AuditLog, PrivateContract, UnitOfWork
 
@@ -102,7 +102,7 @@ def edit(user_id: int, contract_id: int, data: dict) -> dict:
             if field in data:
                 setattr(pc, field, data[field])
 
-        pc.updated_at = datetime.utcnow()
+        pc.updated_at = datetime.now(timezone.utc)
         uow.commit()
 
         return _pc_to_dict(pc)
@@ -128,7 +128,7 @@ def feature(contract_id: int, user_id: int) -> dict:
         plan_features = Config.PLANS.get(user.plan, {}).get("features", [])
         if "featured_unlimited" in plan_features:
             pc.is_featured = True
-            pc.featured_until = datetime.utcnow() + timedelta(days=30)
+            pc.featured_until = datetime.now(timezone.utc) + timedelta(days=30)
             uow.commit()
             return {"ok": True, "featured_until": pc.featured_until.isoformat()}
 

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Tuple
 
 import numpy as np
@@ -52,7 +52,7 @@ class EmbeddingCache:
             embedding, timestamp = self._cache[key]
 
             # Verificar TTL
-            if datetime.utcnow() - timestamp > self.ttl:
+            if datetime.now(timezone.utc) - timestamp > self.ttl:
                 del self._cache[key]
                 return None
 
@@ -71,7 +71,7 @@ class EmbeddingCache:
             if len(self._cache) >= self.max_size:
                 self._evict_oldest()
 
-            self._cache[key] = (embedding, datetime.utcnow())
+            self._cache[key] = (embedding, datetime.now(timezone.utc))
 
     def delete(self, key: str) -> bool:
         """
@@ -127,7 +127,7 @@ class EmbeddingCache:
             int: Número de entradas eliminadas
         """
         with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             expired_keys = [key for key, (_, timestamp) in self._cache.items() if now - timestamp > self.ttl]
 
             for key in expired_keys:
@@ -141,7 +141,7 @@ class EmbeddingCache:
     def get_stats(self) -> Dict[str, any]:
         """Obtiene estadísticas del caché."""
         with self._lock:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             ages = [(now - timestamp).total_seconds() / 3600 for _, timestamp in self._cache.values()]
 
             return {

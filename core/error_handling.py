@@ -4,7 +4,7 @@ Error handling utilities for consistent error management across the app.
 
 import functools
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -152,7 +152,7 @@ def log_errors(default: Any = None, log_level: str = "error", reraise: bool = Tr
                         "args": str(args)[:200],  # Truncate long args
                         "kwargs": str(kwargs)[:200],
                         "error_type": type(e).__name__,
-                        "timestamp": datetime.utcnow().isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                     },
                 )
                 if reraise:

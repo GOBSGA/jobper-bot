@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from datetime import datetime, date
+from datetime import date, datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +169,7 @@ def get_recommendations(user_id: int, limit: int = 5) -> dict:
             "contracts": ranked_contracts[:limit],
             "summary": summary,
             "ai": True,
-            "generated_at": datetime.utcnow().isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
         _set_cached(user_id, result)
@@ -183,7 +183,7 @@ def get_recommendations(user_id: int, limit: int = 5) -> dict:
         "contracts": top[:limit],
         "summary": "Contratos ordenados por compatibilidad con tu perfil.",
         "ai": False,
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(timezone.utc).isoformat(),
     }
     _set_cached(user_id, result)
     return result

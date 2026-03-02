@@ -11,7 +11,7 @@ import logging
 import os
 import re
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import NamedTuple
 
@@ -81,7 +81,7 @@ def generate_payment_reference(user_id: int, plan: str, amount: int) -> str:
     payment_secret = os.getenv("PAYMENT_SECRET", _get_payment_secret())
 
     # Create deterministic but hard-to-guess hash
-    timestamp = int(datetime.utcnow().timestamp())
+    timestamp = int(datetime.now(timezone.utc).timestamp())
     raw = f"{user_id}-{plan}-{amount}-{timestamp}-{payment_secret[:16]}"
     hash_bytes = hashlib.sha256(raw.encode()).digest()
 
@@ -207,9 +207,9 @@ def verify_receipt_with_ai(
     expected_amount_display = f"${expected_amount:,.0f}".replace(",", ".")
 
     # Get current date for time validation
-    from datetime import datetime
+    from datetime import datetime, timezone
 
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     # Build the prompt
     prompt = f"""Analiza esta imagen de un comprobante de pago colombiano.
@@ -430,7 +430,7 @@ def verify_payment_receipt(
             return {"valid": False, "issues": ["Pago no encontrado"], "auto_approved": False}
         if payment.user_id != user_id:
             return {"valid": False, "issues": ["Pago no pertenece a este usuario"], "auto_approved": False}
-        if payment.status != "pending":
+        if payment.status not in ("pending", "review"):
             return {"valid": False, "issues": ["Este pago ya fue procesado"], "auto_approved": False}
 
         expected_amount = payment.amount

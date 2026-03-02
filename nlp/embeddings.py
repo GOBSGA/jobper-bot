@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import pickle
 from typing import List, Optional, Union
 
 import numpy as np
@@ -135,9 +134,14 @@ class EmbeddingService:
 
         return np.dot(corpus_embeddings, query_embedding)
 
+    EMBEDDING_DIMS = 384  # paraphrase-multilingual-MiniLM-L12-v2
+
     def serialize(self, embedding: np.ndarray) -> bytes:
         """
         Serializa un embedding para almacenamiento en base de datos.
+
+        Usa numpy nativo (.tobytes) en lugar de pickle para evitar
+        el riesgo de deserializar datos arbitrarios.
 
         Args:
             embedding: Embedding a serializar
@@ -145,19 +149,30 @@ class EmbeddingService:
         Returns:
             bytes: Embedding serializado
         """
-        return pickle.dumps(embedding.astype(np.float32))
+        return embedding.astype(np.float32).tobytes()
 
     def deserialize(self, data: bytes) -> np.ndarray:
         """
         Deserializa un embedding desde bytes.
 
+        Soporta ambos formatos para compatibilidad con datos existentes:
+        - Formato nuevo: numpy float32 tobytes() — 384 * 4 = 1536 bytes exactos
+        - Formato viejo: pickle — empieza con \x80 (opcode de pickle)
+
         Args:
             data: Bytes del embedding
 
         Returns:
-            np.ndarray: Embedding deserializado
+            np.ndarray: Embedding deserializado con shape (EMBEDDING_DIMS,)
         """
-        return pickle.loads(data)
+        expected_bytes = self.EMBEDDING_DIMS * 4  # float32 = 4 bytes
+        if len(data) == expected_bytes:
+            # Formato nuevo: numpy tobytes directo
+            return np.frombuffer(data, dtype=np.float32)
+        # Formato viejo: pickle (empieza con \x80, tiene tamaño variable)
+        import pickle  # noqa: PLC0415 — import local intencional, solo para compat legacy
+        embedding = pickle.loads(data)  # noqa: S301 — datos internos de DB, no input externo
+        return np.array(embedding, dtype=np.float32)
 
     def create_text_for_embedding(
         self,

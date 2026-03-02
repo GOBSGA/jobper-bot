@@ -13,7 +13,7 @@ Score algorithm:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import numpy as np
@@ -126,7 +126,7 @@ def calculate_match_score(
         return 0  # No profile configured → no match
 
     score = 0.0
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     # --- Penalty for expired contracts ---
     if contract.deadline and contract.deadline < now:
@@ -246,7 +246,7 @@ def _compute_matched_contracts(user_id: int, min_score: int, limit: int, days_ba
         if not user.keywords and not user.sector:
             return []
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         since = now - timedelta(days=days_back)
 
         # Pre-compute user embedding ONCE for semantic matching
@@ -327,7 +327,7 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
 
         if is_free_tier:
             weekly_limit = Config.PLANS.get("free", {}).get("limits", {}).get("alerts_per_week", 3)
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             # Reset weekly counter if new week started (Monday)
             week_start = now - timedelta(days=now.weekday())  # Monday of current week
@@ -350,7 +350,7 @@ def get_alerts(user_id: int, hours: int = 24) -> dict:
                     "upgrade_required": "alertas",
                 }
 
-        since = datetime.utcnow() - timedelta(hours=hours)
+        since = datetime.now(timezone.utc) - timedelta(hours=hours)
         contracts = (
             uow.session.query(Contract)
             .filter(Contract.publication_date >= since)
@@ -419,7 +419,7 @@ def _compute_market_stats(user_id: int) -> dict:
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         last_24h = now - timedelta(hours=24)
         last_7d = now - timedelta(days=7)
         last_30d = now - timedelta(days=30)
@@ -514,7 +514,7 @@ def notify_high_priority_matches(new_count: int):
 
         # Get contracts ingested in last 2 hours (use created_at, not publication_date,
         # because imported contracts may have old publication dates)
-        since = datetime.utcnow() - timedelta(hours=2)
+        since = datetime.now(timezone.utc) - timedelta(hours=2)
         new_contracts = (
             uow.session.query(Contract)
             .filter(Contract.created_at >= since)
@@ -628,7 +628,7 @@ def notify_saved_search_matches():
 
     try:
         with UnitOfWork() as uow:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             cutoff = now - timedelta(hours=COOLDOWN_HOURS)
 
             # Get saved searches not notified in the last hour

@@ -5,7 +5,7 @@ Jobper Services — CRM Pipeline (Lead → Proposal → Submitted → Won → Lo
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.database import Contract, PipelineEntry, UnitOfWork
 
@@ -82,7 +82,7 @@ def move_stage(user_id: int, entry_id: int, new_stage: str) -> dict:
             return {"error": "Entrada no encontrada"}
 
         entry.stage = new_stage
-        entry.updated_at = datetime.utcnow()
+        entry.updated_at = datetime.now(timezone.utc)
         uow.commit()
 
         return _entry_to_dict(entry)
@@ -99,11 +99,11 @@ def add_note(user_id: int, entry_id: int, text: str) -> dict:
         notes.append(
             {
                 "text": text,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
             }
         )
         entry.notes = notes
-        entry.updated_at = datetime.utcnow()
+        entry.updated_at = datetime.now(timezone.utc)
         uow.commit()
 
         return _entry_to_dict(entry)
@@ -138,11 +138,11 @@ def get_stats(user_id: int) -> dict:
 
 def get_renewals(user_id: int, days: int = 30) -> list[dict]:
     """Get won contracts expiring within N days."""
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
     with UnitOfWork() as uow:
         won = uow.pipeline.get_by_stage(user_id, "won")
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         limit = now + timedelta(days=days)
 
         renewals = []

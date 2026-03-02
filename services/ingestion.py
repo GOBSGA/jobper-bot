@@ -10,7 +10,7 @@ import hashlib
 import logging
 import re
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 
 from core.database import Contract, DataSource, UnitOfWork
 from scrapers.base import ContractData
@@ -214,7 +214,7 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
             # Update data source last fetch timestamp
             ds = uow.session.query(DataSource).filter(DataSource.source_key == source_key).first()
             if ds:
-                ds.last_successful_fetch = datetime.utcnow()
+                ds.last_successful_fetch = datetime.now(timezone.utc)
                 ds.error_count = 0
                 uow.commit()
 
@@ -230,7 +230,7 @@ def _persist_contracts(contracts: list[ContractData], source_key: str) -> dict:
 
 def check_expiring_subscriptions():
     """Check subscription renewals and expire trials."""
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
     from core.database import User
     from core.tasks import task_send_email
@@ -244,7 +244,7 @@ def check_expiring_subscriptions():
         logger.error(f"Renewal check failed: {e}")
 
     # Handle trial expirations separately
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     try:
         with UnitOfWork() as uow:
             # Remind trial users expiring in ~3 days

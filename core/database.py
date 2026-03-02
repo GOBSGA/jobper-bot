@@ -6,7 +6,7 @@ Jobper Core — Modelos, Unit of Work, Repositorios
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Generic, Optional, Type, TypeVar
 
 from sqlalchemy import (
@@ -132,7 +132,7 @@ class User(Base):
     def is_trial_active(self) -> bool:
         if self.plan != "trial":
             return False
-        return self.trial_ends_at and self.trial_ends_at > datetime.utcnow()
+        return self.trial_ends_at and self.trial_ends_at > datetime.now(timezone.utc)
 
     def has_active_plan(self) -> bool:
         return self.plan in ("alertas", "business", "enterprise") or self.is_trial_active()
@@ -176,7 +176,7 @@ class Contract(Base):
 
     @property
     def is_expired(self) -> bool:
-        return self.deadline and self.deadline < datetime.utcnow()
+        return self.deadline and self.deadline < datetime.now(timezone.utc)
 
 
 class Favorite(Base):
@@ -529,7 +529,7 @@ def get_engine():
         kwargs: dict = {"echo": False, "pool_pre_ping": True, "pool_recycle": 300}
         # SQLite doesn't support connection pool sizing; PostgreSQL does
         if not db_url.startswith("sqlite"):
-            kwargs.update({"pool_size": 5, "max_overflow": 10})
+            kwargs.update({"pool_size": 10, "max_overflow": 20})
         _engine = create_engine(db_url, **kwargs)
     return _engine
 
@@ -675,7 +675,7 @@ class UserRepo(BaseRepository[User]):
             return True
 
         # Free tier: max 3 alerts per week
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
 
         # Reset counter if week has passed
@@ -689,7 +689,7 @@ class UserRepo(BaseRepository[User]):
 
     def increment_alert_count(self, user: User):
         """Increment the weekly alert counter."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         week_ago = now - timedelta(days=7)
 
         # Reset if new week
@@ -708,7 +708,7 @@ class ContractRepo(BaseRepository[Contract]):
         return self.session.query(Contract).filter(Contract.external_id == external_id).first()
 
     def get_expiring_soon(self, days: int = 3):
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         limit = now + timedelta(days=days)
         return (
             self.session.query(Contract)
@@ -738,7 +738,7 @@ class SubscriptionRepo(BaseRepository[Subscription]):
             .filter(
                 Subscription.user_id == user_id,
                 Subscription.status == "active",
-                Subscription.ends_at > datetime.utcnow(),
+                Subscription.ends_at > datetime.now(timezone.utc),
             )
             .first()
         )
@@ -771,7 +771,7 @@ class MagicLinkRepo(BaseRepository[MagicLink]):
             .filter(
                 MagicLink.token_hash == token_hash,
                 MagicLink.used_at == None,
-                MagicLink.expires_at > datetime.utcnow(),
+                MagicLink.expires_at > datetime.now(timezone.utc),
             )
             .first()
         )
@@ -793,7 +793,7 @@ class MagicLinkRepo(BaseRepository[MagicLink]):
             return "not_found"  # Token never existed
         if link.used_at is not None:
             return "already_used"  # Token was already used
-        if link.expires_at <= datetime.utcnow():
+        if link.expires_at <= datetime.now(timezone.utc):
             return "expired"  # Token expired
         return "valid"  # Should not happen
 

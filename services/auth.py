@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 
@@ -33,7 +33,7 @@ def send_magic_link(email: str, ip: str = None) -> dict:
 
     token = generate_secure_token(32)
     token_hash = hash_token(token)
-    expires_at = datetime.utcnow() + timedelta(minutes=Config.MAGIC_LINK_EXPIRY_MINUTES)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=Config.MAGIC_LINK_EXPIRY_MINUTES)
 
     with UnitOfWork() as uow:
         link = MagicLink(
@@ -77,7 +77,7 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
             return {"error": error_msg, "reason": reason}
 
         # Mark as used
-        link.used_at = datetime.utcnow()
+        link.used_at = datetime.now(timezone.utc)
 
         # Get or create user
         user = uow.users.get_by_email(link.email)
@@ -90,9 +90,9 @@ def verify_magic_link(token: str, referral_code: str = None) -> dict:
                 email=link.email,
                 email_verified=True,
                 plan="trial",
-                trial_ends_at=datetime.utcnow() + timedelta(days=14),
+                trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
                 referral_code=user_referral_code,
-                privacy_policy_accepted_at=datetime.utcnow(),
+                privacy_policy_accepted_at=datetime.now(timezone.utc),
                 privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
             )
             uow.users.create(user)
@@ -175,9 +175,9 @@ def register_with_password(email: str, password: str, referral_code: str = None)
             password_hash=_hash_password(password),
             email_verified=True,  # REVERTED: Auto-verify for password auth (UX priority)
             plan="trial",
-            trial_ends_at=datetime.utcnow() + timedelta(days=14),
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
             referral_code=user_referral_code,
-            privacy_policy_accepted_at=datetime.utcnow(),
+            privacy_policy_accepted_at=datetime.now(timezone.utc),
             privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
         )
         uow.users.create(user)
@@ -221,7 +221,7 @@ def send_password_reset(email: str, ip: str = None) -> dict:
 
     token = generate_secure_token(32)
     token_hash = hash_token(token)
-    expires_at = datetime.utcnow() + timedelta(minutes=30)
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
 
     with UnitOfWork() as uow:
         link = MagicLink(
@@ -259,7 +259,7 @@ def reset_password_with_token(token: str, new_password: str) -> dict:
                 return {"error": "Este enlace ya fue utilizado. Solicita uno nuevo desde ¿Olvidaste tu contraseña?"}
             return {"error": "El enlace expiró o es inválido. Solicita uno nuevo."}
 
-        link.used_at = datetime.utcnow()
+        link.used_at = datetime.now(timezone.utc)
 
         user = uow.users.get_by_email(link.email)
         if not user:
@@ -322,8 +322,8 @@ def _create_access_token(user: User) -> str:
         "plan": effective_plan,
         "admin": user.is_admin,
         "type": "access",
-        "exp": datetime.utcnow() + timedelta(minutes=Config.JWT_ACCESS_EXPIRY_MINUTES),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=Config.JWT_ACCESS_EXPIRY_MINUTES),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, Config.JWT_SECRET, algorithm="HS256")
 
@@ -332,8 +332,8 @@ def _create_refresh_token(user: User) -> str:
     payload = {
         "sub": str(user.id),  # PyJWT 2.4+ requires sub to be a string (RFC 7519)
         "type": "refresh",
-        "exp": datetime.utcnow() + timedelta(days=Config.JWT_REFRESH_EXPIRY_DAYS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(days=Config.JWT_REFRESH_EXPIRY_DAYS),
+        "iat": datetime.now(timezone.utc),
     }
     return jwt.encode(payload, Config.JWT_SECRET, algorithm="HS256")
 
@@ -373,7 +373,7 @@ def logout(token: str):
     """Blacklist the current access token."""
     try:
         payload = jwt.decode(token, Config.JWT_SECRET, algorithms=["HS256"], options={"verify_exp": False})
-        ttl = max(int(payload.get("exp", 0) - datetime.utcnow().timestamp()), 1)
+        ttl = max(int(payload.get("exp", 0) - datetime.now(timezone.utc).timestamp()), 1)
         cache.set(f"jwt_blacklist:{token}", "1", ttl)
     except Exception:
         pass  # If token is already invalid, nothing to blacklist
@@ -562,9 +562,9 @@ def google_oauth_callback(code: str, state: str = "") -> dict:
                 company_name=name,
                 email_verified=True,
                 plan="trial",
-                trial_ends_at=datetime.utcnow() + timedelta(days=14),
+                trial_ends_at=datetime.now(timezone.utc) + timedelta(days=14),
                 referral_code=user_referral_code,
-                privacy_policy_accepted_at=datetime.utcnow(),
+                privacy_policy_accepted_at=datetime.now(timezone.utc),
                 privacy_policy_version=Config.PRIVACY_POLICY_VERSION,
             )
             uow.users.create(user)
@@ -608,7 +608,7 @@ def accept_privacy_policy(user_id: int) -> dict:
         if not user:
             return {"error": "Usuario no encontrado"}
 
-        user.privacy_policy_accepted_at = datetime.utcnow()
+        user.privacy_policy_accepted_at = datetime.now(timezone.utc)
         user.privacy_policy_version = Config.PRIVACY_POLICY_VERSION
         uow.commit()
 

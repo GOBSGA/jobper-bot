@@ -5,7 +5,7 @@ Jobper Services — Contract search, detail, matching, favorites
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import func, text
 
@@ -49,7 +49,7 @@ def _db_search(query: str, user_id: int, page: int, per_page: int) -> dict:
         q = uow.session.query(Contract)
 
         # Always exclude expired contracts from search results
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         q = q.filter((Contract.deadline.is_(None)) | (Contract.deadline >= now))
 
         if query:
@@ -282,7 +282,7 @@ def _contract_to_dict(c: Contract, is_favorited: bool = False) -> dict:
         "url": c.url,
         "publication_date": c.publication_date.isoformat() if c.publication_date else None,
         "deadline": c.deadline.isoformat() if c.deadline else None,
-        "is_expired": bool(c.deadline and c.deadline < datetime.utcnow()),
+        "is_expired": bool(c.deadline and c.deadline < datetime.now(timezone.utc)),
         "is_favorited": is_favorited,
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }
@@ -302,7 +302,7 @@ def get_demo_contracts(limit: int = 6) -> list:
     """
     with UnitOfWork() as uow:
         # Get recent contracts with good data (has amount, not expired)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         contracts = (
             uow.session.query(Contract)
             .filter(
@@ -351,9 +351,9 @@ def cleanup_expired_contracts(days_grace: int = 30) -> dict:
     Keeps recently-expired contracts so users can still see them briefly.
     Returns: {deleted: int}
     """
-    from datetime import timedelta
+    from datetime import timedelta, timezone
 
-    cutoff = datetime.utcnow() - timedelta(days=days_grace)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days_grace)
     deleted = 0
 
     try:
@@ -382,7 +382,7 @@ def get_public_stats() -> dict:
 
         recent_count = (
             uow.session.query(func.count(Contract.id))
-            .filter(Contract.created_at >= datetime.utcnow().replace(hour=0, minute=0, second=0))
+            .filter(Contract.created_at >= datetime.now(timezone.utc).replace(hour=0, minute=0, second=0))
             .scalar()
             or 0
         )

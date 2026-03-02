@@ -1,24 +1,13 @@
 """
-Scrapers package para Jobper Bot v3.0
-Incluye scrapers gubernamentales, multilaterales, privados y LATAM
+Scrapers package para Jobper Bot v5.0
+Scrapers activos: Colombia (SECOP), privados colombianos y multilaterales.
 """
 
 from scrapers.base import BaseScraper, ContractData
-
-# LATAM scrapers
-from scrapers.latam import ChileCompraScraper, CompraNetScraper, ComprarScraper, SeaceScraper
-from scrapers.sam import CombinedScraper, SamGovScraper
 from scrapers.secop import SecopScraper
 
 __all__ = [
     "BaseScraper",
     "ContractData",
     "SecopScraper",
-    "SamGovScraper",
-    "CombinedScraper",
-    # LATAM
-    "CompraNetScraper",
-    "ChileCompraScraper",
-    "SeaceScraper",
-    "ComprarScraper",
 ]

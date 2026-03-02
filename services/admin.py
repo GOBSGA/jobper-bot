@@ -5,7 +5,7 @@ Jobper Services — Admin panel (KPIs, users, payments, scrapers, logs)
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from config import Config
 from core.cache import cache
@@ -20,7 +20,7 @@ def get_kpis() -> dict:
     """Dashboard KPIs: MRR, users, churn, contracts, revenue breakdown."""
     with UnitOfWork() as uow:
         total_users = uow.users.count()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         thirty_ago = now - timedelta(days=30)
         seven_ago = now - timedelta(days=7)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -380,7 +380,7 @@ def admin_change_plan(user_id: int, new_plan: str) -> dict:
 
         # Create subscription for paid plans (prices from Config.PLANS)
         if new_plan in ("cazador", "competidor", "dominador"):
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             plan_prices = {
                 "cazador": Config.PLANS["cazador"]["price"],
                 "competidor": Config.PLANS["competidor"]["price"],
@@ -397,7 +397,7 @@ def admin_change_plan(user_id: int, new_plan: str) -> dict:
             uow.session.add(sub)
 
         if new_plan == "trial":
-            user.trial_ends_at = datetime.utcnow() + timedelta(days=14)
+            user.trial_ends_at = datetime.now(timezone.utc) + timedelta(days=14)
 
         uow.commit()
 
@@ -407,6 +407,9 @@ def admin_change_plan(user_id: int, new_plan: str) -> dict:
 
 def admin_toggle_admin(user_id: int) -> dict:
     """Toggle admin status. Protects against removing the last admin."""
+    from core.cache import cache
+
+    new_is_admin = False
     with UnitOfWork() as uow:
         user = uow.users.get(user_id)
         if not user:
@@ -417,12 +420,22 @@ def admin_toggle_admin(user_id: int) -> dict:
             if admin_count <= 1:
                 return {"error": "No puedes quitar el último administrador"}
             user.is_admin = False
+            new_is_admin = False
         else:
             user.is_admin = True
+            new_is_admin = True
 
         uow.commit()
 
-    return {"ok": True, "is_admin": user.is_admin}
+    # Sync cache so the change takes effect on next request without re-login.
+    # The JWT has admin=False baked in — the cache override in require_auth reads this.
+    cache_key = f"user_is_admin:{user_id}"
+    if new_is_admin:
+        cache.set(cache_key, True, ttl=86400)  # 24h = JWT lifetime
+    else:
+        cache.delete(cache_key)
+
+    return {"ok": True, "is_admin": new_is_admin}
 
 
 def admin_extend_trial(user_id: int, days: int = 7) -> dict:
@@ -432,7 +445,7 @@ def admin_extend_trial(user_id: int, days: int = 7) -> dict:
         if not user:
             return {"error": "Usuario no encontrado"}
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         # Extend from current expiry or from now, whichever is later
         base = max(user.trial_ends_at or now, now)
         user.trial_ends_at = base + timedelta(days=days)
