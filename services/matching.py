@@ -129,7 +129,12 @@ def calculate_match_score(
     now = datetime.now(timezone.utc)
 
     # --- Penalty for expired contracts ---
-    if contract.deadline and contract.deadline < now:
+    # DB stores naive datetimes (UTC); compare safely by stripping tz
+    def _naive_utc(dt):
+        return dt.replace(tzinfo=None) if dt and dt.tzinfo else dt
+
+    now_naive = now.replace(tzinfo=None)
+    if contract.deadline and _naive_utc(contract.deadline) < now_naive:
         return 0  # Don't show expired contracts
 
     # --- SEMANTIC MATCH (35 points max) - NEW ---
@@ -205,7 +210,7 @@ def calculate_match_score(
 
     # --- Recency bonus (10 points max) ---
     if contract.publication_date:
-        days_old = (now - contract.publication_date).days
+        days_old = (now_naive - _naive_utc(contract.publication_date)).days
         if days_old <= 1:
             score += 10
         elif days_old <= 3:

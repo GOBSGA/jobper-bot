@@ -1737,6 +1737,26 @@ def admin_batch_approve_route():
     return jsonify(result)
 
 
+@admin_bp.get("/payments/<int:payment_id>/comprobante")
+@require_auth
+@require_admin
+def admin_get_comprobante(payment_id: int):
+    """Serve the receipt image for a payment (admin only)."""
+    from core.database import Payment, UnitOfWork
+
+    with UnitOfWork() as uow:
+        payment = uow.payments.get(payment_id)
+        if not payment or not payment.comprobante_url:
+            return jsonify({"error": "Comprobante no disponible"}), 404
+        filepath = payment.comprobante_url
+
+    import os
+    if not os.path.exists(filepath):
+        return jsonify({"error": "Archivo no encontrado en servidor"}), 404
+
+    return send_file(filepath)
+
+
 @admin_bp.post("/payments/<int:payment_id>/reject")
 @require_auth
 @require_admin

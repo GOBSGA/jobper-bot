@@ -1,13 +1,17 @@
+import { useState } from "react";
 import Card from "../ui/Card";
 import Badge from "../ui/Badge";
 import Button from "../ui/Button";
 import { money } from "../../lib/format";
+import { getAccessToken } from "../../lib/storage";
 import {
   CheckCircle,
   XCircle,
   Clock,
   Eye,
   AlertTriangle,
+  Image,
+  ExternalLink,
 } from "lucide-react";
 
 // Helper functions
@@ -20,6 +24,15 @@ const formatDate = (dateStr) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const PLAN_LABELS = {
+  free: "Free",
+  alertas: "Alertas ($49,900)",
+  competidor: "Competidor ($149,900)",
+  cazador: "Cazador ($299,900)",
+  business: "Business ($499,900)",
+  dominador: "Dominador ($599,900)",
 };
 
 const getStatusBadge = (status) => {
@@ -74,12 +87,20 @@ const getConfidenceColor = (confidence) => {
  * Individual payment card for admin review
  */
 export default function PaymentCard({ payment, onApprove, onReject, disabled }) {
+  const [showImage, setShowImage] = useState(false);
+  const BASE = import.meta.env.VITE_API_URL || "/api";
+  const comprobanteImgUrl = `${BASE}/admin/payments/${payment.id}/comprobante`;
+  const hasComprobante = Boolean(payment.comprobante_url);
+  const planLabel = PLAN_LABELS[payment.plan] || payment.plan || "—";
+
   return (
     <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div className="space-y-2">
+      <div className="flex items-start gap-4">
+        {/* Main content */}
+        <div className="flex-1 space-y-3 min-w-0">
+          {/* Header row */}
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-lg font-bold text-gray-900">{money(payment.amount)}</span>
+            <span className="text-xl font-bold text-gray-900">{money(payment.amount)}</span>
             {getStatusBadge(payment.status)}
             {payment.status === "grace" && (
               <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded-full">
@@ -93,24 +114,32 @@ export default function PaymentCard({ payment, onApprove, onReject, disabled }) 
             )}
           </div>
 
-          <div className="text-sm text-gray-600 space-y-1">
+          {/* Payment details */}
+          <div className="text-sm text-gray-600 grid grid-cols-2 gap-x-6 gap-y-1">
             <p>
-              <strong>Usuario:</strong> {payment.user_email} (ID: {payment.user_id})
+              <span className="text-gray-400">Usuario:</span>{" "}
+              <strong className="text-gray-800">{payment.user_email}</strong>
             </p>
             <p>
-              <strong>Plan:</strong> {payment.plan || "—"}
+              <span className="text-gray-400">Plan:</span>{" "}
+              <strong className="text-gray-800">{planLabel}</strong>
             </p>
             <p>
-              <strong>Referencia:</strong>{" "}
-              <code className="bg-gray-100 px-1 rounded">{payment.reference || "—"}</code>
+              <span className="text-gray-400">Referencia:</span>{" "}
+              <code className="bg-gray-100 px-1 rounded text-xs">{payment.reference || "—"}</code>
             </p>
             <p>
-              <strong>Fecha:</strong> {formatDate(payment.created_at)}
+              <span className="text-gray-400">Fecha:</span> {formatDate(payment.created_at)}
+            </p>
+            <p className="col-span-2">
+              <span className="text-gray-400">ID:</span>{" "}
+              <span className="text-gray-500">usuario #{payment.user_id} · pago #{payment.id}</span>
             </p>
           </div>
 
+          {/* AI verification block */}
           {payment.verification && (
-            <div className="mt-3 p-3 bg-gray-50 rounded-lg space-y-2">
+            <div className="p-3 bg-gray-50 rounded-lg space-y-2">
               <p className="text-sm font-medium text-gray-700 flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 Verificación IA
@@ -164,27 +193,71 @@ export default function PaymentCard({ payment, onApprove, onReject, disabled }) 
             </div>
           )}
 
-          {payment.comprobante_url && (
-            <div className="mt-3">
-              <a
-                href={payment.comprobante_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-brand-600 hover:underline flex items-center gap-1"
+          {/* Comprobante image */}
+          {hasComprobante ? (
+            <div className="space-y-2">
+              <button
+                onClick={() => setShowImage((v) => !v)}
+                className="flex items-center gap-2 text-sm font-medium text-brand-600 hover:text-brand-700"
               >
-                <Eye className="h-4 w-4" />
-                Ver comprobante
-              </a>
+                <Image className="h-4 w-4" />
+                {showImage ? "Ocultar comprobante" : "Ver comprobante (pantallazo)"}
+              </button>
+
+              {showImage && (
+                <div className="relative rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                  <img
+                    src={comprobanteImgUrl}
+                    alt="Comprobante de pago"
+                    className="w-full max-h-96 object-contain"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                  <div
+                    className="hidden items-center justify-center h-32 text-sm text-gray-500"
+                    style={{ display: "none" }}
+                  >
+                    No se pudo cargar la imagen
+                  </div>
+                  <a
+                    href={comprobanteImgUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute top-2 right-2 bg-white rounded-lg p-1.5 shadow text-gray-600 hover:text-gray-900"
+                    title="Abrir en pestaña nueva"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
             </div>
+          ) : (
+            <p className="text-xs text-gray-400 flex items-center gap-1">
+              <Image className="h-3.5 w-3.5" />
+              Sin pantallazo — el usuario no ha subido comprobante
+            </p>
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <Button variant="primary" onClick={() => onApprove(payment)} disabled={disabled}>
+        {/* Action buttons */}
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          <Button
+            variant="primary"
+            onClick={() => onApprove(payment)}
+            disabled={disabled}
+            className="whitespace-nowrap"
+          >
             <CheckCircle className="h-4 w-4 mr-1" />
-            Aprobar
+            Activar {payment.plan ? payment.plan.charAt(0).toUpperCase() + payment.plan.slice(1) : "plan"}
           </Button>
-          <Button variant="secondary" onClick={() => onReject(payment)} disabled={disabled}>
+          <Button
+            variant="secondary"
+            onClick={() => onReject(payment)}
+            disabled={disabled}
+            className="whitespace-nowrap"
+          >
             <XCircle className="h-4 w-4 mr-1" />
             Rechazar
           </Button>

@@ -176,7 +176,7 @@ class Contract(Base):
 
     @property
     def is_expired(self) -> bool:
-        return self.deadline and self.deadline < datetime.now(timezone.utc)
+        return self.deadline and self.deadline.replace(tzinfo=None) < datetime.utcnow()
 
 
 class Favorite(Base):

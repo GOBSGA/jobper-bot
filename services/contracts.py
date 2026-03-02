@@ -282,7 +282,7 @@ def _contract_to_dict(c: Contract, is_favorited: bool = False) -> dict:
         "url": c.url,
         "publication_date": c.publication_date.isoformat() if c.publication_date else None,
         "deadline": c.deadline.isoformat() if c.deadline else None,
-        "is_expired": bool(c.deadline and c.deadline < datetime.now(timezone.utc)),
+        "is_expired": bool(c.deadline and c.deadline.replace(tzinfo=None) < datetime.utcnow()),
         "is_favorited": is_favorited,
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }

@@ -854,7 +854,7 @@ def admin_approve_payment(payment_id: int) -> dict:
         payment = uow.payments.get(payment_id)
         if not payment:
             return {"error": "Pago no encontrado"}
-        if payment.status not in ("review", "grace"):
+        if payment.status not in ("review", "grace", "pending"):
             return {"error": f"Este pago no está pendiente de aprobación (status: {payment.status})"}
 
         plan = (payment.metadata_json or {}).get("plan")
@@ -993,11 +993,11 @@ def admin_reject_payment(payment_id: int, reason: str = "") -> dict:
 
 
 def get_payments_for_review() -> list[dict]:
-    """Get all payments pending admin review (both 'review' and 'grace' status)."""
+    """Get all payments pending admin review (review, grace, and pending status)."""
     with UnitOfWork() as uow:
         payments = (
             uow.session.query(Payment)
-            .filter(Payment.status.in_(["review", "grace"]))
+            .filter(Payment.status.in_(["review", "grace", "pending"]))
             .order_by(Payment.created_at.desc())
             .all()
         )
